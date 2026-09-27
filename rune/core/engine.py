@@ -7,7 +7,7 @@ from .models import Event, EventType, RuntimeState
 
 
 class RUNEEngine:
-    """Minimal executable kernel for the first RUNE milestone."""
+    """Executable RUNE kernel. The model is a replaceable cognition component."""
 
     def __init__(
         self,
@@ -20,11 +20,11 @@ class RUNEEngine:
         self.agency = agency or Agency()
         self.state = RuntimeState()
 
-    def receive(self, text: str) -> str:
+    def receive(self, text: str, *, model_input: str | None = None) -> str:
         self.state.record(Event(EventType.INPUT, {"text": text}))
         self.memory.remember("last_input", text)
 
-        response = self.model.respond(text)
+        response = self.model.respond(model_input if model_input is not None else text)
         self.state.record(
             Event(
                 EventType.OBSERVATION,
