@@ -34,6 +34,7 @@ button { cursor: pointer; }
 .sidebar-footer strong,.sidebar-footer span { display:block; }
 .sidebar-footer strong { font-size:10px; font-weight:600; }
 .sidebar-footer span { font-size:9px; color:var(--muted); margin-top:2px; }
+.status-dot.offline,.pulse.offline { background:#68736d; box-shadow:none; }
 .status-dot,.pulse { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 12px rgba(125,255,178,.8); }
 .main { margin-left:238px; width:calc(100% - 238px); }
 .topbar { min-height:92px; border-bottom:1px solid var(--line); padding:22px 42px; display:flex; justify-content:space-between; align-items:center; }
