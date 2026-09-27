@@ -4,20 +4,24 @@ RUNE is a persistent personal intelligence runtime.
 
 It is not a single-device assistant. RUNE's intelligence is designed to persist independently of the interfaces and environments through which it is accessed.
 
-## Core model
+## Core loop
 
-`understand → remember → reason → decide → act with permission → observe → verify → learn`
+understand -> remember -> retrieve -> reason -> decide -> act with permission -> observe -> verify -> learn
 
-Milestone 0.1 establishes the kernel primitives for identity, events, runtime state, working context, decision authority, and action verification.
+## Current architecture
 
-## Architecture
+- Kernel: identity, events, runtime state, working memory, agency and verification
+- Persistence: SQLite event journal for the local-first runtime
+- Context: bounded working context assembled from memory and external evidence
+- Model boundary: ModelProvider, keeping RUNE independent of any single model
+- Local inference: optional Ollama adapter
+- Retrieval boundary: provider-neutral retriever interface
+- Runtime: composition layer for local persistent operation
+- CLI: first human-facing runtime interface
 
-- **Persistent Core**: identity, cognition, memory, reasoning, agency, world model, runtime
-- **Capability Layer**: tools, skills, integrations, APIs, automation and security
-- **Environments**: Draken Industries, Eazy, and personal life
-- **Interfaces / Devices**: future phone, PC, web, wearable, home/IoT and other device nodes
+## Local-first principle
 
-RUNE is inspired by computational abstractions of human cognition. It does not claim that software components are equivalent to biological brain structures or that RUNE has subjective feelings.
+RUNE can run locally while still using the internet for fresh information. The local model is a replaceable reasoning/language component, not the whole intelligence architecture.
 
 ## Engineering invariants
 
@@ -31,4 +35,4 @@ RUNE is inspired by computational abstractions of human cognition. It does not c
 
 ## Status
 
-Milestone 0.1: **Kernel foundation**.
+Milestone 0.2: Persistent local runtime + model/retrieval boundaries.
