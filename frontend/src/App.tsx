@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getState, sendMessage } from "./api";
 
 type View = "home" | "chat" | "memory" | "goals" | "actions" | "activity" | "settings";
 
@@ -22,6 +23,7 @@ const activity = [
 function App() {
   const [view, setView] = useState<View>("home");
   const [message, setMessage] = useState("");
+  const [runtimeOnline, setRuntimeOnline] = useState(false);
   const [messages, setMessages] = useState([
     { from: "rune", text: "I'm online. The runtime is still under construction, but the control surface is taking shape." },
   ]);
@@ -66,7 +68,7 @@ function App() {
           <div className="status-dot" />
           <div>
             <strong>Core online</strong>
-            <span>Local runtime</span>
+            <span>{runtimeOnline ? "Local runtime" : "Start API to connect"}</span>
           </div>
         </div>
       </aside>
@@ -78,7 +80,7 @@ function App() {
             <h1>{titleFor(view)}</h1>
           </div>
           <div className="top-status">
-            <span className="pulse" /> Runtime healthy
+            <span className={runtimeOnline ? "pulse" : "pulse offline"} /> {runtimeOnline ? "Runtime healthy" : "Runtime disconnected"}
             <span className="divider" />
             <span className="model-chip">MODEL · LOCAL</span>
           </div>
