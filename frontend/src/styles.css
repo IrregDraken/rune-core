@@ -63,6 +63,16 @@ button:disabled { cursor: default; opacity: .55; }
 .connection-banner { margin:15px 42px 0; padding:11px 13px; border:1px solid rgba(255,154,154,.15); border-radius:9px; color:#bd9b9b; background:rgba(255,120,120,.035); font:9px "DM Mono",monospace; display:flex; gap:8px; align-items:center; }
 .connection-banner button { margin-left:auto; border:0; background:transparent; color:#e7c3c3; font:9px "DM Mono",monospace; }
 
+.workspace-bar { max-width:1220px; margin:0 auto; min-height:48px; padding:8px 42px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; background:rgba(7,10,9,.55); }
+.workspace-label { color:#59665e; font:500 8px "DM Mono",monospace; letter-spacing:.14em; }
+.workspace-tabs { display:flex; gap:5px; align-items:center; }
+.workspace-tab { border:1px solid transparent; background:transparent; color:#68756d; border-radius:7px; padding:7px 10px; display:flex; align-items:center; gap:7px; font:9px "DM Mono",monospace; transition:.18s; }
+.workspace-tab:hover { color:#cbd7cf; background:rgba(255,255,255,.025); }
+.workspace-tab.active { color:#dff6e7; border-color:rgba(125,255,178,.16); background:var(--green-soft); }
+.workspace-status { width:5px; height:5px; border-radius:50%; background:#48534c; }
+.workspace-tab.active .workspace-status { background:var(--green); box-shadow:0 0 8px rgba(125,255,178,.75); }
+.workspace-sync { margin-left:auto; color:#6e897a; font:8px "DM Mono",monospace; letter-spacing:.08em; }
+
 .content { max-width:1220px; margin:0 auto; padding:38px 42px 90px; }
 .hero-grid { display:grid; grid-template-columns:1.42fr .78fr; gap:14px; }
 .panel { border:1px solid var(--line); background:linear-gradient(145deg,rgba(18,26,22,.84),rgba(10,14,12,.94)); border-radius:16px; box-shadow:0 22px 65px rgba(0,0,0,.15); }
@@ -177,6 +187,7 @@ button:disabled { cursor: default; opacity: .55; }
   .nav-item { justify-content:center; padding:11px 0; }
   .main { margin-left:72px; }
   .topbar { padding:19px 22px; }
+  .workspace-bar { padding:7px 20px; }
   .rune-island { top:8px; }
   .runtime-label { display:none; }
   .content { padding:25px 20px 65px; }
@@ -189,6 +200,9 @@ button:disabled { cursor: default; opacity: .55; }
   .brand-mark { width:34px; height:34px; }
   .main { margin-left:58px; }
   .topbar { min-height:82px; padding:18px 15px; }
+  .workspace-bar { padding:6px 14px; overflow-x:auto; }
+  .workspace-label { display:none; }
+  .workspace-tabs { min-width:max-content; }
   .heading { padding-top:12px; }
   .heading h1 { font-size:18px; }
   .eyebrow { font-size:7px; }
