@@ -63,7 +63,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             return
 
         request_path = urlparse(self.path).path
-        supported = {"/api/chat", "/api/command", "/api/workspace", "/api/window"}
+        supported = {"/api/chat", "/api/command", "/api/workspace", "/api/window", "/api/action"}
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
             return
@@ -94,12 +94,33 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                 if not operation or not hwnd:
                     self._send(400, {"error": "operation and hwnd are required"})
                     return
-                result = self.runtime.node.execute(
-                    NodeAction(
-                        Capability.WINDOW_CONTROL,
-                        {"operation": operation, "hwnd": hwnd},
-                        authorized=False,
-                    )
+                authorized = self.runtime.authority.accepts(
+                    self.headers.get("X-RUNE-Session")
+                )
+                result = self.runtime.execute_action(
+                    Capability.WINDOW_CONTROL,
+                    {"operation": operation, "hwnd": hwnd},
+                    authorized=authorized,
+                )
+                self._send(200, result)
+                return
+
+            if request_path == "/api/action":
+                capability_name = str(payload.get("capability", "")).strip()
+                try:
+                    capability = Capability(capability_name)
+                except ValueError:
+                    self._send(400, {"error": "unknown capability"})
+                    return
+                arguments = {
+                    str(key): str(value)
+                    for key, value in dict(payload.get("arguments", {})).items()
+                }
+                authorized = self.runtime.authority.accepts(
+                    self.headers.get("X-RUNE-Session")
+                )
+                result = self.runtime.execute_action(
+                    capability, arguments, authorized=authorized
                 )
                 self._send(200, result)
                 return
