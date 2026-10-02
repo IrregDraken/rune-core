@@ -33,7 +33,7 @@ def test_runtime_requires_authority_before_action() -> None:
         {"operation": "focus", "hwnd": "1"},
         authorized=False,
     )
-    assert blocked["result"]["status"] == "not_attempted"
+    assert blocked["result"]["status"].value == "not_attempted"
     assert node.actions == []
 
     allowed = runtime.execute_action(
@@ -42,5 +42,5 @@ def test_runtime_requires_authority_before_action() -> None:
         authorized=True,
     )
     assert allowed["node_result"]["status"] == "succeeded"
-    assert allowed["result"]["status"] == "succeeded"
+    assert allowed["result"]["status"].value == "succeeded"
     assert len(node.actions) == 1
