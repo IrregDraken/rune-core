@@ -9,6 +9,7 @@ from .core.node import Capability, NodeAction
 from .runtime import RUNERuntime
 from .shell.state import ShellMode, ShellState
 
+
 class RUNERequestHandler(BaseHTTPRequestHandler):
     runtime: RUNERuntime | None = None
     shell: ShellState | None = None
@@ -46,7 +47,13 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             self._send(200, {"events": self.runtime.recent_events()})
         elif path == "/api/windows":
             observation = self.runtime.node.observe()
-            self._send(200, {"windows": observation.get("windows", []), "status": observation.get("status", "unknown")})
+            self._send(
+                200,
+                {
+                    "windows": observation.get("windows", []),
+                    "status": observation.get("status", "unknown"),
+                },
+            )
         else:
             self._send(404, {"error": "Not found"})
 
@@ -54,53 +61,83 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         if self.runtime is None:
             self._send(503, {"error": "RUNE runtime unavailable"})
             return
-        if urlparse(self.path).path not in ("/api/chat", "/api/command", "/api/workspace", "/api/window"):
+
+        request_path = urlparse(self.path).path
+        supported = {"/api/chat", "/api/command", "/api/workspace", "/api/window"}
+        if request_path not in supported:
             self._send(404, {"error": "Not found"})
             return
+
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
-            text = str(payload.get("message", "")).strip()
-            if not text:
-                self._send(400, {"error": "message is required"})
-                return
-            request_path = urlparse(self.path).path
+
             if request_path == "/api/workspace":
                 workspace_id = str(payload.get("workspace_id", "")).strip()
-                if self.shell is None or not any(w.id == workspace_id for w in self.shell.workspaces):
+                if self.shell is None or not self.shell.activate_workspace(workspace_id):
                     self._send(404, {"error": "workspace not found"})
                     return
-                self.shell.activate_workspace(workspace_id)
                 self.shell.set_mode(ShellMode.WORKING)
                 self.shell.island_message = f"workspace: {workspace_id}"
-                self._send(200, {"workspace_id": workspace_id, "workspaces": [workspace.__dict__ for workspace in self.shell.workspaces]})
+                self._send(
+                    200,
+                    {
+                        "workspace_id": workspace_id,
+                        "workspaces": [workspace.__dict__ for workspace in self.shell.workspaces],
+                    },
+                )
                 return
+
             if request_path == "/api/window":
                 operation = str(payload.get("operation", "")).strip().lower()
                 hwnd = str(payload.get("hwnd", "")).strip()
                 if not operation or not hwnd:
                     self._send(400, {"error": "operation and hwnd are required"})
                     return
-                result = self.runtime.node.execute(NodeAction(Capability.WINDOW_CONTROL, {"operation": operation, "hwnd": hwnd}, authorized=False))
+                result = self.runtime.node.execute(
+                    NodeAction(
+                        Capability.WINDOW_CONTROL,
+                        {"operation": operation, "hwnd": hwnd},
+                        authorized=False,
+                    )
+                )
                 self._send(200, result)
                 return
+
+            text = str(payload.get("message", "")).strip()
+            if not text:
+                self._send(400, {"error": "message is required"})
+                return
+
             if request_path == "/api/command":
                 parsed = self.runtime.parse_command(text)
                 if self.shell is not None:
                     self.shell.set_mode(ShellMode.COMMAND)
                     self.shell.island_message = parsed.command.value if parsed.command else None
-                self._send(200, {
-                    "kind": parsed.kind.value,
-                    "command": parsed.command.value if parsed.command else None,
-                    "raw": parsed.raw,
-                })
+                self._send(
+                    200,
+                    {
+                        "kind": parsed.kind.value,
+                        "command": parsed.command.value if parsed.command else None,
+                        "raw": parsed.raw,
+                    },
+                )
                 return
+
             response = self.runtime.receive(text)
+            if self.shell is not None:
+                self.shell.set_mode(ShellMode.AMBIENT)
+                self.shell.island_message = response[:120] if response else "ready"
             self._send(200, {"response": response})
         except Exception as exc:
             self._send(500, {"error": str(exc)})
 
-def serve(host: str = "127.0.0.1", port: int = 8765, runtime: RUNERuntime | None = None) -> None:
+
+def serve(
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    runtime: RUNERuntime | None = None,
+) -> None:
     active_runtime = runtime or RUNERuntime(DeterministicModel())
     RUNERequestHandler.runtime = active_runtime
     RUNERequestHandler.shell = ShellState()
