@@ -150,3 +150,7 @@ def serve(
     finally:
         server.server_close()
         active_runtime.close()
+
+
+if __name__ == "__main__":
+    serve()
