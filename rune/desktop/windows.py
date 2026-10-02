@@ -17,6 +17,10 @@ if os.name == "nt":  # pragma: no cover - exercised on Windows
 
 API_DEFAULT = "http://127.0.0.1:8765"
 
+# 40x40 transparent render of brand/rune-glyph.svg, kept inline so the
+# desktop shell has no image-file dependency.
+RUNE_GLYPH_PNG = "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAABmJLR0QA/wD/AP+gvaeTAAADIklEQVRYhe2XTYgbZRzGf89Mim4VBcuytYWK33gUP0DBj0oLsnYTFVkQL+rB9SD4cVCriUw3BddaD/UgigUP9SDWD2K61I9D1SJWtMfKIggqsnbXikgFm20yj4dEu5XEvLPZbC95LpN35v88729eMvP+BwYaaKD/lUILS65WwJuBeaARYKkB84IZ0PRRZj8cYe31EE0Dn5U1VgiZNxcKKLzJMARcFOoBrjLcAp4YYd2P4DXgc4FNoQHBgIZZ4DLhXcAX3R3KGUZAN4K3gP+9McPcsgMC9Vb4obIKe0NNRVenBTfRXH0AhM8J9UcZADOr6OrlwgeAtcAc+CCA0XDRlSvPKOAiuPXAXEx6G/hVAIFElJwxwHZwie78FpSeqnL+cb891Cmjb4Cd4U5TCqxezVnXrShgIBzGdYAYrV8xwBA4IbWOboHGKwIYvnIabv3MNUGjX7plZ3kPdoB7/1LhT4F1wGxMvDFR/rt2tcbXtvbWGFio8dc33fJ7XsGIaOJ0uDvawm31e2uE8qfO6JMXNP5Ht/yeVzAifSUlIiV9LVH++84TrdoBPr81NHhbSH7PgInu+gF4smOBrRKV7eAH/zklvHNSha+XFdA0H0ETXVzyvmva1aR4QwpHc2gBGmcb3Sr2PQTRhkU5e2aobQ2dN7gfLPqDPwXBm3wbnTB6ervGdmUxZegHqZEd0MAx0Bsn0dSUtvye0Z/pPzgPXAC+t6zCW/+9mPhAzhx/KcWPgCLQl3XiwvMa/TUr1GIt206SaGN9m/KPCt1P8ym9YRX1cq+5y94sTCq/B/QYgGGi5EpPkH1pt8oae1n4xeZIxZKrTyw1q28N6yT5p4DdzZF3PufqA0vJ6V/LL3mGEw+D3wFk/HrRlbuzxvT1m2SvxhsxtfuAj4FY6M1nXbk5S0ZfAQESjS/U8D3AYWAoQtWSK1eH+vsOCLBDheMxuh2YAc4DfZR4+ooQ74oAAiQaOxaT2wz8BAw3aOx/xu9e2M2XBdDNw+Ivs2xKNPozMAr8BlwSk5vq5skAqN2CzxucPLhUQICy8kdSNAr6CtjfS9ZAAw0E/A0fWhnDLAXXdwAAAABJRU5ErkJggg=="
+
 
 class WindowsDesktopShell:
     """A lightweight always-on-top RUNE Island for Windows.
@@ -71,9 +75,10 @@ class WindowsDesktopShell:
         ):
             header.bind(sequence, handler)
 
+        import base64
+        self.glyph_image = tk.PhotoImage(data=base64.b64decode(RUNE_GLYPH_PNG))
         glyph = tk.Label(
-            header, text="R", fg="#7dffb2", bg="#0b100d",
-            font=("Segoe UI Semibold", 15), width=3
+            header, image=self.glyph_image, bg="#0b100d", width=40, height=40
         )
         glyph.pack(side="left", padx=(12, 3))
         glyph.bind("<Button-1>", lambda _e: self.toggle())
