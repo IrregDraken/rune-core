@@ -24,6 +24,8 @@ class WindowsNode:
         Capability.SYSTEM_SHUTDOWN,
         Capability.PROCESS_READ,
         Capability.PROCESS_START,
+        Capability.WINDOW_READ,
+        Capability.WINDOW_CONTROL,
     })
 
     def __init__(self, *, node_id: str = "windows-local") -> None:
@@ -69,6 +71,15 @@ class WindowsNode:
             if action.capability is Capability.PROCESS_READ:
                 return {"status": "succeeded", "processes": self._processes()}
 
+            if action.capability is Capability.WINDOW_CONTROL:
+                if not action.authorized:
+                    return {"status": "blocked", "reason": "authorization_required"}
+                operation = action.arguments.get("operation", "").strip().lower()
+                hwnd = int(action.arguments.get("hwnd", "0"))
+                if not hwnd:
+                    return {"status": "failed", "reason": "hwnd_required"}
+                return self._control_window(hwnd, operation)
+
             if action.capability is Capability.PROCESS_START:
                 executable = action.arguments.get("executable", "").strip()
                 if not executable:
@@ -84,12 +95,15 @@ class WindowsNode:
         """Return a bounded, non-destructive snapshot of the Windows node."""
         try:
             processes = self._processes()
+            windows = self._windows()
             return {
                 "status": "succeeded",
                 "platform": platform.platform(),
                 "hostname": socket.gethostname(),
                 "process_count": len(processes),
                 "processes": processes[:200],
+                "window_count": len(windows),
+                "windows": windows[:100],
             }
         except (OSError, subprocess.SubprocessError) as exc:
             return {"status": "failed", "reason": str(exc)}
@@ -102,10 +116,49 @@ class WindowsNode:
             return {"confirmed": False, "status": "awaiting_reconnect"}
         if action.capability is Capability.SYSTEM_LOCK:
             return {"confirmed": False, "status": "requires_desktop_observer"}
-        if action.capability is Capability.PROCESS_READ:
+        if action.capability in {Capability.PROCESS_READ, Capability.WINDOW_READ}:
             return {"confirmed": True, "status": "observable"}
         return {"confirmed": False, "status": "unknown"}
 
+    @staticmethod
+    def _windows() -> list[dict[str, Any]]:
+        """Return visible top-level windows with titles and owning PIDs."""
+        user32 = ctypes.windll.user32
+        windows: list[dict[str, Any]] = []
+        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+        def callback(hwnd: int, _lparam: int) -> bool:
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length <= 0:
+                return True
+            title = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, title, length + 1)
+            if not title.value.strip():
+                return True
+            pid = ctypes.c_ulong()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            windows.append({"hwnd": int(hwnd), "pid": int(pid.value), "title": title.value})
+            return True
+
+        user32.EnumWindows(EnumWindowsProc(callback), 0)
+        foreground = int(user32.GetForegroundWindow())
+        for window in windows:
+            window["foreground"] = window["hwnd"] == foreground
+        return windows
+
+    @staticmethod
+    def _control_window(hwnd: int, operation: str) -> dict[str, Any]:
+        user32 = ctypes.windll.user32
+        commands = {"minimize": 6, "maximize": 3, "restore": 9}
+        if operation in commands:
+            ok = bool(user32.ShowWindow(hwnd, commands[operation]))
+            return {"status": "succeeded" if ok else "failed", "operation": operation, "hwnd": hwnd}
+        if operation in {"focus", "activate"}:
+            ok = bool(user32.SetForegroundWindow(hwnd))
+            return {"status": "succeeded" if ok else "failed", "operation": "focus", "hwnd": hwnd}
+        return {"status": "failed", "reason": "unsupported_window_operation", "operation": operation}
     @staticmethod
     def _system_command(*args: str) -> None:
         subprocess.Popen(list(args), shell=False)
