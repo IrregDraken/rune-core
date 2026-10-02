@@ -4,6 +4,7 @@ import platform
 import socket
 
 from .core.commands import ParsedCommand, parse_command
+from .core.authority import Authority
 from .core.context import ContextAssembler, Retriever
 from .core.engine import RUNEEngine
 from .core.model import ModelProvider
@@ -24,11 +25,13 @@ class RUNERuntime:
         db_path: str = "data/rune.db",
         retriever: Retriever | None = None,
         node: RUNEActionNode | None = None,
+        authority: Authority | None = None,
     ) -> None:
         self.engine = RUNEEngine(model)
         self.store = SQLiteEventStore(db_path)
         self.retriever = retriever
         self.context = ContextAssembler(self.engine.memory)
+        self.authority = authority or Authority.create()
         if node is not None:
             self.node = node
         elif platform.system().lower() == "windows" and WindowsNode is not None:
@@ -53,6 +56,57 @@ class RUNERuntime:
         response = self.engine.receive(text, model_input=prompt)
         self._persist_new_events()
         return response
+
+
+    def execute_action(
+        self,
+        capability,
+        arguments: dict[str, str],
+        *,
+        authorized: bool = False,
+    ) -> dict:
+        """Run decision -> attempt -> node execution -> verification."""
+        from uuid import uuid4
+        from .core.agency import ActionRequest
+        from .core.models import Event, EventType
+        from .core.node import NodeAction
+
+        action_id = str(uuid4())
+        decision, result = self.engine.request_action(
+            ActionRequest(
+                intent=f"{capability.value} requested",
+                capability=capability.value,
+                authorized=authorized,
+                feasible=self.node.can(capability),
+                risk="high" if authorized else "blocked",
+            ),
+            action_id,
+        )
+        if result.status.value != "attempted":
+            self._persist_new_events()
+            return {
+                "action_id": action_id,
+                "decision": decision.__dict__,
+                "result": result.__dict__,
+            }
+
+        action = NodeAction(capability, arguments, authorized=authorized)
+        node_result = self.node.execute(action)
+        self.engine.state.record(
+            Event(
+                EventType.ACTION_RESULT,
+                {"action_id": action_id, "node_result": node_result},
+            )
+        )
+        evidence = self.node.verify(action)
+        verified = self.engine.verify_action(result, evidence)
+        self._persist_new_events()
+        return {
+            "action_id": action_id,
+            "decision": decision.__dict__,
+            "node_result": node_result,
+            "result": verified.__dict__,
+        }
 
     def _persist_new_events(self) -> None:
         events = self.engine.state.events
