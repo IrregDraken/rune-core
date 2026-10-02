@@ -7,7 +7,8 @@ type RuneState = {
   identity?: { name: string; role: string };
   current_goal?: string | null;
   node?: { platform?: string; hostname?: string; capabilities?: string[]; observation?: { process_count?: number; status?: string } };
-  shell?: { mode?: string; island_message?: string | null };
+  shell?: { mode?: string; island_message?: string | null; workspaces?: { id: string; name: string; active: boolean }[] };
+  windows?: { hwnd: number; pid: number; title: string; foreground?: boolean }[];
 };
 
 const nav: { id: View; label: string; icon: string }[] = [
@@ -33,6 +34,7 @@ function App() {
   const [runtimeOnline, setRuntimeOnline] = useState(false);
   const [state, setState] = useState<RuneState | null>(null);
   const [error, setError] = useState("");
+  const [windows, setWindows] = useState<RuneState["windows"]>([]);
   const [messages, setMessages] = useState([
     { from: "rune", text: "I'm online. The runtime is still under construction, but the control surface is taking shape." },
   ]);
@@ -45,6 +47,7 @@ function App() {
         if (mounted) {
           setState(next);
           setRuntimeOnline(true);
+          setWindows(next.windows ?? []);
           setError("");
         }
       } catch (err) {
@@ -116,6 +119,7 @@ function App() {
             <span className="eyebrow">RUNE / CONTROL CENTER</span>
             <h1>{titleFor(view)}</h1>
           </div>
+          <WorkspaceBar workspaces={state?.shell?.workspaces ?? []} />
           <div className="top-status">
             <span className={runtimeOnline ? "pulse" : "pulse offline"} /> {runtimeOnline ? "Runtime healthy" : "Runtime disconnected"}
             <span className="divider" />
@@ -123,7 +127,7 @@ function App() {
           </div>
         </header>
 
-        {view === "home" && <Home onNavigate={setView} state={state} />}
+        {view === "home" && <Home onNavigate={setView} state={state} windows={windows ?? []} />}
         {view === "chat" && (
           <section className="content chat-view">
             <div className="panel conversation">
@@ -180,7 +184,7 @@ function titleFor(view: View) {
   return { home: "Good evening, Draken.", chat: "Conversation", memory: "Memory", goals: "Goals", actions: "Actions", activity: "Activity", settings: "System" }[view];
 }
 
-function Home({ onNavigate, state }: { onNavigate: (view: View) => void; state: RuneState | null }) {
+function WorkspaceBar({ workspaces }: { workspaces: { id: string; name: string; active: boolean }[] }) {\n  const activate = async (id: string) => {\n    try {\n      await fetch(`${import.meta.env.VITE_RUNE_API_URL ?? "http://127.0.0.1:8765"}/api/workspace`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspace_id: id }) });\n      window.location.reload();\n    } catch { /* runtime polling will surface connectivity */ }\n  };\n  return <div className="workspace-bar">{workspaces.map((workspace) => <button key={workspace.id} className={workspace.active ? "workspace-chip active" : "workspace-chip"} onClick={() => activate(workspace.id)}>{workspace.name}</button>)}</div>;\n}\n\nfunction Home({ onNavigate, state, windows }: { onNavigate: (view: View) => void; state: RuneState | null; windows: { hwnd: number; pid: number; title: string; foreground?: boolean }[] }) {
   return (
     <section className="content">
       <div className="hero-grid">
@@ -209,7 +213,7 @@ function Home({ onNavigate, state }: { onNavigate: (view: View) => void; state: 
         <InfoCard title="Node" value={state?.node?.platform ?? "Offline"} meta={state?.node?.hostname ?? "Connect RUNE runtime"} />
         <InfoCard title="Processes" value={String(state?.node?.observation?.process_count ?? "—")} meta="Observed by local node" />
         <InfoCard title="Shell" value={state?.shell?.mode ?? "ambient"} meta={state?.shell?.island_message ?? "Ready"} />
-      </div>
+      </div>\n\n      <div className="section-row">\n        <div><span className="section-kicker">WINDOW AWARENESS</span><h2>What is open</h2></div>\n        <span className="live-chip">{windows.length} WINDOWS</span>\n      </div>\n      <div className="panel window-list">\n        {windows.length ? windows.slice(0, 8).map((window) => <div className={window.foreground ? "window-row foreground" : "window-row"} key={window.hwnd}><span className="window-dot" /><div><strong>{window.title}</strong><span>PID {window.pid} · HWND {window.hwnd}</span></div>{window.foreground && <em>FOREGROUND</em>}</div>) : <div className="empty-state">No window telemetry available from the current node.</div>}\n      </div>
 
       <div className="section-row">
         <div>
