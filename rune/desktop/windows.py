@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import subprocess
 import sys
 import threading
@@ -38,6 +39,7 @@ class WindowsDesktopShell:
         if os.name != "nt":
             raise RuntimeError("WindowsDesktopShell can only run on Windows.")
         self.api_url = api_url.rstrip("/")
+        self.session_token = os.environ.get("RUNE_SESSION_TOKEN", "")
         self.root = tk.Tk()
         self.root.title("RUNE")
         self.root.overrideredirect(True)
@@ -192,6 +194,8 @@ class WindowsDesktopShell:
     ) -> dict[str, Any]:
         data = None
         headers = {}
+        if self.session_token:
+            headers["X-RUNE-Session"] = self.session_token
         if payload is not None:
             data = json.dumps(payload).encode("utf-8")
             headers["Content-Type"] = "application/json"
@@ -298,14 +302,18 @@ def _api_is_online(api_url: str) -> bool:
 
 def main() -> None:
     api_url = os.environ.get("RUNE_API_URL", API_DEFAULT)
+    session_token = os.environ.get("RUNE_SESSION_TOKEN") or secrets.token_urlsafe(32)
     api_process: subprocess.Popen[bytes] | None = None
 
     if not _api_is_online(api_url):
+        child_env = os.environ.copy()
+        child_env["RUNE_SESSION_TOKEN"] = session_token
         api_process = subprocess.Popen(
             [sys.executable, "-m", "rune.api"],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            env=child_env,
         )
         for _ in range(12):
             if _api_is_online(api_url):
@@ -313,6 +321,7 @@ def main() -> None:
             time.sleep(0.25)
 
     try:
+        os.environ["RUNE_SESSION_TOKEN"] = session_token
         WindowsDesktopShell(api_url).run()
     finally:
         if api_process is not None and api_process.poll() is None:
