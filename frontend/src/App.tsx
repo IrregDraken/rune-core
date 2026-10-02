@@ -3,6 +3,13 @@ import { getState, sendMessage } from "./api";
 
 type View = "home" | "chat" | "memory" | "goals" | "actions" | "activity" | "settings";
 
+type RuneState = {
+  identity?: { name: string; role: string };
+  current_goal?: string | null;
+  node?: { platform?: string; hostname?: string; capabilities?: string[]; observation?: { process_count?: number; status?: string } };
+  shell?: { mode?: string; island_message?: string | null };
+};
+
 const nav: { id: View; label: string; icon: string }[] = [
   { id: "home", label: "Home", icon: "⌂" },
   { id: "chat", label: "Chat", icon: "◌" },
@@ -24,19 +31,48 @@ function App() {
   const [view, setView] = useState<View>("home");
   const [message, setMessage] = useState("");
   const [runtimeOnline, setRuntimeOnline] = useState(false);
+  const [state, setState] = useState<RuneState | null>(null);
+  const [error, setError] = useState("");
   const [messages, setMessages] = useState([
     { from: "rune", text: "I'm online. The runtime is still under construction, but the control surface is taking shape." },
   ]);
 
-  const send = () => {
+  useEffect(() => {
+    let mounted = true;
+    const refresh = async () => {
+      try {
+        const next = await getState();
+        if (mounted) {
+          setState(next);
+          setRuntimeOnline(true);
+          setError("");
+        }
+      } catch (err) {
+        if (mounted) {
+          setRuntimeOnline(false);
+          setError(err instanceof Error ? err.message : "RUNE API unavailable");
+        }
+      }
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 3000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const send = async () => {
     const trimmed = message.trim();
     if (!trimmed) return;
-    setMessages((current) => [
-      ...current,
-      { from: "you", text: trimmed },
-      { from: "rune", text: "Received. Model connection will be wired to this conversation surface next." },
-    ]);
+    setMessages((current) => [...current, { from: "you", text: trimmed }]);
     setMessage("");
+    try {
+      const response = await sendMessage(trimmed);
+      setMessages((current) => [...current, { from: "rune", text: response }]);
+    } catch (err) {
+      setMessages((current) => [...current, { from: "rune", text: err instanceof Error ? err.message : "RUNE could not respond." }]);
+    }
   };
 
   return (
@@ -86,7 +122,7 @@ function App() {
           </div>
         </header>
 
-        {view === "home" && <Home onNavigate={setView} />}
+        {view === "home" && <Home onNavigate={setView} state={state} />}
         {view === "chat" && (
           <section className="content chat-view">
             <div className="panel conversation">
@@ -128,7 +164,7 @@ function titleFor(view: View) {
   return { home: "Good evening, Draken.", chat: "Conversation", memory: "Memory", goals: "Goals", actions: "Actions", activity: "Activity", settings: "System" }[view];
 }
 
-function Home({ onNavigate }: { onNavigate: (view: View) => void }) {
+function Home({ onNavigate, state }: { onNavigate: (view: View) => void; state: RuneState | null }) {
   return (
     <section className="content">
       <div className="hero-grid">
@@ -136,7 +172,7 @@ function Home({ onNavigate }: { onNavigate: (view: View) => void }) {
           <span className="section-kicker">CURRENT STATE</span>
           <div className="orb"><div className="orb-core">R</div></div>
           <h2>I'm here.</h2>
-          <p>RUNE is being built as a persistent intelligence, not a chat box. This dashboard is its first control surface.</p>
+          <p>{state?.shell?.island_message ? `Command: ${state.shell.island_message}` : "RUNE is being built as a persistent intelligence, not a chat box. This shell is becoming its control surface."}</p>
           <button className="primary" onClick={() => onNavigate("chat")}>Open conversation <span>↗</span></button>
         </div>
         <div className="state-stack">
@@ -154,9 +190,9 @@ function Home({ onNavigate }: { onNavigate: (view: View) => void }) {
         <button className="text-button" onClick={() => onNavigate("memory")}>View memory ↗</button>
       </div>
       <div className="cards-3">
-        <InfoCard title="Project" value="RUNE Core" meta="Primary active workspace" />
-        <InfoCard title="Build" value="Dashboard v0.1" meta="Interface layer in progress" />
-        <InfoCard title="Next boundary" value="Core ↔ UI" meta="API connection pending" />
+        <InfoCard title="Node" value={state?.node?.platform ?? "Offline"} meta={state?.node?.hostname ?? "Connect RUNE runtime"} />
+        <InfoCard title="Processes" value={String(state?.node?.observation?.process_count ?? "—")} meta="Observed by local node" />
+        <InfoCard title="Shell" value={state?.shell?.mode ?? "ambient"} meta={state?.shell?.island_message ?? "Ready"} />
       </div>
 
       <div className="section-row">
