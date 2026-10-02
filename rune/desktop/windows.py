@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 from typing import Any
@@ -279,8 +282,36 @@ class WindowsDesktopShell:
         self.root.mainloop()
 
 
+def _api_is_online(api_url: str) -> bool:
+    try:
+        request = urllib.request.Request(f"{api_url.rstrip('/')}/api/health")
+        with urllib.request.urlopen(request, timeout=0.6) as response:
+            return response.status == 200
+    except (OSError, urllib.error.URLError):
+        return False
+
+
 def main() -> None:
-    WindowsDesktopShell().run()
+    api_url = os.environ.get("RUNE_API_URL", API_DEFAULT)
+    api_process: subprocess.Popen[bytes] | None = None
+
+    if not _api_is_online(api_url):
+        api_process = subprocess.Popen(
+            [sys.executable, "-m", "rune.api"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        for _ in range(12):
+            if _api_is_online(api_url):
+                break
+            time.sleep(0.25)
+
+    try:
+        WindowsDesktopShell(api_url).run()
+    finally:
+        if api_process is not None and api_process.poll() is None:
+            api_process.terminate()
 
 
 if __name__ == "__main__":
