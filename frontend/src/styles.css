@@ -20,7 +20,7 @@ button { cursor: pointer; }
 .app-shell { display: flex; min-height: 100vh; }
 .sidebar { width: 238px; min-height: 100vh; border-right: 1px solid var(--line); padding: 28px 16px; display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0; background: rgba(8,11,10,.88); backdrop-filter: blur(20px); }
 .brand { display:flex; gap:12px; align-items:center; padding: 0 10px 36px; }
-.brand-mark { width:34px; height:34px; display:grid; place-items:center; border:1px solid rgba(125,255,178,.45); color:var(--green); border-radius:11px; font-weight:800; box-shadow:0 0 30px rgba(125,255,178,.08); }
+.brand-mark { width:34px; height:34px; display:grid; place-items:center; border:1px solid rgba(125,255,178,.45); color:var(--green); border-radius:11px; font-weight:800; box-shadow:0 0 30px rgba(125,255,178,.08); overflow:hidden; }\n.brand-mark img { width:22px; height:22px; display:block; }
 .brand strong { display:block; letter-spacing:.14em; font-size:13px; }
 .brand span { color:var(--muted); font-size:9px; letter-spacing:.08em; text-transform:uppercase; }
 .nav-label,.section-kicker,.eyebrow { color:#5e6a63; font:500 9px "DM Mono",monospace; letter-spacing:.16em; }
@@ -40,8 +40,8 @@ button { cursor: pointer; }
 
 .rune-island { position:absolute; left:50%; top:14px; transform:translateX(-50%); min-width:150px; height:38px; padding:6px 11px; border:1px solid rgba(125,255,178,.12); border-radius:22px; background:rgba(5,9,7,.92); box-shadow:0 12px 35px rgba(0,0,0,.35), inset 0 0 18px rgba(125,255,178,.025); display:flex; align-items:center; gap:8px; transition:.25s; z-index:5; }
 .rune-island.online { border-color:rgba(125,255,178,.22); box-shadow:0 12px 35px rgba(0,0,0,.35), 0 0 24px rgba(125,255,178,.05); }
-.island-core { width:22px; height:22px; border:1px solid rgba(125,255,178,.45); border-radius:50%; display:grid; place-items:center; }
-.island-core span { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 12px rgba(125,255,178,.9); }
+.island-core { width:22px; height:22px; border:1px solid rgba(125,255,178,.45); border-radius:50%; display:grid; place-items:center; overflow:hidden; }
+.island-core img { width:14px; height:14px; display:block; filter:drop-shadow(0 0 6px rgba(125,255,178,.45)); }
 .island-copy { min-width:70px; }
 .island-copy strong,.island-copy span { display:block; }
 .island-copy strong { color:#e9f5ed; font:700 8px "DM Mono",monospace; letter-spacing:.16em; }
@@ -61,7 +61,7 @@ button { cursor: pointer; }
 .hero-card { min-height:390px; padding:30px; position:relative; overflow:hidden; }
 .hero-card:after { content:""; position:absolute; width:340px; height:340px; border-radius:50%; right:-170px; top:-160px; background:rgba(125,255,178,.05); filter:blur(4px); }
 .orb { width:112px; height:112px; border-radius:50%; margin:38px 0 22px; display:grid; place-items:center; background:radial-gradient(circle, rgba(125,255,178,.15), transparent 68%); border:1px solid rgba(125,255,178,.2); }
-.orb-core { width:56px; height:56px; border-radius:18px; display:grid; place-items:center; color:var(--green); font-size:22px; font-weight:800; border:1px solid rgba(125,255,178,.5); background:#0d1711; box-shadow:0 0 45px rgba(125,255,178,.12); }
+.orb-core { width:56px; height:56px; border-radius:18px; display:grid; place-items:center; color:var(--green); font-size:22px; font-weight:800; border:1px solid rgba(125,255,178,.5); background:#0d1711; box-shadow:0 0 45px rgba(125,255,178,.12); overflow:hidden; }\n.orb-core img { width:30px; height:30px; display:block; filter:drop-shadow(0 0 9px rgba(125,255,178,.35)); }
 .hero-card h2 { margin:0; font-size:28px; letter-spacing:-.04em; }
 .hero-card p { color:#8d9a92; max-width:560px; line-height:1.7; font-size:12px; }
 .primary { border:0; background:var(--green); color:#07100a; padding:11px 15px; border-radius:9px; font-size:11px; font-weight:800; margin-top:8px; }
