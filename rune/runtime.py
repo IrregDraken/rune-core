@@ -78,6 +78,7 @@ class RUNERuntime:
                 "platform": info.platform,
                 "hostname": info.hostname,
                 "capabilities": sorted(capability.value for capability in info.capabilities),
+                "observation": self.node.observe(),
             },
         }
 
