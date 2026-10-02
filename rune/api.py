@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 from .core.model import DeterministicModel
 from .runtime import RUNERuntime
 
-
 class RUNERequestHandler(BaseHTTPRequestHandler):
     runtime: RUNERuntime | None = None
 
@@ -28,7 +27,6 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         if self.runtime is None:
             self._send(503, {"error": "RUNE runtime unavailable"})
             return
-
         path = urlparse(self.path).path
         if path == "/api/health":
             self._send(200, {"status": "online"})
@@ -43,11 +41,9 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         if self.runtime is None:
             self._send(503, {"error": "RUNE runtime unavailable"})
             return
-
-        if urlparse(self.path).path != "/api/chat":
+        if urlparse(self.path).path not in ("/api/chat", "/api/command"):
             self._send(404, {"error": "Not found"})
             return
-
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
@@ -55,11 +51,18 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             if not text:
                 self._send(400, {"error": "message is required"})
                 return
+            if urlparse(self.path).path == "/api/command":
+                parsed = self.runtime.parse_command(text)
+                self._send(200, {
+                    "kind": parsed.kind.value,
+                    "command": parsed.command.value if parsed.command else None,
+                    "raw": parsed.raw,
+                })
+                return
             response = self.runtime.receive(text)
             self._send(200, {"response": response})
         except Exception as exc:
             self._send(500, {"error": str(exc)})
-
 
 def serve(host: str = "127.0.0.1", port: int = 8765, runtime: RUNERuntime | None = None) -> None:
     active_runtime = runtime or RUNERuntime(DeterministicModel())
