@@ -104,6 +104,7 @@ class WindowsNode:
                 "processes": processes[:200],
                 "window_count": len(windows),
                 "windows": windows[:100],
+                "system": self._system_telemetry(),
             }
         except (OSError, subprocess.SubprocessError) as exc:
             return {"status": "failed", "reason": str(exc)}
@@ -159,6 +160,37 @@ class WindowsNode:
             ok = bool(user32.SetForegroundWindow(hwnd))
             return {"status": "succeeded" if ok else "failed", "operation": "focus", "hwnd": hwnd}
         return {"status": "failed", "reason": "unsupported_window_operation", "operation": operation}
+    @staticmethod
+    def _system_telemetry() -> dict[str, int]:
+        """Read bounded host memory telemetry without third-party dependencies."""
+        try:
+            import ctypes
+
+            class MemoryStatus(ctypes.Structure):
+                _fields_ = [
+                    ("length", ctypes.c_ulong),
+                    ("memory_load", ctypes.c_ulong),
+                    ("total_phys", ctypes.c_ulonglong),
+                    ("avail_phys", ctypes.c_ulonglong),
+                    ("total_page", ctypes.c_ulonglong),
+                    ("avail_page", ctypes.c_ulonglong),
+                    ("total_virtual", ctypes.c_ulonglong),
+                    ("avail_virtual", ctypes.c_ulonglong),
+                    ("avail_extended", ctypes.c_ulonglong),
+                ]
+
+            status = MemoryStatus()
+            status.length = ctypes.sizeof(MemoryStatus)
+            if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+                return {}
+            return {
+                "memory_load_percent": int(status.memory_load),
+                "memory_total_mb": int(status.total_phys // (1024 * 1024)),
+                "memory_available_mb": int(status.avail_phys // (1024 * 1024)),
+            }
+        except (AttributeError, OSError):
+            return {}
+
     @staticmethod
     def _system_command(*args: str) -> None:
         subprocess.Popen(list(args), shell=False)
