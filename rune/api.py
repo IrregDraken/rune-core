@@ -6,9 +6,11 @@ from urllib.parse import urlparse
 
 from .core.model import DeterministicModel
 from .runtime import RUNERuntime
+from .shell.state import ShellMode, ShellState
 
 class RUNERequestHandler(BaseHTTPRequestHandler):
     runtime: RUNERuntime | None = None
+    shell: ShellState | None = None
 
     def _send(self, status: int, payload: dict) -> None:
         body = json.dumps(payload, default=str).encode("utf-8")
@@ -31,7 +33,14 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         if path == "/api/health":
             self._send(200, {"status": "online"})
         elif path == "/api/state":
-            self._send(200, self.runtime.snapshot())
+            state = self.runtime.snapshot()
+            if self.shell is not None:
+                state["shell"] = {
+                    "mode": self.shell.mode.value,
+                    "island_message": self.shell.island_message,
+                    "workspaces": [workspace.__dict__ for workspace in self.shell.workspaces],
+                }
+            self._send(200, state)
         elif path == "/api/activity":
             self._send(200, {"events": self.runtime.recent_events()})
         else:
@@ -53,6 +62,9 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                 return
             if urlparse(self.path).path == "/api/command":
                 parsed = self.runtime.parse_command(text)
+                if self.shell is not None:
+                    self.shell.set_mode(ShellMode.COMMAND)
+                    self.shell.island_message = parsed.command.value if parsed.command else None
                 self._send(200, {
                     "kind": parsed.kind.value,
                     "command": parsed.command.value if parsed.command else None,
@@ -67,6 +79,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
 def serve(host: str = "127.0.0.1", port: int = 8765, runtime: RUNERuntime | None = None) -> None:
     active_runtime = runtime or RUNERuntime(DeterministicModel())
     RUNERequestHandler.runtime = active_runtime
+    RUNERequestHandler.shell = ShellState()
     server = ThreadingHTTPServer((host, port), RUNERequestHandler)
     print(f"RUNE API listening on http://{host}:{port}")
     try:
