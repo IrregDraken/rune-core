@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 from .core.model import DeterministicModel
+from .core.node import Capability, NodeAction
 from .runtime import RUNERuntime
 from .shell.state import ShellMode, ShellState
 
@@ -43,6 +44,9 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             self._send(200, state)
         elif path == "/api/activity":
             self._send(200, {"events": self.runtime.recent_events()})
+        elif path == "/api/windows":
+            observation = self.runtime.node.observe()
+            self._send(200, {"windows": observation.get("windows", []), "status": observation.get("status", "unknown")})
         else:
             self._send(404, {"error": "Not found"})
 
@@ -50,7 +54,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         if self.runtime is None:
             self._send(503, {"error": "RUNE runtime unavailable"})
             return
-        if urlparse(self.path).path not in ("/api/chat", "/api/command"):
+        if urlparse(self.path).path not in ("/api/chat", "/api/command", "/api/workspace", "/api/window"):
             self._send(404, {"error": "Not found"})
             return
         try:
@@ -60,7 +64,27 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             if not text:
                 self._send(400, {"error": "message is required"})
                 return
-            if urlparse(self.path).path == "/api/command":
+            request_path = urlparse(self.path).path
+            if request_path == "/api/workspace":
+                workspace_id = str(payload.get("workspace_id", "")).strip()
+                if self.shell is None or not any(w.id == workspace_id for w in self.shell.workspaces):
+                    self._send(404, {"error": "workspace not found"})
+                    return
+                self.shell.activate_workspace(workspace_id)
+                self.shell.set_mode(ShellMode.WORKING)
+                self.shell.island_message = f"workspace: {workspace_id}"
+                self._send(200, {"workspace_id": workspace_id, "workspaces": [workspace.__dict__ for workspace in self.shell.workspaces]})
+                return
+            if request_path == "/api/window":
+                operation = str(payload.get("operation", "")).strip().lower()
+                hwnd = str(payload.get("hwnd", "")).strip()
+                if not operation or not hwnd:
+                    self._send(400, {"error": "operation and hwnd are required"})
+                    return
+                result = self.runtime.node.execute(NodeAction(Capability.WINDOW_CONTROL, {"operation": operation, "hwnd": hwnd}, authorized=False))
+                self._send(200, result)
+                return
+            if request_path == "/api/command":
                 parsed = self.runtime.parse_command(text)
                 if self.shell is not None:
                     self.shell.set_mode(ShellMode.COMMAND)
