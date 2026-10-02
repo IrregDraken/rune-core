@@ -6,9 +6,8 @@ type View = "home" | "chat" | "memory" | "goals" | "actions" | "activity" | "set
 type RuneState = {
   identity?: { name: string; role: string };
   current_goal?: string | null;
-  node?: { platform?: string; hostname?: string; capabilities?: string[]; observation?: { process_count?: number; status?: string } };
+  node?: { platform?: string; hostname?: string; capabilities?: string[]; observation?: { process_count?: number; status?: string; windows?: { hwnd: number; pid: number; title: string; foreground?: boolean }[] } };
   shell?: { mode?: string; island_message?: string | null; workspaces?: { id: string; name: string; active: boolean }[] };
-  windows?: { hwnd: number; pid: number; title: string; foreground?: boolean }[];
 };
 
 const nav: { id: View; label: string; icon: string }[] = [
@@ -34,7 +33,7 @@ function App() {
   const [runtimeOnline, setRuntimeOnline] = useState(false);
   const [state, setState] = useState<RuneState | null>(null);
   const [error, setError] = useState("");
-  const [windows, setWindows] = useState<RuneState["windows"]>([]);
+  const [windows, setWindows] = useState<{ hwnd: number; pid: number; title: string; foreground?: boolean }[]>([]);
   const [messages, setMessages] = useState([
     { from: "rune", text: "I'm online. The runtime is still under construction, but the control surface is taking shape." },
   ]);
@@ -47,7 +46,7 @@ function App() {
         if (mounted) {
           setState(next);
           setRuntimeOnline(true);
-          setWindows(next.windows ?? []);
+          setWindows(next.node?.observation?.windows ?? []);
           setError("");
         }
       } catch (err) {
