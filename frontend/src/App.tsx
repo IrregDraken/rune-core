@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   activateWorkspace,
   controlWindow,
@@ -123,6 +123,8 @@ function App() {
 
         {error && <div className="connection-banner"><span>●</span> {error}<button onClick={() => void refresh()}>Retry</button></div>}
 
+        <WorkspaceBar state={state} onActivated={() => void refresh()} />
+
         {view === "home" && <Home state={state} windows={windows} activity={activity} onNavigate={setView} />}
         {view === "chat" && <Chat />}
         {view === "memory" && <Memory state={state} />}
@@ -131,6 +133,46 @@ function App() {
         {view === "activity" && <Activity events={activity} />}
         {view === "system" && <System state={state} tools={tools} voice={voice} />}
       </main>
+    </div>
+  );
+}
+
+function WorkspaceBar({ state, onActivated }: { state: RuneState | null; onActivated: () => void }) {
+  const [switching, setSwitching] = useState("");
+  const workspaces = state?.shell?.workspaces ?? [];
+
+  const select = async (id: string) => {
+    if (switching || workspaces.find((item) => item.id === id)?.active) return;
+    setSwitching(id);
+    try {
+      await activateWorkspace(id);
+      onActivated();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSwitching("");
+    }
+  };
+
+  if (!workspaces.length) return null;
+
+  return (
+    <div className="workspace-bar" aria-label="RUNE workspaces">
+      <span className="workspace-label">WORKSPACE</span>
+      <div className="workspace-tabs">
+        {workspaces.map((workspace) => (
+          <button
+            key={workspace.id}
+            className={workspace.active ? "workspace-tab active" : "workspace-tab"}
+            onClick={() => void select(workspace.id)}
+            disabled={Boolean(switching)}
+          >
+            <span className="workspace-status" />
+            {workspace.name}
+          </button>
+        ))}
+      </div>
+      {switching && <span className="workspace-sync">SWITCHING</span>}
     </div>
   );
 }
@@ -292,7 +334,7 @@ function Actions({ state, tools, windows }: { state: RuneState | null; tools: To
       <div className="panel action-panel">
         <div className="panel-title"><h3>Computer awareness</h3><span>{state?.node?.platform ?? "OFFLINE"}</span></div>
         <p className="muted">Window control is routed through RUNE's authorization and verification pipeline.</p>
-        <WindowList windows={windows} onAction={runWindow} />
+        <WindowList windows={windows} onAction={runWindow} busyIndex={busy} />
       </div>
       <div className="panel action-panel">
         <div className="panel-title"><h3>Registered tools</h3><span>{tools.length} TOOLS</span></div>
@@ -342,12 +384,12 @@ function InfoCard({ title, value, meta }: { title: string; value: string; meta: 
   return <div className="panel info-card"><span>{title}</span><strong>{value}</strong><small>{meta}</small></div>;
 }
 
-function WindowList({ windows, compact = false, onAction }: { windows: WindowInfo[]; compact?: boolean; onAction?: (operation: string, hwnd: number, index: number) => void }) {
+function WindowList({ windows, compact = false, onAction, busyIndex }: { windows: WindowInfo[]; compact?: boolean; onAction?: (operation: string, hwnd: number, index: number) => void; busyIndex?: number | null }) {
   if (!windows.length) return <div className="empty-state">No window telemetry available from the current node.</div>;
   return <div className={compact ? "panel window-list" : "window-list inline-list"}>{windows.slice(0, compact ? 8 : 12).map((item, index) => <div className={item.foreground ? "window-row foreground" : "window-row"} key={item.hwnd}>
     <span className="window-dot" />
     <div><strong>{item.title || "Untitled window"}</strong><span>PID {item.pid} · HWND {item.hwnd}</span></div>
-    {onAction ? <div className="window-actions"><button disabled={Boolean(onAction && false)} onClick={() => onAction("focus", item.hwnd, index)}>Focus</button><button onClick={() => onAction("minimize", item.hwnd, index)}>Min</button></div> : item.foreground ? <em>FOREGROUND</em> : null}
+    {onAction ? <div className="window-actions"><button disabled={busyIndex === index} onClick={() => onAction("focus", item.hwnd, index)}>{busyIndex === index ? "..." : "Focus"}</button><button disabled={busyIndex === index} onClick={() => onAction("minimize", item.hwnd, index)}>Min</button></div> : item.foreground ? <em>FOREGROUND</em> : null}
   </div>)}</div>;
 }
 
