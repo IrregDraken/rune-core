@@ -285,22 +285,37 @@ function Chat() {
 
 function Memory({ state }: { state: RuneState | null }) {
   const entries = Object.entries(state?.working_memory ?? {});
+  const contextEntries = Object.entries(state?.active_context ?? {});
+  const decisionEntries = Object.entries(state?.last_decision ?? {});
   return <section className="content">
     <SectionHeader eyebrow="PERSISTENT CONTEXT" title="Memory" action="LOCAL SQLITE" />
     <div className="memory-grid">
       <div className="panel large-panel">
         <div className="panel-title"><h3>Working memory</h3><span>{entries.length} ITEMS</span></div>
         <p className="muted">The bounded context RUNE can actively carry while reasoning.</p>
-        {entries.length ? entries.map(([key, value]) => <div className="memory-item" key={key}><span>{key}</span><strong>{String(value)}</strong></div>) : <div className="empty-state">No working-memory entries yet.</div>}
+        {entries.length ? entries.map(([key, value]) => <div className="memory-item" key={key}><span>{key}</span><strong>{displayValue(value)}</strong></div>) : <div className="empty-state">No working-memory entries yet.</div>}
       </div>
       <div className="panel large-panel">
-        <div className="panel-title"><h3>Event journal</h3><span>PERSISTENT</span></div>
-        <p className="muted">Every meaningful input, decision, action and verification can become part of RUNE's history.</p>
-        <div className="memory-visual"><div /><div /><div /><div /><div /><div /><div /></div>
-        <div className="empty-state">Semantic retrieval is not connected yet.</div>
+        <div className="panel-title"><h3>Active context</h3><span>{contextEntries.length} SIGNALS</span></div>
+        <p className="muted">Context currently available to the runtime before it decides what to do next.</p>
+        {contextEntries.length ? contextEntries.map(([key, value]) => <div className="memory-item" key={key}><span>{key}</span><strong>{displayValue(value)}</strong></div>) : <div className="empty-state">No active context signals.</div>}
+        <div className="decision-strip">
+          <span className="section-kicker">LAST DECISION</span>
+          <strong>{decisionEntries.length ? displayValue(state?.last_decision?.status) : "No decision yet"}</strong>
+        </div>
       </div>
     </div>
   </section>;
+}
+
+function displayValue(value: unknown) {
+  if (value == null) return "—";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 function Goals({ state }: { state: RuneState | null }) {
