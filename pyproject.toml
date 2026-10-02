@@ -9,6 +9,10 @@ description = "Persistent intelligence runtime for RUNE"
 requires-python = ">=3.12"
 dependencies = []
 
+[project.scripts]
+rune-api = "rune.api:serve"
+rune-desktop = "rune.desktop.windows:main"
+
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
