@@ -81,6 +81,8 @@ class WindowsNode:
                 return self._control_window(hwnd, operation)
 
             if action.capability is Capability.PROCESS_START:
+                if not action.authorized:
+                    return {"status": "blocked", "reason": "authorization_required"}
                 executable = action.arguments.get("executable", "").strip()
                 if not executable:
                     return {"status": "failed", "reason": "executable_required"}
