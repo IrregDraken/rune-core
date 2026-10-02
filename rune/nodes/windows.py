@@ -80,6 +80,20 @@ class WindowsNode:
         except (OSError, subprocess.SubprocessError) as exc:
             return {"status": "failed", "reason": str(exc)}
 
+    def observe(self) -> dict[str, Any]:
+        """Return a bounded, non-destructive snapshot of the Windows node."""
+        try:
+            processes = self._processes()
+            return {
+                "status": "succeeded",
+                "platform": platform.platform(),
+                "hostname": socket.gethostname(),
+                "process_count": len(processes),
+                "processes": processes[:200],
+            }
+        except (OSError, subprocess.SubprocessError) as exc:
+            return {"status": "failed", "reason": str(exc)}
+
     def verify(self, action: NodeAction) -> dict[str, Any]:
         # Reboot/shutdown terminate the current process, so immediate positive
         # verification is not possible from this node. The core must observe a
