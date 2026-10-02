@@ -28,6 +28,7 @@ class NodeInfo:
 class NodeAction:
     capability: Capability
     arguments: dict[str, str] = field(default_factory=dict)
+    authorized: bool = False
 
 class RUNEActionNode(Protocol):
     def info(self) -> NodeInfo: ...
