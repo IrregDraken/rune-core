@@ -36,3 +36,12 @@ RUNE can run locally while still using the internet for fresh information. The l
 ## Status
 
 Milestone 0.2: Persistent local runtime + model/retrieval boundaries.
+
+
+## Brand system
+
+RUNE's visual identity is now locked to the geometric interlocked RUNE glyph, a dark near-black interface with green signal accents, **Manrope** for human-facing UI, and **DM Mono** for system/telemetry surfaces.
+
+Brand assets live under `brand/`, with the production glyph exposed at `frontend/public/rune-glyph.svg`. The shell, app icon/favion and RUNE Island use the same mark so the identity persists across surfaces.
+
+The visual system is intentionally not a generic fantasy-rune aesthetic. The glyph is the persistent system identity; the interface may evolve around it.
