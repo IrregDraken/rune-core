@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 from .core.authority import Authority
 from .core.model import DeterministicModel
-from .core.node import Capability, NodeAction
+from .core.node import Capability
 from .runtime import RUNERuntime
 from .shell.state import ShellMode, ShellState
 
@@ -47,6 +47,16 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             self._send(200, state)
         elif path == "/api/activity":
             self._send(200, {"events": self.runtime.recent_events()})
+        elif path == "/api/tools":
+            self._send(200, {"tools": [spec.__dict__ for spec in self.runtime.tools.specs()]})
+        elif path == "/api/voice":
+            voice = self.runtime.voice
+            self._send(200, {
+                "wake_word": voice.wake_word is not None,
+                "speech_to_text": voice.speech_to_text is not None,
+                "text_to_speech": voice.text_to_speech is not None,
+                "speaker_verifier": voice.speaker_verifier is not None,
+            })
         elif path == "/api/windows":
             observation = self.runtime.node.observe()
             self._send(
