@@ -12,3 +12,9 @@ def test_shell_switches_workspace():
     shell.activate_workspace("work")
     assert shell.workspaces[1].active is True
     assert shell.workspaces[0].active is False
+
+
+def test_shell_rejects_unknown_workspace():
+    shell = ShellState()
+    assert shell.activate_workspace("unknown") is False
+    assert shell.workspaces[0].active is True
