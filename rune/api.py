@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
+from .core.authority import Authority
 from .core.model import DeterministicModel
 from .core.node import Capability, NodeAction
 from .runtime import RUNERuntime
@@ -159,7 +161,10 @@ def serve(
     port: int = 8765,
     runtime: RUNERuntime | None = None,
 ) -> None:
-    active_runtime = runtime or RUNERuntime(DeterministicModel())
+    active_runtime = runtime or RUNERuntime(
+        DeterministicModel(),
+        authority=Authority(os.environ.get("RUNE_SESSION_TOKEN")),
+    )
     RUNERequestHandler.runtime = active_runtime
     RUNERequestHandler.shell = ShellState()
     server = ThreadingHTTPServer((host, port), RUNERequestHandler)
