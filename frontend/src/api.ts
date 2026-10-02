@@ -4,8 +4,7 @@ export type RuneState = {
   active_context: Record<string, unknown>;
   working_memory: Record<string, unknown>;
   last_decision: Record<string, unknown> | null;
-  last_action: Record<string, unknown> | null;
-};
+  last_action: Record<string, unknown> | null;\n  node?: { platform?: string; hostname?: string; observation?: { process_count?: number; windows?: { hwnd: number; pid: number; title: string; foreground?: boolean }[] } };\n  shell?: { mode?: string; island_message?: string | null; workspaces?: { id: string; name: string; active: boolean }[] };\n};
 
 const API_BASE = import.meta.env.VITE_RUNE_API_URL ?? "http://127.0.0.1:8765";
 
