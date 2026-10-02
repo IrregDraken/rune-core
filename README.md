@@ -17,7 +17,32 @@ understand -> remember -> retrieve -> reason -> decide -> act with permission ->
 - Local inference: optional Ollama adapter
 - Retrieval boundary: provider-neutral retriever interface
 - Runtime: composition layer for local persistent operation
-- CLI: first human-facing runtime interface
+- API: local HTTP control surface for shell clients
+- Node: controlled OS adapter with Windows process/window awareness
+- Shell: workspace state, RUNE Island state and desktop presentation
+- Desktop: lightweight always-on-top Windows RUNE Island with chat and telemetry
+
+## Desktop presence
+
+On Windows, install the package and run:
+
+```bash
+rune-api
+rune-desktop
+```
+
+The API is the intelligence/control boundary. The desktop surface is only a presentation and interaction layer. It polls local state, displays visible-window telemetry, switches RUNE workspaces, and sends chat through the API.
+
+The desktop surface deliberately does **not** grant authorization for world-changing actions. Window control, shutdown, reboot and other privileged operations remain behind the RUNE node authorization boundary.
+
+For development without an installed console script:
+
+```bash
+python -m rune.api
+python -m rune.desktop
+```
+
+The API currently defaults to `127.0.0.1:8765`.
 
 ## Local-first principle
 
@@ -35,13 +60,14 @@ RUNE can run locally while still using the internet for fresh information. The l
 
 ## Status
 
-Milestone 0.2: Persistent local runtime + model/retrieval boundaries.
+Milestone 0.3: persistent runtime + OS node + shell state + live Windows awareness + desktop RUNE Island.
 
+The next major layer is authenticated computer control, followed by voice, richer memory retrieval, and cross-device nodes.
 
 ## Brand system
 
-RUNE's visual identity is now locked to the geometric interlocked RUNE glyph, a dark near-black interface with green signal accents, **Manrope** for human-facing UI, and **DM Mono** for system/telemetry surfaces.
+RUNE's visual identity is locked to the geometric interlocked RUNE glyph, a dark near-black interface with green signal accents, **Manrope** for human-facing UI, and **DM Mono** for system/telemetry surfaces.
 
-Brand assets live under `brand/`, with the production glyph exposed at `frontend/public/rune-glyph.svg`. The shell, app icon/favion and RUNE Island use the same mark so the identity persists across surfaces.
+Brand assets live under `brand/`, with the production glyph exposed at `frontend/public/rune-glyph.svg`. The shell, app icon/favicon and RUNE Island use the same mark so the identity persists across surfaces.
 
 The visual system is intentionally not a generic fantasy-rune aesthetic. The glyph is the persistent system identity; the interface may evolve around it.
