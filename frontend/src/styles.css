@@ -37,7 +37,19 @@ button { cursor: pointer; }
 .status-dot.offline,.pulse.offline { background:#68736d; box-shadow:none; }
 .status-dot,.pulse { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 12px rgba(125,255,178,.8); }
 .main { margin-left:238px; width:calc(100% - 238px); }
-.topbar { min-height:92px; border-bottom:1px solid var(--line); padding:22px 42px; display:flex; justify-content:space-between; align-items:center; }
+
+.rune-island { position:absolute; left:50%; top:14px; transform:translateX(-50%); min-width:150px; height:38px; padding:6px 11px; border:1px solid rgba(125,255,178,.12); border-radius:22px; background:rgba(5,9,7,.92); box-shadow:0 12px 35px rgba(0,0,0,.35), inset 0 0 18px rgba(125,255,178,.025); display:flex; align-items:center; gap:8px; transition:.25s; z-index:5; }
+.rune-island.online { border-color:rgba(125,255,178,.22); box-shadow:0 12px 35px rgba(0,0,0,.35), 0 0 24px rgba(125,255,178,.05); }
+.island-core { width:22px; height:22px; border:1px solid rgba(125,255,178,.45); border-radius:50%; display:grid; place-items:center; }
+.island-core span { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 12px rgba(125,255,178,.9); }
+.island-copy { min-width:70px; }
+.island-copy strong,.island-copy span { display:block; }
+.island-copy strong { color:#e9f5ed; font:700 8px "DM Mono",monospace; letter-spacing:.16em; }
+.island-copy span { color:#68756d; font:8px "DM Mono",monospace; margin-top:2px; text-transform:capitalize; white-space:nowrap; max-width:110px; overflow:hidden; text-overflow:ellipsis; }
+.island-signal { width:5px; height:5px; border-radius:50%; background:#3d4841; margin-left:auto; }
+.rune-island.online .island-signal { background:var(--green); box-shadow:0 0 9px rgba(125,255,178,.8); }
+
+.topbar { position:relative; min-height:92px; border-bottom:1px solid var(--line); padding:22px 42px; display:flex; justify-content:space-between; align-items:center; }
 .topbar h1 { margin:5px 0 0; font-size:24px; letter-spacing:-.035em; font-weight:700; }
 .top-status { display:flex; align-items:center; gap:8px; color:#78857d; font:500 9px "DM Mono",monospace; }
 .divider { height:18px; width:1px; background:var(--line); margin:0 7px; }
