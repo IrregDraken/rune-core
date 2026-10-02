@@ -35,6 +35,7 @@ class RUNEActionNode(Protocol):
     def can(self, capability: Capability) -> bool: ...
     def execute(self, action: NodeAction) -> dict: ...
     def verify(self, action: NodeAction) -> dict: ...
+    def observe(self) -> dict: ...
 
 class NullNode:
     def __init__(self, info: NodeInfo) -> None:
@@ -53,3 +54,6 @@ class NullNode:
 
     def verify(self, action: NodeAction) -> dict:
         return {"confirmed": False, "status": "unknown"}
+
+    def observe(self) -> dict:
+        return {"status": "unavailable", "reason": "node_not_connected"}
