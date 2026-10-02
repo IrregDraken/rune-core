@@ -111,6 +111,7 @@ function App() {
 
       <main className="main">
         <header className="topbar">
+          <RuneIsland state={state} online={runtimeOnline} />
           <div>
             <span className="eyebrow">RUNE / CONTROL CENTER</span>
             <h1>{titleFor(view)}</h1>
@@ -156,6 +157,21 @@ function App() {
         {view === "activity" && <Activity />}
         {view === "settings" && <Settings />}
       </main>
+    </div>
+  );
+}
+
+function RuneIsland({ state, online }: { state: RuneState | null; online: boolean }) {
+  const mode = state?.shell?.mode ?? "ambient";
+  const message = state?.shell?.island_message;
+  return (
+    <div className={online ? "rune-island online" : "rune-island"}>
+      <span className="island-core"><span /></span>
+      <div className="island-copy">
+        <strong>RUNE</strong>
+        <span>{message ? message.replace("_", " ") : mode}</span>
+      </div>
+      <span className="island-signal" />
     </div>
   );
 }
