@@ -32,7 +32,9 @@ class ShellState:
     def set_mode(self, mode: ShellMode) -> None:
         self.mode = mode
 
-    def activate_workspace(self, workspace_id: str) -> None:
+    def activate_workspace(self, workspace_id: str) -> bool:
+        if not any(workspace.id == workspace_id for workspace in self.workspaces):
+            return False
         updated: list[Workspace] = []
         for workspace in self.workspaces:
             updated.append(
@@ -44,3 +46,4 @@ class ShellState:
                 )
             )
         self.workspaces = updated
+        return True
