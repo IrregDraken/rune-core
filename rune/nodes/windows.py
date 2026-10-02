@@ -80,6 +80,15 @@ class WindowsNode:
                     return {"status": "failed", "reason": "hwnd_required"}
                 return self._control_window(hwnd, operation)
 
+            if action.capability is Capability.PROCESS_STOP:
+                if not action.authorized:
+                    return {"status": "blocked", "reason": "authorization_required"}
+                pid = str(action.arguments.get("pid", "")).strip()
+                if not pid.isdigit() or int(pid) <= 0:
+                    return {"status": "failed", "reason": "pid_required"}
+                self._system_command("taskkill", "/PID", pid, "/T", "/F")
+                return {"status": "attempted", "operation": "process_stop", "pid": int(pid)}
+
             if action.capability is Capability.PROCESS_START:
                 if not action.authorized:
                     return {"status": "blocked", "reason": "authorization_required"}
@@ -121,6 +130,11 @@ class WindowsNode:
             return {"confirmed": False, "status": "requires_desktop_observer"}
         if action.capability in {Capability.PROCESS_READ, Capability.WINDOW_READ}:
             return {"confirmed": True, "status": "observable"}
+        if action.capability is Capability.PROCESS_STOP:
+            pid = str(action.arguments.get("pid", "")).strip()
+            if pid.isdigit():
+                exists = any(row.get("pid") == pid for row in self._processes())
+                return {"confirmed": not exists, "status": "verified"}
         return {"confirmed": False, "status": "unknown"}
 
     @staticmethod
