@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 180" fill="none">
+  <title>RUNE wordmark</title>
+  <desc>RUNE geometric wordmark using the locked brand typography direction.</desc>
+  <g transform="translate(18 22) scale(.53)" color="currentColor">
+    <g stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M72 40v176"/>
+      <path d="M72 40h72c28 0 50 22 50 50s-22 50-50 50H72"/>
+      <path d="M126 140l70 76"/>
+      <path d="M184 40L112 112"/>
+      <path d="M184 40v54c0 27-22 49-49 49h-9"/>
+    </g>
+  </g>
+  <text x="150" y="112" fill="currentColor" font-family="Manrope, Arial, sans-serif" font-size="66" font-weight="800" letter-spacing="17">RUNE</text>
+</svg>
