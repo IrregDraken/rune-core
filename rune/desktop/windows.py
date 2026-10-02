@@ -48,6 +48,7 @@ class WindowsDesktopShell:
         self.root.resizable(False, False)
         self.expanded = False
         self._drag_offset: tuple[int, int] | None = None
+        self._window_rows: list[dict[str, Any]] = []
         self._build()
         self._set_height(self.COLLAPSED_HEIGHT)
         self.root.after(100, self._poll)
@@ -136,7 +137,16 @@ class WindowsDesktopShell:
             relief="flat", borderwidth=0, font=("Consolas", 8),
             highlightthickness=1, highlightcolor="#1d3025"
         )
-        self.window_list.pack(fill="both", expand=True, padx=14, pady=(0, 10))
+        self.window_list.pack(fill="both", expand=True, padx=14, pady=(0, 5))
+        self.window_list.bind("<Double-Button-1>", lambda _e: self._window_action("focus"))
+
+        controls = tk.Frame(body, bg="#080b0a")
+        controls.pack(fill="x", padx=14, pady=(0, 9))
+        for operation in ("minimize", "maximize", "restore", "focus"):
+            ttk.Button(
+                controls, text=operation.upper(), style="Rune.TButton",
+                command=lambda op=operation: self._window_action(op)
+            ).pack(side="left", padx=2)
 
         composer = tk.Frame(body, bg="#080b0a")
         composer.pack(fill="x", padx=14, pady=(0, 14))
@@ -232,8 +242,9 @@ class WindowsDesktopShell:
             )
         )
         self.signal.config(fg="#7dffb2")
+        self.window_rows = windows[:12]
         self.window_list.delete(0, "end")
-        for window in windows[:12]:
+        for window in self.window_rows:
             marker = "●" if window.get("foreground") else "○"
             title = window.get("title", "Untitled")
             self.window_list.insert(
@@ -248,6 +259,24 @@ class WindowsDesktopShell:
                 button.config(
                     text=("● " if workspace.get("active") else "") + label
                 )
+
+    def _window_action(self, operation: str) -> None:
+        selection = self.window_list.curselection()
+        if not selection or selection[0] >= len(self.window_rows):
+            self.status_label.config(text="SELECT A WINDOW")
+            return
+        window = self.window_rows[selection[0]]
+        try:
+            result = self._request(
+                "/api/window",
+                "POST",
+                {"operation": operation, "hwnd": str(window.get("hwnd", ""))},
+            )
+            status = result.get("result", {}).get("status", result.get("status", "unknown"))
+            self.status_label.config(text=f"{operation.upper()} · {status.upper()}")
+            self._refresh()
+        except (OSError, urllib.error.URLError, ValueError):
+            self._offline("window action failed")
 
     def _offline(self, reason: str) -> None:
         self.status_label.config(text="OFFLINE · START RUNE API")
