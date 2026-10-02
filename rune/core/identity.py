@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import getpass
 import hashlib
-import os
+import secrets
 import platform
 import socket
 from dataclasses import dataclass
+from enum import Enum
 from typing import Protocol
 
 
-class IdentityAssurance(str):
-    """Named assurance levels for local owner identity."""
+class IdentityAssurance(str, Enum):
+    """Named assurance levels for owner identity evidence."""
 
     OBSERVED = "observed"
     VERIFIED = "verified"
@@ -66,7 +67,7 @@ class IdentityVerifier:
     ) -> bool:
         if not presented_token or not expected_token:
             return False
-        if presented_token != expected_token:
+        if not secrets.compare_digest(presented_token, expected_token):
             return False
         if presented_subject is not None and presented_subject != self.owner.subject:
             return False
