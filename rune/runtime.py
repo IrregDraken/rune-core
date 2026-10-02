@@ -10,6 +10,11 @@ from .core.model import ModelProvider
 from .core.node import NodeInfo, NullNode, RUNEActionNode
 from .core.persistence import SQLiteEventStore
 
+try:
+    from .nodes.windows import WindowsNode
+except ImportError:  # pragma: no cover - platform-specific adapter
+    WindowsNode = None  # type: ignore[assignment]
+
 class RUNERuntime:
     """Composition root for a persistent local RUNE process."""
 
@@ -24,11 +29,16 @@ class RUNERuntime:
         self.store = SQLiteEventStore(db_path)
         self.retriever = retriever
         self.context = ContextAssembler(self.engine.memory)
-        self.node = node or NullNode(NodeInfo(
-            node_id="local",
-            platform=platform.system().lower(),
-            hostname=socket.gethostname(),
-        ))
+        if node is not None:
+            self.node = node
+        elif platform.system().lower() == "windows" and WindowsNode is not None:
+            self.node = WindowsNode()
+        else:
+            self.node = NullNode(NodeInfo(
+                node_id="local",
+                platform=platform.system().lower(),
+                hostname=socket.gethostname(),
+            ))
         self._persisted_events = 0
 
     def parse_command(self, text: str) -> ParsedCommand:
