@@ -6,6 +6,9 @@ import socket
 from .core.commands import ParsedCommand, parse_command
 from .core.authority import Authority
 from .core.context import ContextAssembler, Retriever
+from .core.identity import IdentityProvider, LocalIdentityProvider
+from .core.tools import ToolRegistry
+from .core.voice import VoicePipeline
 from .core.engine import RUNEEngine
 from .core.model import ModelProvider
 from .core.node import NodeInfo, NullNode, RUNEActionNode
@@ -26,12 +29,18 @@ class RUNERuntime:
         retriever: Retriever | None = None,
         node: RUNEActionNode | None = None,
         authority: Authority | None = None,
+        identity: IdentityProvider | None = None,
+        tools: ToolRegistry | None = None,
+        voice: VoicePipeline | None = None,
     ) -> None:
         self.engine = RUNEEngine(model)
         self.store = SQLiteEventStore(db_path)
         self.retriever = retriever
         self.context = ContextAssembler(self.engine.memory)
         self.authority = authority or Authority.create()
+        self.identity = identity or LocalIdentityProvider()
+        self.tools = tools or ToolRegistry()
+        self.voice = voice or VoicePipeline()
         if node is not None:
             self.node = node
         elif platform.system().lower() == "windows" and WindowsNode is not None:
@@ -121,7 +130,18 @@ class RUNERuntime:
         state = self.engine.state
         info = self.node.info()
         return {
-            "identity": {"name": state.identity.name, "role": state.identity.role},
+            "identity": {
+                "name": state.identity.name,
+                "role": state.identity.role,
+                "owner": self.identity.current().__dict__,
+            },
+            "tools": [spec.__dict__ for spec in self.tools.specs()],
+            "voice": {
+                "wake_word": self.voice.wake_word is not None,
+                "speech_to_text": self.voice.speech_to_text is not None,
+                "text_to_speech": self.voice.text_to_speech is not None,
+                "speaker_verifier": self.voice.speaker_verifier is not None,
+            },
             "current_goal": state.current_goal,
             "active_context": state.active_context,
             "working_memory": self.engine.memory.snapshot(),
