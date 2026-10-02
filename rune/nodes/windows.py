@@ -24,6 +24,7 @@ class WindowsNode:
         Capability.SYSTEM_SHUTDOWN,
         Capability.PROCESS_READ,
         Capability.PROCESS_START,
+        Capability.PROCESS_STOP,
         Capability.WINDOW_READ,
         Capability.WINDOW_CONTROL,
     })
