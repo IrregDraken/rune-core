@@ -79,7 +79,7 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">R</div>
+          <div className="brand-mark"><img src="/rune-glyph.svg" alt="" /></div>
           <div>
             <strong>RUNE</strong>
             <span>persistent intelligence</span>
@@ -166,7 +166,7 @@ function RuneIsland({ state, online }: { state: RuneState | null; online: boolea
   const message = state?.shell?.island_message;
   return (
     <div className={online ? "rune-island online" : "rune-island"}>
-      <span className="island-core"><span /></span>
+      <span className="island-core"><img src="/rune-glyph.svg" alt="" /></span>
       <div className="island-copy">
         <strong>RUNE</strong>
         <span>{message ? message.replace("_", " ") : mode}</span>
@@ -186,7 +186,7 @@ function Home({ onNavigate, state }: { onNavigate: (view: View) => void; state: 
       <div className="hero-grid">
         <div className="hero-card panel">
           <span className="section-kicker">CURRENT STATE</span>
-          <div className="orb"><div className="orb-core">R</div></div>
+          <div className="orb"><div className="orb-core"><img src="/rune-glyph.svg" alt="" /></div></div>
           <h2>I'm here.</h2>
           <p>{state?.shell?.island_message ? `Command: ${state.shell.island_message}` : "RUNE is being built as a persistent intelligence, not a chat box. This shell is becoming its control surface."}</p>
           <button className="primary" onClick={() => onNavigate("chat")}>Open conversation <span>↗</span></button>
