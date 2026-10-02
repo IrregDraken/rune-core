@@ -6,7 +6,7 @@ type View = "home" | "chat" | "memory" | "goals" | "actions" | "activity" | "set
 type RuneState = {
   identity?: { name: string; role: string };
   current_goal?: string | null;
-  node?: { platform?: string; hostname?: string; capabilities?: string[]; observation?: { process_count?: number; status?: string; windows?: { hwnd: number; pid: number; title: string; foreground?: boolean }[] } };
+  node?: { platform?: string; hostname?: string; capabilities?: string[]; observation?: { process_count?: number; status?: string; windows?: { hwnd: number; pid: number; title: string; foreground?: boolean }[]; system?: { memory_load_percent?: number; memory_total_mb?: number; memory_available_mb?: number } } };
   shell?: { mode?: string; island_message?: string | null; workspaces?: { id: string; name: string; active: boolean }[] };
 };
 
@@ -211,7 +211,7 @@ function WorkspaceBar({ workspaces }: { workspaces: { id: string; name: string; 
       <div className="cards-3">
         <InfoCard title="Node" value={state?.node?.platform ?? "Offline"} meta={state?.node?.hostname ?? "Connect RUNE runtime"} />
         <InfoCard title="Processes" value={String(state?.node?.observation?.process_count ?? "—")} meta="Observed by local node" />
-        <InfoCard title="Shell" value={state?.shell?.mode ?? "ambient"} meta={state?.shell?.island_message ?? "Ready"} />
+        <InfoCard title="Memory" value={state?.node?.observation?.system?.memory_load_percent != null ? `${state.node.observation.system.memory_load_percent}%` : "—"} meta={state?.node?.observation?.system?.memory_available_mb != null ? `${state.node.observation.system.memory_available_mb} MB available` : "Telemetry unavailable"} />
       </div>\n\n      <div className="section-row">\n        <div><span className="section-kicker">WINDOW AWARENESS</span><h2>What is open</h2></div>\n        <span className="live-chip">{windows.length} WINDOWS</span>\n      </div>\n      <div className="panel window-list">\n        {windows.length ? windows.slice(0, 8).map((window) => <div className={window.foreground ? "window-row foreground" : "window-row"} key={window.hwnd}><span className="window-dot" /><div><strong>{window.title}</strong><span>PID {window.pid} · HWND {window.hwnd}</span></div>{window.foreground && <em>FOREGROUND</em>}</div>) : <div className="empty-state">No window telemetry available from the current node.</div>}\n      </div>
 
       <div className="section-row">
