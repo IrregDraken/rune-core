@@ -42,7 +42,7 @@ class RUNERuntime:
     ) -> None:
         self.engine = RUNEEngine(model)
         self.cognition = cognition or CognitionEngine()
-        self.long_memory = long_memory or LongTermMemory()
+        self.long_memory = long_memory or LongTermMemory(db_path)
         self.planner = planner or Planner()
         self.active_plan: Plan | None = None
         self.store = SQLiteEventStore(db_path)
@@ -67,6 +67,34 @@ class RUNERuntime:
     def parse_command(self, text: str) -> ParsedCommand:
         return parse_command(text)
 
+    def set_goal(self, goal: str) -> str:
+        """Set and persist the active goal used by cognition and planning."""
+        clean = goal.strip()
+        if not clean:
+            raise ValueError("goal cannot be empty")
+        self.engine.state.current_goal = clean
+        self.long_memory.remember(
+            "goal:current",
+            clean,
+            kind="goal",
+            salience=1.0,
+            confidence=1.0,
+            tags=("goal", "current"),
+        )
+        return clean
+
+    def remember(self, key: str, value: object, *, kind: str = "semantic", salience: float = 0.8, tags: tuple[str, ...] = ()) -> dict:
+        """Persist an explicit memory without exposing storage details to callers."""
+        record = self.long_memory.remember(
+            key,
+            value,
+            kind=kind,
+            salience=salience,
+            confidence=1.0,
+            tags=tags,
+        )
+        return record.__dict__.copy()
+
     def receive(self, text: str) -> str:
         parsed = self.parse_command(text)
         if parsed.command is not None:
@@ -78,6 +106,23 @@ class RUNERuntime:
         )
         self.engine.memory.remember("cognitive_mode", assessment.mode.value)
         self.engine.memory.remember("attention_score", assessment.attention_score)
+
+        normalized = text.strip()
+        lowered = normalized.lower()
+        if lowered.startswith("remember that "):
+            fact = normalized[len("remember that "):].strip()
+            if fact:
+                key = f"episodic:{int(__import__('time').time() * 1000)}"
+                self.long_memory.remember(
+                    key,
+                    fact,
+                    kind="episodic",
+                    salience=max(0.65, assessment.significance),
+                    confidence=1.0,
+                    tags=("explicit", "user"),
+                )
+        elif lowered.startswith("my goal is "):
+            self.set_goal(normalized[len("my goal is "):])
 
         memory_hits = self.long_memory.search(text)
         for record in memory_hits[:4]:
@@ -188,4 +233,5 @@ class RUNERuntime:
         }
 
     def close(self) -> None:
+        self.long_memory.close()
         self.store.close()
