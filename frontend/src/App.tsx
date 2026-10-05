@@ -7,6 +7,8 @@ import {
   getTools,
   getVoice,
   sendMessage,
+  setGoal,
+  rememberMemory,
   type ActivityEvent,
   type RuneState,
   type ToolSpec,
@@ -310,6 +312,7 @@ function Memory({ state }: { state: RuneState | null }) {
       ))}
       {!state?.long_term_memory?.length && <div className="empty-state">No long-term memories recalled yet.</div>}
     </div>
+    <MemoryWriter />
     <SectionHeader eyebrow="PLANNING" title="Active plan" action={state?.active_plan?.status?.toUpperCase() ?? "NONE"} />
     <div className="panel plan-panel">
       {state?.active_plan ? state.active_plan.steps.map((step) => (
@@ -324,6 +327,37 @@ function Memory({ state }: { state: RuneState | null }) {
       <CognitionMetric label="SIGNIFICANCE" value={assessment?.significance} />
     </div>
   </section>;
+}
+
+function MemoryWriter() {
+  const [text, setText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const save = async () => {
+    const value = text.trim();
+    if (!value || saving) return;
+    setSaving(true);
+    setNotice("");
+    try {
+      await rememberMemory(`note:${Date.now()}`, value, "episodic", 0.85, ["explicit", "user"]);
+      setText("");
+      setNotice("Memory stored.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Memory could not be stored.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <div className="panel memory-writer">
+    <div className="panel-title"><h3>Remember something</h3><span>EXPLICIT MEMORY</span></div>
+    <div className="inline-form">
+      <input value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void save()} placeholder="Tell RUNE something worth remembering..." />
+      <button className="primary" onClick={() => void save()} disabled={saving}>{saving ? "SAVING" : "REMEMBER"}</button>
+    </div>
+    {notice && <p className="form-notice">{notice}</p>}
+  </div>;
 }
 
 function CognitionMetric({ label, value }: { label: string; value?: number }) {
@@ -342,9 +376,45 @@ function displayValue(value: unknown) {
 
 function Goals({ state }: { state: RuneState | null }) {
   const goal = state?.current_goal ?? "Build RUNE";
+  const [draft, setDraft] = useState(goal);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => setDraft(goal), [goal]);
+
+  const save = async () => {
+    const value = draft.trim();
+    if (!value || saving) return;
+    setSaving(true);
+    setNotice("");
+    try {
+      await setGoal(value);
+      setNotice("Goal persisted to RUNE memory.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Goal could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return <section className="content">
-    <SectionHeader eyebrow="DIRECTION" title="Goals" />
-    <div className="goal panel"><div><span className="goal-number">01</span><h3>{goal}</h3><p>Persistent intelligence runtime with memory, reasoning, agency, tools and verified action.</p></div><span className="goal-status">ACTIVE</span></div>
+    <SectionHeader eyebrow="DIRECTION" title="Goals" action="PERSISTENT" />
+    <div className="goal panel">
+      <div>
+        <span className="goal-number">01</span>
+        <h3>{goal}</h3>
+        <p>Active direction used by cognition when assessing significance and attention.</p>
+      </div>
+      <span className="goal-status">ACTIVE</span>
+    </div>
+    <div className="panel goal-editor">
+      <div className="panel-title"><h3>Set active goal</h3><span>AUTHENTICATED WRITE</span></div>
+      <div className="inline-form">
+        <input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void save()} placeholder="What should RUNE optimize for?" />
+        <button className="primary" onClick={() => void save()} disabled={saving}>{saving ? "SAVING" : "SAVE GOAL"}</button>
+      </div>
+      {notice && <p className="form-notice">{notice}</p>}
+    </div>
   </section>;
 }
 
