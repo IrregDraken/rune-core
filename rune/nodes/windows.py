@@ -27,6 +27,8 @@ class WindowsNode:
         Capability.PROCESS_STOP,
         Capability.WINDOW_READ,
         Capability.WINDOW_CONTROL,
+        Capability.FILE_READ,
+        Capability.FILE_WRITE,
     })
 
     def __init__(self, *, node_id: str = "windows-local") -> None:
@@ -81,7 +83,16 @@ class WindowsNode:
                     return {"status": "failed", "reason": "hwnd_required"}
                 return self._control_window(hwnd, operation)
 
-            if action.capability is Capability.PROCESS_STOP:
+            if action.capability is Capability.FILE_WRITE:
+            path = self._safe_path(action.arguments.get("path", ""))
+            return {
+                "confirmed": path is not None and path.is_file(),
+                "status": "verified",
+                "path": str(path) if path else None,
+            }
+        if action.capability is Capability.FILE_READ:
+            return {"confirmed": True, "status": "returned_content"}
+        if action.capability is Capability.PROCESS_STOP:
                 if not action.authorized:
                     return {"status": "blocked", "reason": "authorization_required"}
                 pid = str(action.arguments.get("pid", "")).strip()
@@ -89,6 +100,36 @@ class WindowsNode:
                     return {"status": "failed", "reason": "pid_required"}
                 self._system_command("taskkill", "/PID", pid, "/T", "/F")
                 return {"status": "attempted", "operation": "process_stop", "pid": int(pid)}
+
+            if action.capability is Capability.FILE_READ:
+                if not action.authorized:
+                    return {"status": "blocked", "reason": "authorization_required"}
+                path = self._safe_path(action.arguments.get("path", ""))
+                if path is None:
+                    return {"status": "blocked", "reason": "path_outside_user_home"}
+                try:
+                    data = path.read_text(encoding="utf-8")
+                except UnicodeDecodeError:
+                    return {"status": "failed", "reason": "file_is_not_utf8_text"}
+                return {
+                    "status": "succeeded",
+                    "path": str(path),
+                    "content": data[:262144],
+                    "truncated": len(data) > 262144,
+                }
+
+            if action.capability is Capability.FILE_WRITE:
+                if not action.authorized:
+                    return {"status": "blocked", "reason": "authorization_required"}
+                path = self._safe_path(action.arguments.get("path", ""))
+                if path is None:
+                    return {"status": "blocked", "reason": "path_outside_user_home"}
+                content = action.arguments.get("content", "")
+                if len(content.encode("utf-8")) > 262144:
+                    return {"status": "failed", "reason": "content_too_large"}
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+                return {"status": "attempted", "path": str(path), "bytes": len(content.encode("utf-8"))}
 
             if action.capability is Capability.PROCESS_START:
                 if not action.authorized:
@@ -177,6 +218,23 @@ class WindowsNode:
             ok = bool(user32.SetForegroundWindow(hwnd))
             return {"status": "succeeded" if ok else "failed", "operation": "focus", "hwnd": hwnd}
         return {"status": "failed", "reason": "unsupported_window_operation", "operation": operation}
+    @staticmethod
+    def _safe_path(raw_path: str):
+        """Confine file capabilities to the current user's home directory."""
+        from pathlib import Path
+
+        raw = raw_path.strip()
+        if not raw:
+            return None
+        try:
+            home = Path.home().resolve()
+            candidate = Path(raw).expanduser().resolve()
+            if os.path.commonpath((str(home), str(candidate))) != str(home):
+                return None
+            return candidate
+        except (OSError, RuntimeError, ValueError):
+            return None
+
     @staticmethod
     def _system_telemetry() -> dict[str, int]:
         """Read bounded host memory telemetry without third-party dependencies."""
