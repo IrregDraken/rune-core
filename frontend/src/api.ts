@@ -18,6 +18,18 @@ export type RuneState = {
     };
   };
   current_goal: string | null;
+  cognition?: {
+    mode: string;
+    assessment?: {
+      input: string;
+      salience: number;
+      urgency: number;
+      uncertainty: number;
+      significance: number;
+      attention_score: number;
+    } | null;
+    goals?: { description: string; priority: number; status: string }[];
+  };
   active_context: Record<string, unknown>;
   working_memory: Record<string, unknown>;
   last_decision: Record<string, unknown> | null;
