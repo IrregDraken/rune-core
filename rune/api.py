@@ -21,13 +21,18 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-RUNE-Session")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
         self.end_headers()
         self.wfile.write(body)
 
     def do_OPTIONS(self) -> None:
         self._send(204, {})
+
+    def _authorized(self) -> bool:
+        return self.runtime is not None and self.runtime.authority.accepts(
+            self.headers.get("X-RUNE-Session")
+        )
 
     def do_GET(self) -> None:
         if self.runtime is None:
@@ -59,13 +64,10 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             })
         elif path == "/api/windows":
             observation = self.runtime.node.observe()
-            self._send(
-                200,
-                {
-                    "windows": observation.get("windows", []),
-                    "status": observation.get("status", "unknown"),
-                },
-            )
+            self._send(200, {
+                "windows": observation.get("windows", []),
+                "status": observation.get("status", "unknown"),
+            })
         else:
             self._send(404, {"error": "Not found"})
 
@@ -75,7 +77,15 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             return
 
         request_path = urlparse(self.path).path
-        supported = {"/api/chat", "/api/command", "/api/workspace", "/api/window", "/api/action"}
+        supported = {
+            "/api/chat",
+            "/api/command",
+            "/api/workspace",
+            "/api/window",
+            "/api/action",
+            "/api/memory",
+            "/api/goal",
+        }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
             return
@@ -84,6 +94,34 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
 
+            if request_path in {"/api/memory", "/api/goal"} and not self._authorized():
+                self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path == "/api/memory":
+                key = str(payload.get("key", "")).strip()
+                value = payload.get("value")
+                if not key or value is None:
+                    self._send(400, {"error": "key and value are required"})
+                    return
+                record = self.runtime.remember(
+                    key,
+                    value,
+                    kind=str(payload.get("kind", "semantic")),
+                    salience=float(payload.get("salience", 0.8)),
+                    tags=tuple(str(tag) for tag in payload.get("tags", [])),
+                )
+                self._send(200, {"memory": record})
+                return
+
+            if request_path == "/api/goal":
+                goal = str(payload.get("goal", "")).strip()
+                if not goal:
+                    self._send(400, {"error": "goal is required"})
+                    return
+                self._send(200, {"goal": self.runtime.set_goal(goal)})
+                return
+
             if request_path == "/api/workspace":
                 workspace_id = str(payload.get("workspace_id", "")).strip()
                 if self.shell is None or not self.shell.activate_workspace(workspace_id):
@@ -91,13 +129,10 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                     return
                 self.shell.set_mode(ShellMode.WORKING)
                 self.shell.island_message = f"workspace: {workspace_id}"
-                self._send(
-                    200,
-                    {
-                        "workspace_id": workspace_id,
-                        "workspaces": [workspace.__dict__ for workspace in self.shell.workspaces],
-                    },
-                )
+                self._send(200, {
+                    "workspace_id": workspace_id,
+                    "workspaces": [workspace.__dict__ for workspace in self.shell.workspaces],
+                })
                 return
 
             if request_path == "/api/window":
@@ -106,13 +141,10 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                 if not operation or not hwnd:
                     self._send(400, {"error": "operation and hwnd are required"})
                     return
-                authorized = self.runtime.authority.accepts(
-                    self.headers.get("X-RUNE-Session")
-                )
                 result = self.runtime.execute_action(
                     Capability.WINDOW_CONTROL,
                     {"operation": operation, "hwnd": hwnd},
-                    authorized=authorized,
+                    authorized=self._authorized(),
                 )
                 self._send(200, result)
                 return
@@ -128,11 +160,8 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                     str(key): str(value)
                     for key, value in dict(payload.get("arguments", {})).items()
                 }
-                authorized = self.runtime.authority.accepts(
-                    self.headers.get("X-RUNE-Session")
-                )
                 result = self.runtime.execute_action(
-                    capability, arguments, authorized=authorized
+                    capability, arguments, authorized=self._authorized()
                 )
                 self._send(200, result)
                 return
@@ -147,14 +176,11 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                 if self.shell is not None:
                     self.shell.set_mode(ShellMode.COMMAND)
                     self.shell.island_message = parsed.command.value if parsed.command else None
-                self._send(
-                    200,
-                    {
-                        "kind": parsed.kind.value,
-                        "command": parsed.command.value if parsed.command else None,
-                        "raw": parsed.raw,
-                    },
-                )
+                self._send(200, {
+                    "kind": parsed.kind.value,
+                    "command": parsed.command.value if parsed.command else None,
+                    "raw": parsed.raw,
+                })
                 return
 
             response = self.runtime.receive(text)
@@ -162,6 +188,8 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                 self.shell.set_mode(ShellMode.AMBIENT)
                 self.shell.island_message = response[:120] if response else "ready"
             self._send(200, {"response": response})
+        except (TypeError, ValueError) as exc:
+            self._send(400, {"error": str(exc)})
         except Exception as exc:
             self._send(500, {"error": str(exc)})
 
