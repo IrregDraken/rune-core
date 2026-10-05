@@ -16,3 +16,24 @@ def test_cognition_tracks_goals():
 
     assert goal.priority == 1.0
     assert cognition.snapshot()["goals"][0]["description"] == "Finish the RUNE frontend"
+
+
+def test_cognition_appraises_control_and_consequence():
+    cognition = CognitionEngine()
+    assessment = cognition.assess(
+        "I am blocked, delete the old build now",
+        context={"current_goal": "ship the build"},
+    )
+
+    assert assessment.control < 0.5
+    assert assessment.consequence > 0.8
+    assert assessment.mode is CognitiveMode.PLAN
+
+
+def test_cognition_tracks_prediction_error():
+    cognition = CognitionEngine()
+    assessment = cognition.assess(
+        "verify the action",
+        context={"expected_outcome": "done", "observed_outcome": "failed"},
+    )
+    assert assessment.prediction_error == 1.0
