@@ -303,6 +303,19 @@ function Memory({ state }: { state: RuneState | null }) {
         <div className="decision-strip"><span className="section-kicker">LAST DECISION</span><strong>{decisionEntries.length ? displayValue(state?.last_decision?.status) : "No decision yet"}</strong></div>
       </div>
     </div>
+    <SectionHeader eyebrow="LONG-TERM MEMORY" title="Recalled context" action={`${state?.long_term_memory?.length ?? 0} RECORDS`} />
+    <div className="panel memory-recall">
+      {(state?.long_term_memory ?? []).slice(-6).reverse().map((record) => (
+        <div className="memory-item" key={record.key}><span>{record.key}</span><strong>{displayValue(record.value)}</strong></div>
+      ))}
+      {!state?.long_term_memory?.length && <div className="empty-state">No long-term memories recalled yet.</div>}
+    </div>
+    <SectionHeader eyebrow="PLANNING" title="Active plan" action={state?.active_plan?.status?.toUpperCase() ?? "NONE"} />
+    <div className="panel plan-panel">
+      {state?.active_plan ? state.active_plan.steps.map((step) => (
+        <div className="plan-step" key={step.id}><span className={`plan-dot ${step.status}`} /><div><strong>{step.description}</strong><span>{step.status}</span></div></div>
+      )) : <div className="empty-state">No active plan.</div>}
+    </div>
     <SectionHeader eyebrow="COGNITION" title="Current appraisal" action={state?.cognition?.mode?.toUpperCase() ?? "OBSERVE"} />
     <div className="cognition-grid">
       <CognitionMetric label="ATTENTION" value={assessment?.attention_score} />
