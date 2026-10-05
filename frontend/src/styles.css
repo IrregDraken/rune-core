@@ -275,3 +275,30 @@ button:disabled { cursor: default; opacity: .55; }
     flex-direction: column;
   }
 }
+
+
+.plan-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 14px 0 12px;
+  resize: vertical;
+  min-height: 110px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.025);
+  color: var(--text);
+  padding: 13px 14px;
+  outline: none;
+  font: 13px/1.6 "DM Mono", monospace;
+}
+
+.plan-input:focus {
+  border-color: rgba(101,255,159,.45);
+  box-shadow: 0 0 0 3px rgba(101,255,159,.07);
+}
+
+.plan-editor-list {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
