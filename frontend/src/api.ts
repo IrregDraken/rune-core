@@ -137,3 +137,23 @@ export async function controlWindow(operation: string, hwnd: number) {
     body: JSON.stringify({ operation, hwnd: String(hwnd) }),
   });
 }
+
+export async function setGoal(goal: string) {
+  return request<{ goal: string }>("/api/goal", {
+    method: "POST",
+    body: JSON.stringify({ goal }),
+  });
+}
+
+export async function rememberMemory(
+  key: string,
+  value: unknown,
+  kind = "semantic",
+  salience = 0.8,
+  tags: string[] = [],
+) {
+  return request<{ memory: Record<string, unknown> }>("/api/memory", {
+    method: "POST",
+    body: JSON.stringify({ key, value, kind, salience, tags }),
+  });
+}
