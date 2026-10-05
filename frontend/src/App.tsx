@@ -9,6 +9,8 @@ import {
   sendMessage,
   setGoal,
   rememberMemory,
+  createPlan,
+  verifyPlanStep,
   type ActivityEvent,
   type RuneState,
   type ToolSpec,
@@ -130,7 +132,7 @@ function App() {
         {view === "home" && <Home state={state} windows={windows} activity={activity} onNavigate={setView} />}
         {view === "chat" && <Chat />}
         {view === "memory" && <Memory state={state} />}
-        {view === "goals" && <Goals state={state} />}
+        {view === "goals" && <Goals state={state} onChanged={() => void refresh()} />}
         {view === "actions" && <Actions state={state} tools={tools} windows={windows} />}
         {view === "activity" && <Activity events={activity} />}
         {view === "system" && <System state={state} tools={tools} voice={voice} />}
@@ -378,11 +380,13 @@ function displayValue(value: unknown) {
   }
 }
 
-function Goals({ state }: { state: RuneState | null }) {
+function Goals({ state, onChanged }: { state: RuneState | null; onChanged: () => void }) {
   const goal = state?.current_goal ?? "Build RUNE";
   const [draft, setDraft] = useState(goal);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [steps, setSteps] = useState("");
+  const plan = state?.active_plan;
 
   useEffect(() => setDraft(goal), [goal]);
 
@@ -394,10 +398,38 @@ function Goals({ state }: { state: RuneState | null }) {
     try {
       await setGoal(value);
       setNotice("Goal persisted to RUNE memory.");
+      onChanged();
     } catch (err) {
       setNotice(err instanceof Error ? err.message : "Goal could not be saved.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const buildPlan = async () => {
+    const cleanSteps = steps.split("\n").map((item) => item.trim()).filter(Boolean);
+    if (!draft.trim() || !cleanSteps.length || saving) return;
+    setSaving(true);
+    setNotice("");
+    try {
+      await createPlan(draft.trim(), cleanSteps);
+      setSteps("");
+      setNotice("Plan created and persisted.");
+      onChanged();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Plan could not be created.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const verify = async (stepId: string) => {
+    try {
+      await verifyPlanStep(stepId, true, { source: "command-center" });
+      setNotice("Step verified. RUNE advanced the plan.");
+      onChanged();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Step could not be verified.");
     }
   };
 
@@ -417,8 +449,20 @@ function Goals({ state }: { state: RuneState | null }) {
         <input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void save()} placeholder="What should RUNE optimize for?" />
         <button className="primary" onClick={() => void save()} disabled={saving}>{saving ? "SAVING" : "SAVE GOAL"}</button>
       </div>
-      {notice && <p className="form-notice">{notice}</p>}
     </div>
+    <div className="panel goal-editor">
+      <div className="panel-title"><h3>Build a verified plan</h3><span>{plan ? plan.status.toUpperCase() : "NONE"}</span></div>
+      <textarea className="plan-input" value={steps} onChange={(event) => setSteps(event.target.value)} placeholder={"One step per line\nBuild the feature\nRun tests\nVerify the result"} rows={5} />
+      <button className="primary" onClick={() => void buildPlan()} disabled={saving}>CREATE PLAN</button>
+      {plan && <div className="plan-editor-list">
+        {plan.steps.map((step) => <div className="plan-step" key={step.id}>
+          <span className={`plan-dot ${step.status}`} />
+          <div><strong>{step.description}</strong><span>{step.status}</span></div>
+          {(step.status === "ready" || step.status === "executing") && <button className="text-button" onClick={() => void verify(step.id)}>VERIFY</button>}
+        </div>)}
+      </div>}
+    </div>
+    {notice && <p className="form-notice">{notice}</p>}
   </section>;
 }
 
