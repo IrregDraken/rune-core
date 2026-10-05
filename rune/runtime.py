@@ -6,6 +6,8 @@ import socket
 from .core.commands import ParsedCommand, parse_command
 from .core.authority import Authority
 from .core.cognition import CognitionEngine
+from .core.long_memory import LongTermMemory
+from .core.planning import Planner, Plan
 from .core.context import ContextAssembler, Retriever
 from .core.identity import IdentityProvider, LocalIdentityProvider
 from .core.tools import ToolRegistry
@@ -35,9 +37,14 @@ class RUNERuntime:
         tools: ToolRegistry | None = None,
         voice: VoicePipeline | None = None,
         cognition: CognitionEngine | None = None,
+        long_memory: LongTermMemory | None = None,
+        planner: Planner | None = None,
     ) -> None:
         self.engine = RUNEEngine(model)
         self.cognition = cognition or CognitionEngine()
+        self.long_memory = long_memory or LongTermMemory()
+        self.planner = planner or Planner()
+        self.active_plan: Plan | None = None
         self.store = SQLiteEventStore(db_path)
         self.retriever = retriever
         self.context = ContextAssembler(self.engine.memory)
@@ -72,6 +79,9 @@ class RUNERuntime:
         self.engine.memory.remember("cognitive_mode", assessment.mode.value)
         self.engine.memory.remember("attention_score", assessment.attention_score)
 
+        memory_hits = self.long_memory.search(text)
+        for record in memory_hits[:4]:
+            self.engine.memory.remember(f"memory:{record.key}", record.value)
         evidence = self.retriever.search(text) if self.retriever else []
         prompt = self.context.build(text, evidence)
         response = self.engine.receive(text, model_input=prompt)
@@ -154,6 +164,8 @@ class RUNERuntime:
                 "owner": self.identity.current().__dict__,
             },
             "cognition": self.cognition.snapshot(),
+            "long_term_memory": self.long_memory.snapshot()[-32:],
+            "active_plan": self.active_plan.__dict__ if self.active_plan else None,
             "tools": [spec.__dict__ for spec in self.tools.specs()],
             "voice": {
                 "wake_word": self.voice.wake_word is not None,
