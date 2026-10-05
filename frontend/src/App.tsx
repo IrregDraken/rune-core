@@ -130,7 +130,7 @@ function App() {
         <WorkspaceBar state={state} onActivated={() => void refresh()} />
 
         {view === "home" && <Home state={state} windows={windows} activity={activity} onNavigate={setView} />}
-        {view === "chat" && <Chat />}
+        {view === "chat" && <Chat onSent={() => void refresh()} />}
         {view === "memory" && <Memory state={state} />}
         {view === "goals" && <Goals state={state} onChanged={() => void refresh()} />}
         {view === "actions" && <Actions state={state} tools={tools} windows={windows} />}
@@ -242,7 +242,7 @@ function Home({ state, windows, activity, onNavigate }: { state: RuneState | nul
   );
 }
 
-function Chat() {
+function Chat({ onSent }: { onSent: () => void }) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<{ from: "rune" | "you"; text: string }[]>([
@@ -257,6 +257,7 @@ function Chat() {
     setSending(true);
     try {
       const response = await sendMessage(text);
+      onSent();
       setMessages((items) => [...items, { from: "rune", text: response }]);
     } catch (err) {
       setMessages((items) => [...items, { from: "rune", text: err instanceof Error ? err.message : "RUNE could not respond." }]);
@@ -485,6 +486,7 @@ function Actions({ state, tools, windows }: { state: RuneState | null; tools: To
   return <section className="content">
     <SectionHeader eyebrow="AGENCY" title="Actions" action={authorized ? "SESSION AUTHORIZED" : "READ-ONLY SESSION"} />
     {notice && <div className="notice">{notice}</div>}
+    <div className="panel lifecycle-panel"><div className="lifecycle-step"><span>01</span><strong>DECISION</strong><em>{displayValue(state?.last_decision?.status ?? "—")}</em></div><div className="lifecycle-line" /><div className="lifecycle-step"><span>02</span><strong>ATTEMPT</strong><em>{displayValue(state?.last_action?.status ?? "—")}</em></div><div className="lifecycle-line" /><div className="lifecycle-step"><span>03</span><strong>VERIFICATION</strong><em>{displayValue(state?.last_action?.verified ?? "—")}</em></div></div>
     <div className="action-grid">
       <div className="panel action-panel">
         <div className="panel-title"><h3>Computer awareness</h3><span>{state?.node?.platform ?? "OFFLINE"}</span></div>
