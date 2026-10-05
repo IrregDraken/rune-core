@@ -18,6 +18,8 @@ export type RuneState = {
     };
   };
   current_goal: string | null;
+  long_term_memory?: { key: string; value: unknown; kind: string; salience: number; confidence: number; tags: string[]; created_at: number; last_accessed: number; access_count: number }[];
+  active_plan?: { goal: string; steps: { id: string; description: string; capability?: string | null; requires_authority: boolean; status: string }[]; status: string } | null;
   cognition?: {
     mode: string;
     assessment?: {
