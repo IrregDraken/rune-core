@@ -5,6 +5,7 @@ import socket
 
 from .core.commands import ParsedCommand, parse_command
 from .core.authority import Authority
+from .core.cognition import CognitionEngine
 from .core.context import ContextAssembler, Retriever
 from .core.identity import IdentityProvider, LocalIdentityProvider
 from .core.tools import ToolRegistry
@@ -19,6 +20,7 @@ try:
 except ImportError:  # pragma: no cover - platform-specific adapter
     WindowsNode = None  # type: ignore[assignment]
 
+
 class RUNERuntime:
     """Composition root for a persistent local RUNE process."""
 
@@ -32,8 +34,10 @@ class RUNERuntime:
         identity: IdentityProvider | None = None,
         tools: ToolRegistry | None = None,
         voice: VoicePipeline | None = None,
+        cognition: CognitionEngine | None = None,
     ) -> None:
         self.engine = RUNEEngine(model)
+        self.cognition = cognition or CognitionEngine()
         self.store = SQLiteEventStore(db_path)
         self.retriever = retriever
         self.context = ContextAssembler(self.engine.memory)
@@ -60,12 +64,26 @@ class RUNERuntime:
         parsed = self.parse_command(text)
         if parsed.command is not None:
             self.engine.memory.remember("last_command", parsed.command.value)
+
+        assessment = self.cognition.assess(
+            text,
+            context={"current_goal": self.engine.state.current_goal},
+        )
+        self.engine.memory.remember("cognitive_mode", assessment.mode.value)
+        self.engine.memory.remember("attention_score", assessment.attention_score)
+
         evidence = self.retriever.search(text) if self.retriever else []
         prompt = self.context.build(text, evidence)
         response = self.engine.receive(text, model_input=prompt)
+        self.engine.state.active_context = {
+            "cognitive_mode": assessment.mode.value,
+            "attention_score": assessment.attention_score,
+            "urgency": assessment.urgency,
+            "uncertainty": assessment.uncertainty,
+            "significance": assessment.significance,
+        }
         self._persist_new_events()
         return response
-
 
     def execute_action(
         self,
@@ -135,6 +153,7 @@ class RUNERuntime:
                 "role": state.identity.role,
                 "owner": self.identity.current().__dict__,
             },
+            "cognition": self.cognition.snapshot(),
             "tools": [spec.__dict__ for spec in self.tools.specs()],
             "voice": {
                 "wake_word": self.voice.wake_word is not None,
