@@ -44,7 +44,10 @@ class RUNERuntime:
         self.cognition = cognition or CognitionEngine()
         self.long_memory = long_memory or LongTermMemory(db_path)
         self.planner = planner or Planner()
-        self.active_plan: Plan | None = None
+        stored_plan = self.long_memory.recall("plan:active")
+        self.active_plan: Plan | None = (
+            self.planner.restore(stored_plan) if isinstance(stored_plan, dict) else None
+        )
         self.store = SQLiteEventStore(db_path)
         self.retriever = retriever
         self.context = ContextAssembler(self.engine.memory)
@@ -82,6 +85,60 @@ class RUNERuntime:
             tags=("goal", "current"),
         )
         return clean
+
+    def create_plan(self, goal: str, steps: list[dict[str, object]]) -> dict:
+        from .core.planning import PlanStep
+
+        clean_goal = goal.strip()
+        if not clean_goal or not steps:
+            raise ValueError("goal and at least one step are required")
+        plan_steps = [
+            PlanStep(
+                id=str(step.get("id") or f"step-{index + 1}"),
+                description=str(step.get("description", "")).strip(),
+                capability=str(step["capability"]) if step.get("capability") else None,
+                requires_authority=bool(step.get("requires_authority", False)),
+            )
+            for index, step in enumerate(steps)
+        ]
+        if any(not step.description for step in plan_steps):
+            raise ValueError("every plan step needs a description")
+        self.active_plan = self.planner.create(clean_goal, plan_steps)
+        self.long_memory.remember(
+            "plan:active",
+            self.active_plan.to_dict(),
+            kind="procedural",
+            salience=0.95,
+            confidence=1.0,
+            tags=("plan", "active"),
+        )
+        self.set_goal(clean_goal)
+        return self.active_plan.to_dict()
+
+    def verify_plan_step(self, step_id: str, evidence: dict[str, object]) -> dict:
+        if self.active_plan is None:
+            raise ValueError("no active plan")
+        step = self.planner.verify_step(self.active_plan, step_id, evidence)
+        if step is None:
+            raise ValueError("plan step not found")
+        self.long_memory.remember(
+            "plan:active",
+            self.active_plan.to_dict(),
+            kind="procedural",
+            salience=0.95,
+            confidence=1.0,
+            tags=("plan", "active"),
+        )
+        if self.active_plan.status.value in {"complete", "failed"}:
+            self.long_memory.remember(
+                f"plan:{self.active_plan.status.value}:{int(__import__('time').time() * 1000)}",
+                self.active_plan.to_dict(),
+                kind="episodic",
+                salience=0.8,
+                confidence=1.0,
+                tags=("plan", self.active_plan.status.value),
+            )
+        return self.active_plan.to_dict()
 
     def remember(self, key: str, value: object, *, kind: str = "semantic", salience: float = 0.8, tags: tuple[str, ...] = ()) -> dict:
         """Persist an explicit memory without exposing storage details to callers."""
@@ -214,7 +271,7 @@ class RUNERuntime:
             },
             "cognition": self.cognition.snapshot(),
             "long_term_memory": self.long_memory.snapshot()[-32:],
-            "active_plan": self.active_plan.__dict__ if self.active_plan else None,
+            "active_plan": self.active_plan.to_dict() if self.active_plan else None,
             "tools": [spec.__dict__ for spec in self.tools.specs()],
             "voice": {
                 "wake_word": self.voice.wake_word is not None,
