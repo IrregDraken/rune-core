@@ -325,6 +325,10 @@ function Memory({ state }: { state: RuneState | null }) {
       <CognitionMetric label="URGENCY" value={assessment?.urgency} />
       <CognitionMetric label="UNCERTAINTY" value={assessment?.uncertainty} />
       <CognitionMetric label="SIGNIFICANCE" value={assessment?.significance} />
+      <CognitionMetric label="CONTROL" value={assessment?.control} />
+      <CognitionMetric label="CONSEQUENCE" value={assessment?.consequence} />
+      <CognitionMetric label="GOAL PRESSURE" value={assessment?.goal_pressure} />
+      <CognitionMetric label="PREDICTION ERROR" value={assessment?.prediction_error} />
     </div>
   </section>;
 }
