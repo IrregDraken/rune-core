@@ -29,6 +29,10 @@ export type RuneState = {
       uncertainty: number;
       significance: number;
       attention_score: number;
+      control: number;
+      consequence: number;
+      goal_pressure: number;
+      prediction_error: number;
     } | null;
     goals?: { description: string; priority: number; status: string }[];
   };
