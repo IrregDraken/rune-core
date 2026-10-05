@@ -43,3 +43,32 @@ def test_context_contains_memory():
     prompt = runtime.context.build("continue")
     runtime.close()
     assert "project: RUNE" in prompt
+
+
+def test_runtime_persists_explicit_memory_and_goal(tmp_path: Path):
+    db = tmp_path / "rune.db"
+    runtime = RUNERuntime(DeterministicModel(), db_path=str(db))
+    runtime.receive("Remember that RUNE should feel like home.")
+    runtime.set_goal("Ship the RUNE core")
+    runtime.close()
+
+    restored = RUNERuntime(DeterministicModel(), db_path=str(db))
+    assert any(
+        "feel like home" in str(record.value)
+        for record in restored.long_memory.records.values()
+    )
+    assert restored.long_memory.recall("goal:current") == "Ship the RUNE core"
+    restored.close()
+
+
+def test_runtime_restores_active_plan(tmp_path: Path):
+    db = tmp_path / "rune.db"
+    runtime = RUNERuntime(DeterministicModel(), db_path=str(db))
+    runtime.create_plan("ship", [{"id": "one", "description": "run tests"}])
+    runtime.close()
+
+    restored = RUNERuntime(DeterministicModel(), db_path=str(db))
+    assert restored.active_plan is not None
+    assert restored.active_plan.goal == "ship"
+    assert restored.active_plan.steps[0].status.value == "ready"
+    restored.close()
