@@ -5,6 +5,7 @@ import os
 import platform
 import socket
 import subprocess
+from pathlib import Path
 from typing import Any
 
 from rune.core.node import Capability, NodeAction, NodeInfo
@@ -83,16 +84,7 @@ class WindowsNode:
                     return {"status": "failed", "reason": "hwnd_required"}
                 return self._control_window(hwnd, operation)
 
-            if action.capability is Capability.FILE_WRITE:
-            path = self._safe_path(action.arguments.get("path", ""))
-            return {
-                "confirmed": path is not None and path.is_file(),
-                "status": "verified",
-                "path": str(path) if path else None,
-            }
-        if action.capability is Capability.FILE_READ:
-            return {"confirmed": True, "status": "returned_content"}
-        if action.capability is Capability.PROCESS_STOP:
+            if action.capability is Capability.PROCESS_STOP:
                 if not action.authorized:
                     return {"status": "blocked", "reason": "authorization_required"}
                 pid = str(action.arguments.get("pid", "")).strip()
@@ -100,6 +92,15 @@ class WindowsNode:
                     return {"status": "failed", "reason": "pid_required"}
                 self._system_command("taskkill", "/PID", pid, "/T", "/F")
                 return {"status": "attempted", "operation": "process_stop", "pid": int(pid)}
+
+            if action.capability is Capability.PROCESS_START:
+                if not action.authorized:
+                    return {"status": "blocked", "reason": "authorization_required"}
+                executable = action.arguments.get("executable", "").strip()
+                if not executable:
+                    return {"status": "failed", "reason": "executable_required"}
+                process = subprocess.Popen(executable, shell=False)
+                return {"status": "succeeded", "pid": process.pid, "executable": executable}
 
             if action.capability is Capability.FILE_READ:
                 if not action.authorized:
@@ -125,20 +126,12 @@ class WindowsNode:
                 if path is None:
                     return {"status": "blocked", "reason": "path_outside_user_home"}
                 content = action.arguments.get("content", "")
-                if len(content.encode("utf-8")) > 262144:
+                encoded = content.encode("utf-8")
+                if len(encoded) > 262144:
                     return {"status": "failed", "reason": "content_too_large"}
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(content, encoding="utf-8")
-                return {"status": "attempted", "path": str(path), "bytes": len(content.encode("utf-8"))}
-
-            if action.capability is Capability.PROCESS_START:
-                if not action.authorized:
-                    return {"status": "blocked", "reason": "authorization_required"}
-                executable = action.arguments.get("executable", "").strip()
-                if not executable:
-                    return {"status": "failed", "reason": "executable_required"}
-                process = subprocess.Popen(executable, shell=False)
-                return {"status": "succeeded", "pid": process.pid, "executable": executable}
+                path.write_bytes(encoded)
+                return {"status": "attempted", "path": str(path), "bytes": len(encoded)}
 
             return {"status": "blocked", "reason": "unsupported_capability"}
         except (OSError, subprocess.SubprocessError) as exc:
@@ -163,21 +156,47 @@ class WindowsNode:
             return {"status": "failed", "reason": str(exc)}
 
     def verify(self, action: NodeAction) -> dict[str, Any]:
-        # Reboot/shutdown terminate the current process, so immediate positive
-        # verification is not possible from this node. The core must observe a
-        # later heartbeat to confirm those transitions.
         if action.capability in {Capability.SYSTEM_REBOOT, Capability.SYSTEM_SHUTDOWN}:
             return {"confirmed": False, "status": "awaiting_reconnect"}
         if action.capability is Capability.SYSTEM_LOCK:
             return {"confirmed": False, "status": "requires_desktop_observer"}
-        if action.capability in {Capability.PROCESS_READ, Capability.WINDOW_READ}:
+        if action.capability in {Capability.PROCESS_READ, Capability.WINDOW_READ, Capability.FILE_READ}:
             return {"confirmed": True, "status": "observable"}
+        if action.capability is Capability.FILE_WRITE:
+            path = self._safe_path(action.arguments.get("path", ""))
+            expected = action.arguments.get("content", "").encode("utf-8")
+            if path is None or not path.is_file():
+                return {"confirmed": False, "status": "file_missing"}
+            try:
+                actual = path.read_bytes()
+                return {
+                    "confirmed": actual == expected,
+                    "status": "verified",
+                    "bytes": len(actual),
+                }
+            except OSError:
+                return {"confirmed": False, "status": "readback_failed"}
         if action.capability is Capability.PROCESS_STOP:
             pid = str(action.arguments.get("pid", "")).strip()
             if pid.isdigit():
                 exists = any(row.get("pid") == pid for row in self._processes())
                 return {"confirmed": not exists, "status": "verified"}
         return {"confirmed": False, "status": "unknown"}
+
+    @staticmethod
+    def _safe_path(raw_path: str) -> Path | None:
+        """Confine file capabilities to the current user's home directory."""
+        raw = raw_path.strip()
+        if not raw:
+            return None
+        try:
+            home = Path.home().resolve()
+            candidate = Path(raw).expanduser().resolve()
+            if os.path.commonpath((str(home), str(candidate))) != str(home):
+                return None
+            return candidate
+        except (OSError, RuntimeError, ValueError):
+            return None
 
     @staticmethod
     def _windows() -> list[dict[str, Any]]:
@@ -218,29 +237,11 @@ class WindowsNode:
             ok = bool(user32.SetForegroundWindow(hwnd))
             return {"status": "succeeded" if ok else "failed", "operation": "focus", "hwnd": hwnd}
         return {"status": "failed", "reason": "unsupported_window_operation", "operation": operation}
-    @staticmethod
-    def _safe_path(raw_path: str):
-        """Confine file capabilities to the current user's home directory."""
-        from pathlib import Path
-
-        raw = raw_path.strip()
-        if not raw:
-            return None
-        try:
-            home = Path.home().resolve()
-            candidate = Path(raw).expanduser().resolve()
-            if os.path.commonpath((str(home), str(candidate))) != str(home):
-                return None
-            return candidate
-        except (OSError, RuntimeError, ValueError):
-            return None
 
     @staticmethod
     def _system_telemetry() -> dict[str, int]:
         """Read bounded host memory telemetry without third-party dependencies."""
         try:
-            import ctypes
-
             class MemoryStatus(ctypes.Structure):
                 _fields_ = [
                     ("length", ctypes.c_ulong),
