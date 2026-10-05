@@ -100,7 +100,7 @@ class CognitionEngine:
             0.0 if expected == observed else 1.0
         )
 
-        if consequence >= 0.8 or (uncertainty >= 0.7 and salience >= 0.7):
+        if urgency >= 0.8 or consequence >= 0.8 or (uncertainty >= 0.7 and salience >= 0.7):
             mode = CognitiveMode.PLAN
         elif any(term in normalized for term in action_terms):
             mode = CognitiveMode.ACT
