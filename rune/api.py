@@ -85,6 +85,8 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             "/api/action",
             "/api/memory",
             "/api/goal",
+            "/api/plan",
+            "/api/plan/verify",
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
@@ -120,6 +122,24 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                     self._send(400, {"error": "goal is required"})
                     return
                 self._send(200, {"goal": self.runtime.set_goal(goal)})
+                return
+
+            if request_path == "/api/plan":
+                goal = str(payload.get("goal", "")).strip()
+                steps = payload.get("steps", [])
+                if not isinstance(steps, list):
+                    self._send(400, {"error": "steps must be an array"})
+                    return
+                self._send(200, {"plan": self.runtime.create_plan(goal, steps)})
+                return
+
+            if request_path == "/api/plan/verify":
+                step_id = str(payload.get("step_id", "")).strip()
+                evidence = payload.get("evidence", {})
+                if not step_id or not isinstance(evidence, dict):
+                    self._send(400, {"error": "step_id and evidence are required"})
+                    return
+                self._send(200, {"plan": self.runtime.verify_plan_step(step_id, evidence)})
                 return
 
             if request_path == "/api/workspace":
