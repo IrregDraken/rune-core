@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 
 class PlanStatus(str, Enum):
@@ -20,7 +21,7 @@ class PlanStep:
     capability: str | None = None
     requires_authority: bool = False
     status: PlanStatus = PlanStatus.PROPOSED
-    verification: dict = field(default_factory=dict)
+    verification: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -35,11 +36,47 @@ class Plan:
                 return step
         return None
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "goal": self.goal,
+            "status": self.status.value,
+            "steps": [
+                {
+                    "id": step.id,
+                    "description": step.description,
+                    "capability": step.capability,
+                    "requires_authority": step.requires_authority,
+                    "status": step.status.value,
+                    "verification": step.verification,
+                }
+                for step in self.steps
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Plan":
+        steps = [
+            PlanStep(
+                id=str(item["id"]),
+                description=str(item["description"]),
+                capability=item.get("capability"),
+                requires_authority=bool(item.get("requires_authority", False)),
+                status=PlanStatus(item.get("status", PlanStatus.PROPOSED.value)),
+                verification=dict(item.get("verification", {})),
+            )
+            for item in data.get("steps", [])
+        ]
+        return cls(
+            goal=str(data.get("goal", "")),
+            steps=steps,
+            status=PlanStatus(data.get("status", PlanStatus.PROPOSED.value)),
+        )
+
 
 class Planner:
     """Conservative plan container.
 
-    It does not execute anything. Execution remains owned by the agency/node
+    It never executes actions. Execution remains owned by the agency/node
     pipeline, keeping planning separate from authority.
     """
 
@@ -48,6 +85,9 @@ class Planner:
         if steps:
             steps[0].status = PlanStatus.READY
         return plan
+
+    def restore(self, data: dict[str, Any]) -> Plan:
+        return Plan.from_dict(data)
 
     def mark_executing(self, plan: Plan, step_id: str) -> None:
         step = self._step(plan, step_id)
@@ -65,6 +105,7 @@ class Planner:
             next_step = plan.next_step()
             if next_step:
                 next_step.status = PlanStatus.READY
+                plan.status = PlanStatus.READY
             else:
                 plan.status = PlanStatus.COMPLETE
         elif evidence.get("confirmed") is False:
