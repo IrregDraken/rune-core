@@ -10,15 +10,15 @@ understand -> remember -> retrieve -> reason -> decide -> act with permission ->
 
 ## Current architecture
 
-- Kernel: identity, events, runtime state, working memory, agency and verification
-- Persistence: SQLite event journal for the local-first runtime
+- Kernel: identity, events, runtime state, working memory, cognition, agency and verification
+- Persistence: SQLite event journal plus durable long-term memory and active-plan state
 - Context: bounded working context assembled from memory and external evidence
 - Model boundary: ModelProvider, keeping RUNE independent of any single model
 - Local inference: optional Ollama adapter
 - Retrieval boundary: provider-neutral retriever interface
 - Runtime: composition layer for local persistent operation
 - API: local HTTP control surface for shell clients
-- Node: controlled OS adapter with Windows process/window awareness
+- Node: controlled OS adapter with Windows process/window awareness and authorized user-home file access
 - Shell: workspace state, RUNE Island state and desktop presentation
 - Desktop: lightweight always-on-top Windows RUNE Island with chat and telemetry
 
@@ -60,9 +60,11 @@ RUNE can run locally while still using the internet for fresh information. The l
 
 ## Status
 
-Milestone 0.3: persistent runtime + OS node + shell state + live Windows awareness + desktop RUNE Island.
+Milestone 0.4: persistent cognition + durable memory + verified planning + authenticated local agency + desktop command center.
 
-The next major layer is authenticated computer control, followed by voice, richer memory retrieval, and cross-device nodes.
+The runtime now has explicit appraisal signals, durable episodic/semantic/preference memory, persistent goals, serializable plans, verified plan progression, authenticated memory/goal/plan writes, Windows window/process control, and sandboxed user-home file capabilities.
+
+Next major layers are richer computer perception/control, real voice providers, identity hardening with trusted-device/passkey/biometric boundaries, cross-device nodes, and only then external tool/API connectors.
 
 ## Brand system
 
