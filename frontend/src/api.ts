@@ -161,3 +161,24 @@ export async function rememberMemory(
     body: JSON.stringify({ key, value, kind, salience, tags }),
   });
 }
+
+
+export async function createPlan(goal: string, steps: string[]) {
+  return request<{ plan: Record<string, unknown> }>("/api/plan", {
+    method: "POST",
+    body: JSON.stringify({
+      goal,
+      steps: steps.map((description, index) => ({ id: `step-${index + 1}`, description })),
+    }),
+  });
+}
+
+export async function verifyPlanStep(stepId: string, confirmed: boolean, evidence: Record<string, unknown> = {}) {
+  return request<{ plan: Record<string, unknown> }>("/api/plan/verify", {
+    method: "POST",
+    body: JSON.stringify({
+      step_id: stepId,
+      evidence: { ...evidence, confirmed },
+    }),
+  });
+}
