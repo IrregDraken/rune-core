@@ -218,3 +218,14 @@ button:disabled { cursor: default; opacity: .55; }
   .window-row { padding:0 13px; }
   .activity-row { padding:0 13px; }
 }
+
+
+.cognition-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.cognition-metric { padding: 16px; }
+.metric-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
+.metric-top span { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: .12em; opacity: .62; }
+.metric-top strong { font-family: "DM Mono", monospace; font-size: 13px; }
+.metric-track { height: 4px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
+.metric-track span { display: block; height: 100%; border-radius: inherit; background: #8dffb1; transition: width .35s ease; }
+@media (max-width: 900px) { .cognition-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .cognition-grid { grid-template-columns: 1fr; } }
