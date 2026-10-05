@@ -96,7 +96,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
 
-            if request_path in {"/api/memory", "/api/goal"} and not self._authorized():
+            if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify"} and not self._authorized():
                 self._send(403, {"error": "privileged session required"})
                 return
 
