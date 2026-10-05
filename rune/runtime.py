@@ -136,6 +136,10 @@ class RUNERuntime:
             "urgency": assessment.urgency,
             "uncertainty": assessment.uncertainty,
             "significance": assessment.significance,
+            "control": assessment.control,
+            "consequence": assessment.consequence,
+            "goal_pressure": assessment.goal_pressure,
+            "prediction_error": assessment.prediction_error,
         }
         self._persist_new_events()
         return response
