@@ -287,6 +287,7 @@ function Memory({ state }: { state: RuneState | null }) {
   const entries = Object.entries(state?.working_memory ?? {});
   const contextEntries = Object.entries(state?.active_context ?? {});
   const decisionEntries = Object.entries(state?.last_decision ?? {});
+  const assessment = state?.cognition?.assessment;
   return <section className="content">
     <SectionHeader eyebrow="PERSISTENT CONTEXT" title="Memory" action="LOCAL SQLITE" />
     <div className="memory-grid">
@@ -299,15 +300,23 @@ function Memory({ state }: { state: RuneState | null }) {
         <div className="panel-title"><h3>Active context</h3><span>{contextEntries.length} SIGNALS</span></div>
         <p className="muted">Context currently available to the runtime before it decides what to do next.</p>
         {contextEntries.length ? contextEntries.map(([key, value]) => <div className="memory-item" key={key}><span>{key}</span><strong>{displayValue(value)}</strong></div>) : <div className="empty-state">No active context signals.</div>}
-        <div className="decision-strip">
-          <span className="section-kicker">LAST DECISION</span>
-          <strong>{decisionEntries.length ? displayValue(state?.last_decision?.status) : "No decision yet"}</strong>
-        </div>
+        <div className="decision-strip"><span className="section-kicker">LAST DECISION</span><strong>{decisionEntries.length ? displayValue(state?.last_decision?.status) : "No decision yet"}</strong></div>
       </div>
+    </div>
+    <SectionHeader eyebrow="COGNITION" title="Current appraisal" action={state?.cognition?.mode?.toUpperCase() ?? "OBSERVE"} />
+    <div className="cognition-grid">
+      <CognitionMetric label="ATTENTION" value={assessment?.attention_score} />
+      <CognitionMetric label="URGENCY" value={assessment?.urgency} />
+      <CognitionMetric label="UNCERTAINTY" value={assessment?.uncertainty} />
+      <CognitionMetric label="SIGNIFICANCE" value={assessment?.significance} />
     </div>
   </section>;
 }
 
+function CognitionMetric({ label, value }: { label: string; value?: number }) {
+  const percentage = value == null ? 0 : Math.round(value * 100);
+  return <div className="panel cognition-metric"><div className="metric-top"><span>{label}</span><strong>{value == null ? "—" : `${percentage}%`}</strong></div><div className="metric-track"><span style={{ width: `${percentage}%` }} /></div></div>;
+}
 function displayValue(value: unknown) {
   if (value == null) return "—";
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
