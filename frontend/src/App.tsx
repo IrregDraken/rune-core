@@ -46,6 +46,7 @@ function App() {
   const [online, setOnline] = useState(false);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [activityFilter, setActivityFilter] = useState("ALL");
 
   const refresh = async () => {
     try {
@@ -134,7 +135,7 @@ function App() {
         {view === "memory" && <Memory state={state} />}
         {view === "goals" && <Goals state={state} onChanged={() => void refresh()} />}
         {view === "actions" && <Actions state={state} tools={tools} windows={windows} />}
-        {view === "activity" && <Activity events={activity} />}
+        {view === "activity" && <Activity events={activity} filter={activityFilter} onFilter={setActivityFilter} />}
         {view === "system" && <System state={state} tools={tools} voice={voice} />}
       </main>
     </div>
@@ -501,10 +502,13 @@ function Actions({ state, tools, windows }: { state: RuneState | null; tools: To
   </section>;
 }
 
-function Activity({ events }: { events: ActivityEvent[] }) {
+function Activity({ events, filter, onFilter }: { events: ActivityEvent[]; filter: string; onFilter: (value: string) => void }) {
+  const types = ["ALL", ...Array.from(new Set(events.map((event) => event.type)))];
+  const filtered = filter === "ALL" ? events : events.filter((event) => event.type === filter);
   return <section className="content">
-    <SectionHeader eyebrow="EVENT JOURNAL" title="Activity" action={`${events.length} EVENTS`} />
-    <ActivityList events={[...events].reverse()} detailed />
+    <SectionHeader eyebrow="EVENT JOURNAL" title="Activity" action={filtered.length + " / " + events.length + " EVENTS"} />
+    <div className="activity-filters">{types.map((type) => <button key={type} className={filter === type ? "filter-chip active" : "filter-chip"} onClick={() => onFilter(type)}>{type.replaceAll("_", " ")}</button>)}</div>
+    <ActivityList events={[...filtered].reverse()} detailed />
   </section>;
 }
 
