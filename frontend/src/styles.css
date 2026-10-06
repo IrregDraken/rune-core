@@ -307,3 +307,5 @@ button:disabled { cursor: default; opacity: .55; }
 @media (max-width:560px){.lifecycle-panel{overflow-x:auto}.lifecycle-line{min-width:24px}.lifecycle-step{min-width:105px}}
 
 .activity-filters{display:flex;gap:8px;flex-wrap:wrap;margin:-6px 0 18px}.filter-chip{border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:999px;padding:8px 12px;font:500 10px "DM Mono",monospace;letter-spacing:.08em;cursor:pointer;transition:.18s ease}.filter-chip:hover,.filter-chip.active{border-color:var(--line-strong);color:var(--green);background:var(--green-soft)}
+
+.telemetry-card{grid-column:span 1;min-height:128px}.telemetry-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.telemetry-head span,.telemetry-card small{font:500 9px "DM Mono",monospace;letter-spacing:.12em;color:var(--muted)}.telemetry-head strong{font:600 18px "DM Mono",monospace;color:var(--green)}.telemetry-card svg{width:100%;height:54px;overflow:visible}.telemetry-card path{stroke:var(--green);stroke-width:1.6;filter:drop-shadow(0 0 4px rgba(125,255,178,.28))}.telemetry-card small{display:block;margin-top:8px}
