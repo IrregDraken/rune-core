@@ -47,6 +47,7 @@ function App() {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [activityFilter, setActivityFilter] = useState("ALL");
+  const [telemetryHistory, setTelemetryHistory] = useState<number[]>([]);
 
   const refresh = async () => {
     try {
@@ -58,6 +59,8 @@ function App() {
         getVoice(),
       ]);
       setState(next);
+      const load = next.node?.observation?.system?.memory_load_percent;
+      if (typeof load === "number") setTelemetryHistory((items) => [...items.slice(-23), load]);
       setActivity(trail.events);
       setTools(toolData.tools);
       setVoice(voiceData);
@@ -130,7 +133,7 @@ function App() {
 
         <WorkspaceBar state={state} onActivated={() => void refresh()} />
 
-        {view === "home" && <Home state={state} windows={windows} activity={activity} onNavigate={setView} />}
+        {view === "home" && <Home state={state} windows={windows} activity={activity} telemetry={telemetryHistory} onNavigate={setView} />}
         {view === "chat" && <Chat onSent={() => void refresh()} />}
         {view === "memory" && <Memory state={state} />}
         {view === "goals" && <Goals state={state} onChanged={() => void refresh()} />}
@@ -206,7 +209,7 @@ function titleFor(view: View) {
   }[view];
 }
 
-function Home({ state, windows, activity, onNavigate }: { state: RuneState | null; windows: WindowInfo[]; activity: ActivityEvent[]; onNavigate: (view: View) => void }) {
+function Home({ state, windows, activity, telemetry, onNavigate }: { state: RuneState | null; windows: WindowInfo[]; activity: ActivityEvent[]; telemetry: number[]; onNavigate: (view: View) => void }) {
   const memoryLoad = state?.node?.observation?.system?.memory_load_percent;
   const activeGoal = state?.current_goal ?? "Build RUNE";
   return (
@@ -228,7 +231,7 @@ function Home({ state, windows, activity, onNavigate }: { state: RuneState | nul
       </div>
 
       <SectionHeader eyebrow="LIVE CONTEXT" title="RUNE's current awareness" action="Memory ↗" onClick={() => onNavigate("memory")} />
-      <div className="cards-3">
+      <div className="cards-3"><TelemetryCard values={telemetry} current={memoryLoad} />
         <InfoCard title="WINDOWS" value={String(windows.length)} meta="Visible top-level windows" />
         <InfoCard title="PROCESSES" value={String(state?.node?.observation?.process_count ?? "—")} meta="Observed by local node" />
         <InfoCard title="AVAILABLE RAM" value={state?.node?.observation?.system?.memory_available_mb ? `${Math.round(state.node.observation.system.memory_available_mb / 1024 * 10) / 10} GB` : "—"} meta="Windows telemetry" />
@@ -539,6 +542,19 @@ function SectionHeader({ eyebrow, title, action, onClick }: { eyebrow: string; t
 
 function StateCard({ label, value, detail }: { label: string; value: string; detail: string }) {
   return <div className="panel state-card"><span className="section-kicker">{label}</span><strong>{value}</strong><span>{detail}</span></div>;
+}
+
+function TelemetryCard({ values, current }: { values: number[]; current?: number }) {
+  const points = values.length ? values : [current ?? 0];
+  const max = Math.max(100, ...points);
+  const width = 240;
+  const height = 54;
+  const path = points.map((value, index) => {
+    const x = points.length === 1 ? width : (index / (points.length - 1)) * width;
+    const y = height - (value / max) * height;
+    return (index ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+  }).join(" ");
+  return <div className="panel telemetry-card"><div className="telemetry-head"><span>MEMORY TREND</span><strong>{current == null ? "—" : current + "%"}</strong></div><svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label="Memory telemetry trend"><path d={path} fill="none" /></svg><small>Last {points.length} observations</small></div>;
 }
 
 function InfoCard({ title, value, meta }: { title: string; value: string; meta: string }) {
