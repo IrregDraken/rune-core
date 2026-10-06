@@ -249,20 +249,20 @@ function Home({ state, windows, activity, telemetry, onNavigate }: { state: Rune
 function Chat({ onSent }: { onSent: () => void }) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [messages, setMessages] = useState<{ from: "rune" | "you"; text: string }[]>([
-    { from: "rune", text: "I'm online. Talk to me." },
+  const [messages, setMessages] = useState<{ from: "rune" | "you"; text: string; time: number }[]>([
+    { from: "rune", text: "I'm online. Talk to me.", time: Date.now() },
   ]);
 
   const send = async () => {
     const text = message.trim();
     if (!text || sending) return;
-    setMessages((items) => [...items, { from: "you", text }]);
+    setMessages((items) => [...items, { from: "you", text, time: Date.now() }]);
     setMessage("");
     setSending(true);
     try {
       const response = await sendMessage(text);
       onSent();
-      setMessages((items) => [...items, { from: "rune", text: response }]);
+      setMessages((items) => [...items, { from: "rune", text: response, time: Date.now() }]);
     } catch (err) {
       setMessages((items) => [...items, { from: "rune", text: err instanceof Error ? err.message : "RUNE could not respond." }]);
     } finally {
@@ -277,7 +277,7 @@ function Chat({ onSent }: { onSent: () => void }) {
         <div className="messages">
           {messages.map((item, index) => (
             <div className={item.from === "you" ? "message user" : "message"} key={index}>
-              <span className="message-label">{item.from === "you" ? "YOU" : "RUNE"}</span>
+              <span className="message-label">{item.from === "you" ? "YOU" : "RUNE"} <time>{new Date(item.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></span>
               <p>{item.text}</p>
             </div>
           ))}
