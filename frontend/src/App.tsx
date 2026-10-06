@@ -275,6 +275,7 @@ function Chat({ onSent }: { onSent: () => void }) {
       <div className="panel conversation">
         <div className="panel-head"><div><span className="section-kicker">LIVE CHANNEL</span><h2>Conversation</h2></div><span className="live-chip">LOCAL</span></div>
         <div className="messages">
+          <div className="conversation-status"><span className="status-dot" /> SESSION ACTIVE · LOCAL RUNTIME</div>
           {messages.map((item, index) => (
             <div className={item.from === "you" ? "message user" : "message"} key={index}>
               <span className="message-label">{item.from === "you" ? "YOU" : "RUNE"} <time>{new Date(item.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></span>
