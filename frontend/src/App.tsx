@@ -327,6 +327,7 @@ function Memory({ state }: { state: RuneState | null }) {
       )) : <div className="empty-state">No active plan.</div>}
     </div>
     <SectionHeader eyebrow="COGNITION" title="Current appraisal" action={state?.cognition?.mode?.toUpperCase() ?? "OBSERVE"} />
+    <CognitionPulse assessment={assessment} />
     <div className="cognition-grid">
       <CognitionMetric label="ATTENTION" value={assessment?.attention_score} />
       <CognitionMetric label="URGENCY" value={assessment?.urgency} />
@@ -368,6 +369,19 @@ function MemoryWriter() {
       <button className="primary" onClick={() => void save()} disabled={saving}>{saving ? "SAVING" : "REMEMBER"}</button>
     </div>
     {notice && <p className="form-notice">{notice}</p>}
+  </div>;
+}
+
+function CognitionPulse({ assessment }: { assessment?: RuneState["cognition"]["assessment"] }) {
+  const score = assessment?.attention_score ?? 0;
+  const urgency = assessment?.urgency ?? 0;
+  const uncertainty = assessment?.uncertainty ?? 0;
+  const pressure = Math.round(((score + urgency + uncertainty) / 3) * 100);
+  const stateLabel = urgency > 0.72 ? "HIGH PRIORITY" : score > 0.58 ? "FOCUSED" : uncertainty > 0.62 ? "SEEKING CLARITY" : "AMBIENT";
+  return <div className="panel cognition-pulse">
+    <div className="pulse-orb"><span /><span /><img src="/rune-glyph.svg" alt="" /></div>
+    <div className="pulse-copy"><span className="section-kicker">COGNITIVE STATE</span><strong>{stateLabel}</strong><p>Attention pressure {pressure}% · attention, urgency and uncertainty combined</p></div>
+    <div className="pulse-score"><span>{pressure}</span><small>%</small></div>
   </div>;
 }
 
