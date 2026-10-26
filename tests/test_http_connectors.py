@@ -1056,3 +1056,56 @@ def test_google_gmail_send_uses_messages_send_endpoint(monkeypatch):
     assert result["id"] == "sent1"
     assert captured[0].full_url.endswith("/gmail/v1/users/me/messages/send")
     assert captured[0].get_method() == "POST"
+
+
+
+def test_dropbox_search_continuation_uses_cursor_endpoint(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import DropboxAdapter
+    import asyncio, json
+    requests = []
+    class Response:
+        def __init__(self, payload): self.payload = payload
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return self.payload
+    def fake_urlopen(request, timeout):
+        requests.append(request)
+        if request.full_url.endswith("/oauth2/token"):
+            return Response(b'{"access_token":"dropbox-access","expires_in":3600}')
+        return Response(b'{"matches":[],"has_more":false}')
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("DROPBOX_APP_KEY", "key")
+    monkeypatch.setenv("DROPBOX_APP_SECRET", "secret")
+    monkeypatch.setenv("DROPBOX_REFRESH_TOKEN", "refresh")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(DropboxAdapter().invoke("dropbox.files.search", {"cursor": "next-page"}))
+    assert result["has_more"] is False
+    assert requests[-1].full_url == "https://api.dropboxapi.com/2/files/search/continue_v2"
+    assert json.loads(requests[-1].data) == {"cursor": "next-page"}
+
+
+def test_linear_search_includes_cursor_pagination_fields(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import LinearAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"data":{"issues":{"nodes":[],"pageInfo":{"hasNextPage":true,"endCursor":"cursor1"}}}}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("LINEAR_API_KEY", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(LinearAdapter().invoke("linear.issue.search", {
+        "query": "RUNE", "first": 20, "after": "cursor0"
+    }))
+    assert result["issues"]["pageInfo"]["endCursor"] == "cursor1"
+    variables = json.loads(captured[0].data)["variables"]
+    assert variables["first"] == 20
+    assert variables["after"] == "cursor0"
