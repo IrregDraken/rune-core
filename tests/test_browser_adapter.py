@@ -1,6 +1,6 @@
 import pytest
 
-from rune.adapters.browser import validate_public_http_url
+from rune.adapters.browser import PlaywrightBrowserAdapter, validate_public_http_url
 
 
 def test_browser_url_rejects_non_http_schemes_and_local_hosts():
@@ -22,3 +22,12 @@ def test_browser_url_checks_resolved_addresses(monkeypatch):
     ])
     with pytest.raises(ValueError, match="private_destination"):
         validate_public_http_url("https://example.invalid")
+
+
+def test_browser_adapter_is_disabled_without_enforced_egress_policy(monkeypatch):
+    import asyncio
+    monkeypatch.delenv("RUNE_BROWSER_EGRESS_POLICY", raising=False)
+    adapter = PlaywrightBrowserAdapter()
+    assert not asyncio.run(adapter.health_check())
+    with pytest.raises(RuntimeError, match="egress_policy_not_enforced"):
+        asyncio.run(adapter.invoke("browser.navigate", {"url": "https://example.com"}))
