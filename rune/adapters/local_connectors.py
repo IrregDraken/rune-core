@@ -86,7 +86,7 @@ class HomeAssistantAdapter:
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if tool_name == "home_assistant.entity.read":
             entity = str(arguments.get("entity_id", "")).strip()
-            if "." not in entity or any(ch in entity for ch in "/?#"): raise ValueError("invalid_entity_id")
+            if len(entity.split(".")) != 2 or any(not part or not part.replace("_", "").isalnum() for part in entity.split(".")): raise ValueError("invalid_entity_id")
             method, path, body = "GET", f"/api/states/{entity}", None
         elif tool_name == "home_assistant.service.call":
             domain = str(arguments.get("domain", "")).strip()
@@ -94,7 +94,7 @@ class HomeAssistantAdapter:
             entity = str(arguments.get("entity_id", "")).strip()
             if not all(x and x.replace("_", "").isalnum() for x in (domain, service)):
                 raise ValueError("invalid_home_assistant_service")
-            if "." not in entity or any(ch in entity for ch in "/?#"): raise ValueError("invalid_entity_id")
+            if len(entity.split(".")) != 2 or any(not part or not part.replace("_", "").isalnum() for part in entity.split(".")): raise ValueError("invalid_entity_id")
             method, path = "POST", f"/api/services/{domain}/{service}"
             body = {**arguments.get("service_data", {}), "entity_id": entity}
         else:
