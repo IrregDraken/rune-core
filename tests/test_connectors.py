@@ -175,3 +175,12 @@ def test_idempotency_keys_are_scoped_to_tool_identity():
         execution_id="two", idempotency_key="shared"))
     assert first.tool_id != second.tool_id
     assert adapter.calls == 2
+
+
+
+def test_factory_retries_read_tools_but_never_retries_external_writes():
+    from rune.core.connectors import build_initial_connector_manager
+    manager = build_initial_connector_manager()
+    assert manager.tools["gmail.search"].max_retries == 2
+    assert manager.tools["gmail.send"].max_retries == 0
+    assert manager.tools["whatsapp.message.send"].max_retries == 0
