@@ -304,6 +304,13 @@ _TOOL_SCHEMAS: dict[str, dict] = {
         "file_key": {"type": "string", "minLength": 1, "maxLength": 128},
         "message": {"type": "string", "minLength": 1, "maxLength": 10000},
         "client_meta": {"type": "object"}}, "additionalProperties": False},
+    "telegram.message.send": {"type": "object", "required": ["chat_id", "text"],
+        "properties": {
+            "chat_id": {"type": "string", "minLength": 1, "maxLength": 128},
+            "text": {"type": "string", "minLength": 1, "maxLength": 4096},
+            "parse_mode": {"type": "string", "enum": ["Markdown", "MarkdownV2", "HTML"]},
+            "disable_notification": {"type": "boolean"}},
+        "additionalProperties": False},
     "email.send": {"type": "object", "required": ["from", "to", "subject"],
         "properties": {
             "from": {"type": "string", "minLength": 3, "maxLength": 320},
