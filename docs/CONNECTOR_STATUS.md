@@ -30,7 +30,7 @@ An attached adapter means a real provider-specific implementation exists in code
 | Linear | 2 | Implemented | Issue search/create |
 | Slack | 2 | Implemented | Search uses user token; message send uses bot token |
 | Discord | 1 | Implemented | Official bot API only |
-| WhatsApp Business | 1 | Implemented | Official Cloud API; channel/webhook and consent enforcement remain separate release gates |
+| WhatsApp Business | 1 | Implemented with consent gate | Official Cloud API; persistent opt-in and 24-hour customer-service window checks are enforced locally; verified webhook ingestion remains a release gate |
 | Instagram | 2 | Implemented | Eligible professional-account publishing and comments read |
 | Facebook | 1 | Implemented | Authorised Page publishing |
 | Threads | 1 | Implemented | Official Threads publishing flow |
@@ -71,6 +71,7 @@ An attached adapter means a real provider-specific implementation exists in code
 - MCP server definitions are administrator-owned configuration in RUNE_MCP_SERVERS_JSON. A model tool call cannot select arbitrary commands or endpoints.
 - MCP HTTP endpoints require HTTPS except loopback development endpoints. Stdio subprocesses receive only explicitly allowlisted environment variables.
 - Browser actions require RUNE_BROWSER_EGRESS_POLICY=enforced and reject private destinations at navigation/request time.
+- WhatsApp Business sends require a persisted opt-in record; free-form text additionally requires an inbound customer message within the 24-hour window. Templates still require provider approval. The durable consent registry exposes record_opt_in, revoke and record_inbound for a verified webhook/consent workflow.
 - The existing desktop UI has not been modified.
 
 ## Verification
