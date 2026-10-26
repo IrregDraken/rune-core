@@ -280,25 +280,3 @@ def build_initial_connector_manager() -> ConnectorManager:
             credential_env=credential_env,
         ))
     return manager
-
-
-def build_initial_connector_manager() -> ConnectorManager:
-    """Register the selected first-wave services without connecting accounts."""
-    manager = ConnectorManager()
-    initial = (
-        ("google_workspace", "direct_api", ("GMAIL_OAUTH_CLIENT_ID", "GMAIL_OAUTH_CLIENT_SECRET")),
-        ("notion", "direct_api", ("NOTION_API_TOKEN",)),
-        ("brave_search", "direct_api", ("BRAVE_SEARCH_API_KEY",)),
-        ("tavily_search", "direct_api", ("TAVILY_API_KEY",)),
-        ("github", "mcp_or_direct_api", ("GITHUB_TOKEN",)),
-        ("filesystem", "local", ()),
-        ("browser", "browser", ()),
-    )
-    for connector_id, transport, credential_env in initial:
-        manager.register_connector(ConnectorRecord(
-            id=connector_id,
-            transport=transport,
-            status=ConnectorStatus.DISCONNECTED,
-            credential_env=credential_env,
-        ))
-    return manager
