@@ -248,3 +248,62 @@ def test_github_adapter_rejects_path_injection(monkeypatch):
         asyncio.run(GitHubAdapter().invoke("github.issue.create", {
             "owner": "../attacker", "repo": "repo", "title": "x"
         }))
+
+
+
+def test_slack_adapter_routes_search_and_send(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import SlackAdapter
+    import asyncio
+    adapter = SlackAdapter()
+    captured = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"ok":true,"messages":{"matches":[]}}'
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args):
+        return fn()
+
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    asyncio.run(adapter.invoke("slack.search", {"query": "from:me", "count": 5}))
+    assert captured[-1].full_url.startswith("https://slack.com/api/search.messages?")
+    asyncio.run(adapter.invoke("slack.message.send", {"channel": "C123", "text": "Hello"}))
+    assert captured[-1].full_url == "https://slack.com/api/chat.postMessage"
+    assert captured[-1].get_method() == "POST"
+
+
+def test_discord_adapter_uses_bot_auth_and_validates_channel(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import DiscordBotAdapter
+    import asyncio
+    adapter = DiscordBotAdapter()
+    captured = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"message123"}'
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args):
+        return fn()
+
+    monkeypatch.setenv("DISCORD_BOT_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    asyncio.run(adapter.invoke("discord.message.send", {"channel_id": "123456", "content": "Hello"}))
+    assert captured[-1].full_url == "https://discord.com/api/v10/channels/123456/messages"
+    assert captured[-1].get_header("Authorization") == "Bot mock-token"
+    with pytest.raises(ValueError, match="invalid_discord_message"):
+        asyncio.run(adapter.invoke("discord.message.send", {"channel_id": "bad/id", "content": "x"}))
