@@ -449,25 +449,57 @@ class GitHubAdapter(JsonHttpAdapter):
 
 
 class SlackAdapter(JsonHttpAdapter):
-    """Slack Web API adapter for search and bot messaging."""
+    """Slack Web API adapter with user-token search and bot-token messaging."""
 
     def __init__(self) -> None:
         super().__init__(
             base_url="https://slack.com/api",
             credential_env="SLACK_BOT_TOKEN",
-            operations={
-                "slack.search": HttpOperation("GET", "/search.messages",
-                    query_keys=("query", "count")),
-                "slack.message.send": HttpOperation("POST", "/chat.postMessage",
-                    body_keys=("channel", "text")),
-            },
+            operations={},
         )
 
+    async def health_check(self) -> bool:
+        return bool(os.environ.get("SLACK_BOT_TOKEN", "").strip()
+                    or os.environ.get("SLACK_USER_TOKEN", "").strip())
+
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
-        result = await super().invoke(tool_name, arguments)
-        if isinstance(result, dict) and result.get("ok") is False:
-            raise RuntimeError("slack_api_rejected_request")
-        return result
+        if tool_name == "slack.search":
+            token = os.environ.get("SLACK_USER_TOKEN", "").strip()
+            if not token:
+                raise RuntimeError("slack_user_token_required_for_search")
+            operation = HttpOperation("GET", "/search.messages",
+                query_keys=("query", "count"))
+        elif tool_name == "slack.message.send":
+            token = os.environ.get("SLACK_BOT_TOKEN", "").strip()
+            if not token:
+                raise RuntimeError("slack_bot_token_required_for_messaging")
+            operation = HttpOperation("POST", "/chat.postMessage",
+                body_keys=("channel", "text"))
+        else:
+            raise RuntimeError("tool_operation_not_implemented")
+        query = {key: arguments[key] for key in operation.query_keys if key in arguments}
+        body = {key: arguments[key] for key in operation.body_keys if key in arguments}
+        url = self.base_url + operation.path
+        if query:
+            url += "?" + urlencode(query, doseq=True)
+        data = json.dumps(body).encode() if operation.method != "GET" else None
+        request = Request(url, data=data,
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json",
+                     **({"Content-Type": "application/json"} if data is not None else {})},
+            method=operation.method)
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    payload = json.loads(raw.decode()) if raw else {}
+                    if isinstance(payload, dict) and payload.get("ok") is False:
+                        raise RuntimeError("slack_api_rejected_request")
+                    return payload
+            except HTTPError as exc:
+                raise RuntimeError(f"slack_api_http_{exc.code}") from None
+            except (URLError, TimeoutError):
+                raise RuntimeError("slack_unreachable") from None
+        return await asyncio.to_thread(send)
 
 
 class DiscordBotAdapter(JsonHttpAdapter):
