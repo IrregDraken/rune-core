@@ -24,7 +24,11 @@ understand -> remember -> retrieve -> reason -> decide -> act with permission ->
 
 ## Capability blueprint
 
-The target capability inventory, MCP/direct-API integration priorities, permission model, and implementation boundaries are documented in [`docs/CAPABILITY_BLUEPRINT.md`](docs/CAPABILITY_BLUEPRINT.md). The runtime exposes the current declarative catalogue at `/api/capabilities`. Catalogue entries describe intended support and do not imply that an external service is connected or executable.
+The target capability inventory, MCP/direct-API integration priorities, permission model, and implementation boundaries are documented in [`docs/CAPABILITY_BLUEPRINT.md`](docs/CAPABILITY_BLUEPRINT.md). The runtime exposes the capability catalogue at `/api/capabilities`, connector health at `/api/connectors`, and the expanded provider/tool inventory at `/api/integrations`. Catalogue entries describe intended support and do not imply that an external service is connected or executable.
+
+## Integration development
+
+The provider and tool inventory is executable configuration in `rune/core/integration_catalogue.py`. It currently covers 35 integration targets and 50+ named tools. Concrete dependency-free HTTP adapters have been added for Brave Search, Tavily, Notion search/database query, Google Workspace read/search operations, and Figma file/comment reads. Other providers are registered as planned adapter targets and must receive their provider-specific implementation and policy review before activation. See `.env.example` for the environment-variable names; it contains placeholders only.
 
 ## Desktop presence
 
