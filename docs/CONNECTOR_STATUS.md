@@ -62,6 +62,7 @@ An attached adapter means a real provider-specific implementation exists in code
 
 - Connector lifecycle states and health checks.
 - Authenticated API routes for connector health checks and governed tool execution. High-impact calls return awaiting_approval until an authorised client explicitly resubmits with approval.
+- Authenticated owner-managed messaging consent opt-in/revocation routes; inbound-window timestamps must be recorded only from a future verified provider webhook.
 - Tool schema validation before dispatch.
 - Explicit approval gates for external communication, financial, destructive and privileged actions.
 - Read-only tools receive bounded retries; side-effecting tools are not automatically retried.
