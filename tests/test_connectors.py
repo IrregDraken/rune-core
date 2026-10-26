@@ -134,3 +134,44 @@ def test_every_tool_has_an_adapter_or_an_explicit_deferred_phase():
         item.integration_id in manager.adapters or item.integration_id in deferred
         for item in tool_catalogue()
     )
+
+
+
+def test_idempotency_key_is_scoped_and_rejects_changed_arguments():
+    manager = ConnectorManager()
+    adapter = MockAdapter()
+    manager.register_connector(ConnectorRecord("service", "direct"), adapter)
+    manager.register_tool(ToolDefinition(
+        "item.create", "service", "create", "Create item",
+        {"type": "object", "required": ["value"],
+         "properties": {"value": {"type": "string"}}, "additionalProperties": False},
+    ))
+    asyncio.run(manager.health_check("service"))
+    first = asyncio.run(manager.execute("item.create", {"value": "one"},
+        execution_id="one", idempotency_key="same"))
+    repeated = asyncio.run(manager.execute("item.create", {"value": "one"},
+        execution_id="two", idempotency_key="same"))
+    changed = asyncio.run(manager.execute("item.create", {"value": "two"},
+        execution_id="three", idempotency_key="same"))
+    assert first.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
+    assert repeated.execution_id == "one"
+    assert changed.status is ExecutionStatus.BLOCKED
+    assert changed.error_code == "idempotency_key_reused_with_different_arguments"
+    assert adapter.calls == 1
+
+
+def test_idempotency_keys_are_scoped_to_tool_identity():
+    manager = ConnectorManager()
+    adapter = MockAdapter()
+    manager.register_connector(ConnectorRecord("service", "direct"), adapter)
+    schema = {"type": "object", "required": ["value"],
+              "properties": {"value": {"type": "string"}}, "additionalProperties": False}
+    manager.register_tool(ToolDefinition("item.create", "service", "create", "Create", schema))
+    manager.register_tool(ToolDefinition("item.update", "service", "update", "Update", schema))
+    asyncio.run(manager.health_check("service"))
+    first = asyncio.run(manager.execute("item.create", {"value": "same"},
+        execution_id="one", idempotency_key="shared"))
+    second = asyncio.run(manager.execute("item.update", {"value": "same"},
+        execution_id="two", idempotency_key="shared"))
+    assert first.tool_id != second.tool_id
+    assert adapter.calls == 2
