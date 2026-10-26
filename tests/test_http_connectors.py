@@ -893,3 +893,166 @@ def test_http_adapter_rejects_unregistered_operations_before_network(monkeypatch
     monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "mock-token")
     with pytest.raises(RuntimeError, match="tool_operation_not_implemented"):
         asyncio.run(BraveSearchAdapter().invoke("arbitrary.fetch", {"url": "https://example.com"}))
+
+
+
+def test_notion_page_create_posts_only_declared_page_fields(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import NotionAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"page1"}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("NOTION_API_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(NotionAdapter().invoke("notion.page.create", {
+        "parent": {"page_id": "parent1"}, "properties": {"title": {"title": []}},
+        "ignored": "not forwarded"
+    }))
+    assert result["id"] == "page1"
+    assert captured[0].full_url == "https://api.notion.com/v1/pages"
+    assert "ignored" not in json.loads(captured[0].data)
+
+
+def test_figma_comment_create_uses_file_scoped_endpoint(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import FigmaAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"comment1"}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("FIGMA_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(FigmaAdapter().invoke("figma.comment.create", {
+        "file_key": "Abc_123", "message": "Review note"
+    }))
+    assert result["id"] == "comment1"
+    assert captured[0].full_url == "https://api.figma.com/v1/files/Abc_123/comments"
+
+
+def test_hubspot_deal_update_uses_validated_deal_id(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import HubSpotAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"123"}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("HUBSPOT_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    asyncio.run(HubSpotAdapter().invoke("hubspot.deal.update", {
+        "deal_id": "123", "properties": {"dealname": "New name"}
+    }))
+    assert captured[0].full_url == "https://api.hubapi.com/crm/v3/objects/deals/123"
+    assert captured[0].get_method() == "PATCH"
+
+
+def test_vercel_deployment_list_uses_project_filter(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import VercelAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"deployments":[]}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("VERCEL_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    asyncio.run(VercelAdapter().invoke("vercel.deployments.list", {"projectId": "prj_123"}))
+    assert captured[0].full_url.startswith("https://api.vercel.com/v6/deployments?")
+    assert "projectId=prj_123" in captured[0].full_url
+
+
+def test_meta_facebook_page_publish_uses_feed_endpoint(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import MetaGraphAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"page_post1"}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("META_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setenv("META_GRAPH_VERSION", "v99.0")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(MetaGraphAdapter().invoke("facebook.page.publish", {
+        "page_id": "12345", "message": "Update"
+    }))
+    assert result["id"] == "page_post1"
+    assert captured[0].full_url.endswith("/v99.0/12345/feed")
+
+
+def test_gitlab_project_search_uses_search_query(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import GitLabAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'[]'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("GITLAB_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    assert asyncio.run(GitLabAdapter().invoke("gitlab.project.search", {"search": "rune"})) == []
+    assert "search=rune" in captured[0].full_url
+
+
+def test_google_gmail_send_uses_messages_send_endpoint(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import GoogleWorkspaceAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"sent1"}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    adapter = GoogleWorkspaceAdapter()
+    async def token(): return "mock-token"
+    monkeypatch.setattr(adapter, "_token", token)
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(adapter.invoke("gmail.send", {
+        "to": "person@example.com", "subject": "Hello", "body": "Body"
+    }))
+    assert result["id"] == "sent1"
+    assert captured[0].full_url.endswith("/gmail/v1/users/me/messages/send")
+    assert captured[0].get_method() == "POST"
