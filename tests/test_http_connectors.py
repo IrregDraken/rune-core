@@ -271,6 +271,7 @@ def test_slack_adapter_routes_search_and_send(monkeypatch):
         return fn()
 
     monkeypatch.setenv("SLACK_BOT_TOKEN", "mock-token")
+    monkeypatch.setenv("SLACK_USER_TOKEN", "mock-user-token")
     monkeypatch.setattr(module, "urlopen", fake_urlopen)
     monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
     asyncio.run(adapter.invoke("slack.search", {"query": "from:me", "count": 5}))
