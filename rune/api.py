@@ -54,6 +54,8 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             self._send(200, {"events": self.runtime.recent_events()})
         elif path == "/api/tools":
             self._send(200, {"tools": [spec.__dict__ for spec in self.runtime.tools.specs()]})
+        elif path == "/api/capabilities":
+            self._send(200, self.runtime.capability_catalogue.snapshot())
         elif path == "/api/voice":
             voice = self.runtime.voice
             self._send(200, {
