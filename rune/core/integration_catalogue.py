@@ -358,7 +358,7 @@ _TOOL_SCHEMAS: dict[str, dict] = {
             "bcc": {"type": "array", "items": {"type": "string"}, "maxItems": 50},
             "tags": {"type": "array", "items": {"type": "object"}, "maxItems": 20}},
         "additionalProperties": False},
-    "drive.upload": {"type": "object", "required": ["file_name", "mime_type", "content_base64"], "properties": {"file_name": {"type": "string"}, "mime_type": {"type": "string"}, "content_base64": {"type": "string"}, "parent_id": {"type": "string"}}, "additionalProperties": False},
+    "drive.upload": {"type": "object", "required": ["file_name", "mime_type", "content_base64"], "properties": {"file_name": {"type": "string"}, "mime_type": {"type": "string", "minLength": 1, "maxLength": 128}, "content_base64": {"type": "string", "minLength": 1, "maxLength": 14000000}, "parent_id": {"type": "string"}}, "additionalProperties": False},
     "slack.search": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}, "count": {"type": "integer"}, "page": {"type": "integer", "minimum": 1}}, "additionalProperties": False},
     "slack.message.send": {"type": "object", "required": ["channel", "text"], "properties": {"channel": {"type": "string"}, "text": {"type": "string"}}, "additionalProperties": False},
     "discord.message.send": {"type": "object", "required": ["channel_id", "content"], "properties": {"channel_id": {"type": "string"}, "content": {"type": "string"}}, "additionalProperties": False},
