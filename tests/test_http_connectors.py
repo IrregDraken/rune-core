@@ -479,3 +479,78 @@ def test_hubspot_contact_search_maps_q_to_query(monkeypatch):
     body = json.loads(captured[0].data)
     assert body == {"query": "Ada", "limit": 10}
     assert captured[0].full_url.endswith("/crm/v3/objects/contacts/search")
+
+
+
+def test_meta_graph_instagram_publish_runs_container_then_publish(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import MetaGraphAdapter
+    import asyncio, json
+    calls = []
+    class Response:
+        def __init__(self, payload): self.payload = payload
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return self.payload
+    def fake_urlopen(request, timeout):
+        calls.append(request)
+        if request.full_url.endswith("/media"):
+            return Response(b'{"id":"container1"}')
+        return Response(b'{"id":"published1"}')
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("META_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setenv("META_GRAPH_VERSION", "v99.0")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(MetaGraphAdapter().invoke("instagram.media.publish", {
+        "ig_user_id": "12345", "image_url": "https://cdn.example/image.jpg", "caption": "hello"
+    }))
+    assert result["id"] == "published1"
+    assert calls[0].full_url.endswith("/v99.0/12345/media")
+    assert calls[1].full_url.endswith("/v99.0/12345/media_publish")
+    assert json.loads(calls[1].data)["creation_id"] == "container1"
+
+
+def test_x_api_post_uses_bearer_and_reply_contract(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import XApiAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"data":{"id":"post1"}}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("X_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    asyncio.run(XApiAdapter().invoke("x.post.create", {"text": "hello", "reply_to_id": "123"}))
+    body = json.loads(captured[0].data)
+    assert body == {"text": "hello", "reply": {"in_reply_to_tweet_id": "123"}}
+    assert captured[0].get_header("Authorization") == "Bearer mock-token"
+
+
+def test_pinterest_pin_adapter_posts_to_v5(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import PinterestAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"pin1"}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("PINTEREST_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(PinterestAdapter().invoke("pinterest.pin.create", {
+        "board_id": "board1", "title": "Design", "media_source": {"source_type": "image_url", "url": "https://cdn.example/a.png"}
+    }))
+    assert result["id"] == "pin1"
+    assert captured[0].full_url == "https://api.pinterest.com/v5/pins"
