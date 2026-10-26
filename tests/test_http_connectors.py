@@ -276,9 +276,11 @@ def test_slack_adapter_routes_search_and_send(monkeypatch):
     monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
     asyncio.run(adapter.invoke("slack.search", {"query": "from:me", "count": 5}))
     assert captured[-1].full_url.startswith("https://slack.com/api/search.messages?")
+    assert captured[-1].get_header("Authorization") == "Bearer mock-user-token"
     asyncio.run(adapter.invoke("slack.message.send", {"channel": "C123", "text": "Hello"}))
     assert captured[-1].full_url == "https://slack.com/api/chat.postMessage"
     assert captured[-1].get_method() == "POST"
+    assert captured[-1].get_header("Authorization") == "Bearer mock-token"
 
 
 def test_discord_adapter_uses_bot_auth_and_validates_channel(monkeypatch):
