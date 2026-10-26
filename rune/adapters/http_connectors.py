@@ -686,3 +686,66 @@ class ZoteroAdapter(JsonHttpAdapter):
             except HTTPError as exc: raise RuntimeError(f"zotero_api_http_{exc.code}") from None
             except (URLError, TimeoutError): raise RuntimeError("zotero_unreachable") from None
         return await asyncio.to_thread(send)
+
+
+
+class Microsoft365Adapter:
+    """Microsoft Graph adapter for Outlook mail search using refresh-token OAuth."""
+
+    TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    GRAPH_ROOT = "https://graph.microsoft.com/v1.0"
+
+    def __init__(self) -> None:
+        self._token: str | None = None
+        self._expires_at = 0.0
+        self.timeout = 20.0
+
+    async def health_check(self) -> bool:
+        return all(os.environ.get(k, "").strip() for k in (
+            "MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET", "MICROSOFT_REFRESH_TOKEN"))
+
+    async def _access_token(self) -> str:
+        import time
+        if not await self.health_check():
+            raise RuntimeError("connector_credentials_missing")
+        if self._token and time.time() < self._expires_at - 60:
+            return self._token
+        form = urlencode({
+            "client_id": os.environ["MICROSOFT_CLIENT_ID"],
+            "client_secret": os.environ["MICROSOFT_CLIENT_SECRET"],
+            "refresh_token": os.environ["MICROSOFT_REFRESH_TOKEN"],
+            "grant_type": "refresh_token",
+            "scope": "offline_access https://graph.microsoft.com/Mail.Read",
+        }).encode()
+        request = Request(self.TOKEN_URL, data=form,
+            headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+        def refresh() -> dict:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    return json.loads(response.read().decode())
+            except HTTPError as exc: raise RuntimeError(f"microsoft_oauth_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("microsoft_unreachable") from None
+        payload = await asyncio.to_thread(refresh)
+        if not payload.get("access_token"): raise RuntimeError("microsoft_token_missing")
+        self._token = str(payload["access_token"])
+        self._expires_at = time.time() + int(payload.get("expires_in", 3600))
+        return self._token
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name != "outlook.search":
+            raise RuntimeError("tool_operation_not_implemented")
+        token = await self._access_token()
+        query = {"$search": f'"{arguments["query"]}"',
+                 "$top": arguments.get("top", 25),
+                 "$select": "id,subject,from,receivedDateTime,bodyPreview"}
+        request = Request(self.GRAPH_ROOT + "/me/messages?" + urlencode(query),
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json",
+                     "ConsistencyLevel": "eventual"})
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    return json.loads(raw.decode()) if raw else {}
+            except HTTPError as exc: raise RuntimeError(f"microsoft_graph_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("microsoft_graph_unreachable") from None
+        return await asyncio.to_thread(send)
