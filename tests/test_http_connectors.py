@@ -554,3 +554,56 @@ def test_pinterest_pin_adapter_posts_to_v5(monkeypatch):
     }))
     assert result["id"] == "pin1"
     assert captured[0].full_url == "https://api.pinterest.com/v5/pins"
+
+
+
+def test_whatsapp_business_text_message_uses_phone_number_id(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import WhatsAppBusinessAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"messages":[{"id":"wamid.mock"}]}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "123456")
+    monkeypatch.setenv("WHATSAPP_API_VERSION", "v99.0")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(WhatsAppBusinessAdapter().invoke("whatsapp.message.send", {
+        "to": "2348000000000", "type": "text", "text": {"body": "Hello"}
+    }))
+    assert result["messages"][0]["id"] == "wamid.mock"
+    assert captured[0].full_url.endswith("/v99.0/123456/messages")
+    assert json.loads(captured[0].data)["messaging_product"] == "whatsapp"
+
+
+def test_tiktok_publish_uses_url_pull_and_privacy(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import TikTokContentAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"data":{"publish_id":"pub1"}}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("TIKTOK_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(TikTokContentAdapter().invoke("tiktok.content.publish", {
+        "video_url": "https://cdn.example/video.mp4", "title": "Launch",
+        "privacy_level": "SELF_ONLY"
+    }))
+    assert result["data"]["publish_id"] == "pub1"
+    body = json.loads(captured[0].data)
+    assert body["source_info"]["source"] == "PULL_FROM_URL"
+    assert body["post_info"]["privacy_level"] == "SELF_ONLY"
