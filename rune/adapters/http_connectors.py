@@ -1014,3 +1014,125 @@ class PinterestAdapter(JsonHttpAdapter):
                 "pinterest.pin.create": HttpOperation("POST", "/pins",
                     body_keys=("board_id", "title", "description", "link", "media_source")),
             })
+
+
+
+class WhatsAppBusinessAdapter(JsonHttpAdapter):
+    """WhatsApp Cloud API adapter for opt-in business messaging only."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://graph.facebook.com",
+            credential_env="WHATSAPP_ACCESS_TOKEN", operations={})
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name != "whatsapp.message.send":
+            raise RuntimeError("tool_operation_not_implemented")
+        version = os.environ.get("WHATSAPP_API_VERSION", "").strip()
+        phone_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
+        if not version.startswith("v") or not phone_id.isdigit():
+            raise RuntimeError("whatsapp_api_version_or_phone_id_missing")
+        recipient = str(arguments.get("to", "")).strip()
+        message_type = str(arguments.get("type", "")).strip()
+        if not recipient or len(recipient) > 32 or not recipient.replace("+", "").isdigit():
+            raise ValueError("invalid_whatsapp_recipient")
+        if message_type == "text":
+            text_body = arguments.get("text")
+            if not isinstance(text_body, dict) or not text_body.get("body"):
+                raise ValueError("whatsapp_text_body_required")
+            message = {"messaging_product": "whatsapp", "to": recipient,
+                       "type": "text", "text": {"body": str(text_body["body"])[:4096]}}
+        elif message_type == "template":
+            template = arguments.get("template")
+            if not isinstance(template, dict) or not template.get("name") or not template.get("language"):
+                raise ValueError("whatsapp_template_name_and_language_required")
+            message = {"messaging_product": "whatsapp", "to": recipient,
+                       "type": "template", "template": template}
+        else:
+            raise ValueError("whatsapp_message_type_must_be_text_or_template")
+        request = Request(f"https://graph.facebook.com/{version}/{phone_id}/messages",
+            data=json.dumps(message).encode(),
+            headers={"Authorization": f"Bearer {self._credential()}",
+                     "Content-Type": "application/json", "Accept": "application/json"},
+            method="POST")
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    return json.loads(raw.decode()) if raw else {}
+            except HTTPError as exc: raise RuntimeError(f"whatsapp_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("whatsapp_unreachable") from None
+        return await asyncio.to_thread(send)
+
+
+class LinkedInAdapter(JsonHttpAdapter):
+    """LinkedIn Posts API adapter; requires approved Community Management access."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://api.linkedin.com/rest",
+            credential_env="LINKEDIN_ACCESS_TOKEN", operations={})
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name != "linkedin.post.create":
+            raise RuntimeError("tool_operation_not_implemented")
+        version = os.environ.get("LINKEDIN_API_VERSION", "").strip()
+        author = str(arguments.get("author", "")).strip()
+        commentary = str(arguments.get("commentary", ""))
+        if not version.isdigit() or len(version) != 6:
+            raise RuntimeError("linkedin_api_version_missing_or_invalid")
+        if not author.startswith("urn:li:") or not commentary:
+            raise ValueError("invalid_linkedin_post")
+        body = {"author": author, "commentary": commentary,
+                "visibility": arguments.get("visibility", "PUBLIC"),
+                "distribution": {"feedDistribution": "MAIN_FEED",
+                                 "targetEntities": [], "thirdPartyDistributionChannels": []},
+                "lifecycleState": "PUBLISHED",
+                "isReshareDisabledByAuthor": False}
+        request = Request(self.base_url + "/posts", data=json.dumps(body).encode(),
+            headers={"Authorization": f"Bearer {self._credential()}",
+                     "Linkedin-Version": version,
+                     "X-Restli-Protocol-Version": "2.0.0",
+                     "Content-Type": "application/json", "Accept": "application/json"},
+            method="POST")
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    return {"status": response.status,
+                            "post_id": response.headers.get("x-restli-id")}
+            except HTTPError as exc: raise RuntimeError(f"linkedin_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("linkedin_unreachable") from None
+        return await asyncio.to_thread(send)
+
+
+class TikTokContentAdapter(JsonHttpAdapter):
+    """TikTok Content Posting API URL-pull publishing for approved apps."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://open.tiktokapis.com/v2",
+            credential_env="TIKTOK_ACCESS_TOKEN", operations={})
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name != "tiktok.content.publish":
+            raise RuntimeError("tool_operation_not_implemented")
+        video_url = str(arguments.get("video_url", "")).strip()
+        title = str(arguments.get("title", ""))
+        privacy = str(arguments.get("privacy_level", ""))
+        if not video_url.startswith("https://") or not title or privacy not in {
+            "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"
+        }:
+            raise ValueError("invalid_tiktok_publish_arguments")
+        body = {"post_info": {"title": title[:2200], "privacy_level": privacy},
+                "source_info": {"source": "PULL_FROM_URL", "video_url": video_url}}
+        request = Request(self.base_url + "/post/publish/video/init/",
+            data=json.dumps(body).encode(),
+            headers={"Authorization": f"Bearer {self._credential()}",
+                     "Content-Type": "application/json; charset=UTF-8",
+                     "Accept": "application/json"},
+            method="POST")
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    return json.loads(raw.decode()) if raw else {}
+            except HTTPError as exc: raise RuntimeError(f"tiktok_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("tiktok_unreachable") from None
+        return await asyncio.to_thread(send)
