@@ -31,3 +31,14 @@ def test_catalogue_snapshot_is_json_serializable():
     json.dumps(data)
     assert len(data["integrations"]) >= 30
     assert len(data["tools"]) >= 50
+
+
+
+def test_every_manifest_credential_has_an_env_example_placeholder():
+    from pathlib import Path
+    from rune.core.integration_catalogue import integration_catalogue
+    example = Path(__file__).resolve().parents[1] / ".env.example"
+    content = example.read_text(encoding="utf-8")
+    names = {name for item in integration_catalogue() for name in item.auth_env}
+    missing = sorted(name for name in names if f"{name}=" not in content)
+    assert not missing, f"Missing environment placeholders: {missing}"
