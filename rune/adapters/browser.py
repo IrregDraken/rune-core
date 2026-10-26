@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import os
 import socket
 from typing import Any
 from urllib.parse import urlparse
@@ -45,6 +46,8 @@ class PlaywrightBrowserAdapter:
         self.max_text_chars = max_text_chars
 
     async def health_check(self) -> bool:
+        if os.environ.get("RUNE_BROWSER_EGRESS_POLICY", "").strip().lower() != "enforced":
+            return False
         try:
             import playwright.async_api  # noqa: F401
             return True
@@ -54,6 +57,8 @@ class PlaywrightBrowserAdapter:
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if tool_name not in {"browser.navigate", "browser.form.submit"}:
             raise RuntimeError("tool_operation_not_implemented")
+        if os.environ.get("RUNE_BROWSER_EGRESS_POLICY", "").strip().lower() != "enforced":
+            raise RuntimeError("browser_egress_policy_not_enforced")
         try:
             from playwright.async_api import async_playwright
         except ImportError as exc:
