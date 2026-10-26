@@ -126,6 +126,7 @@ class ConnectorManager:
         self.tools: dict[str, ToolDefinition] = {}
         self.audit_log: list[AuditEvent] = []
         self._idempotency: dict[str, ExecutionResult] = {}
+        self._idempotency_arguments: dict[str, str] = {}
         self.approval_policy = approval_policy or DenyByDefaultApproval()
 
     def register_connector(
@@ -194,8 +195,18 @@ class ConnectorManager:
         if not approved and not self.approval_policy.is_approved(tool, arguments):
             return ExecutionResult(execution_id, key, connector_id,
                                    ExecutionStatus.AWAITING_APPROVAL, error_code="approval_required")
-        if idempotency_key and idempotency_key in self._idempotency:
-            return self._idempotency[idempotency_key]
+        idempotency_scope = None
+        arguments_digest = hashlib.sha256(
+            json.dumps(arguments, sort_keys=True, default=str).encode()
+        ).hexdigest()
+        if idempotency_key:
+            idempotency_scope = f"{connector_id}:{key}:{idempotency_key}"
+            cached = self._idempotency.get(idempotency_scope)
+            if cached is not None:
+                if self._idempotency_arguments.get(idempotency_scope) != arguments_digest:
+                    return ExecutionResult(execution_id, key, connector_id,
+                        ExecutionStatus.BLOCKED, error_code="idempotency_key_reused_with_different_arguments")
+                return cached
 
         attempts = 0
         output: Any = None
@@ -211,8 +222,9 @@ class ConnectorManager:
                     output=output, attempts=attempts, verified=False,
                     idempotency_key=idempotency_key,
                 )
-                if idempotency_key:
-                    self._idempotency[idempotency_key] = result
+                if idempotency_scope:
+                    self._idempotency[idempotency_scope] = result
+                    self._idempotency_arguments[idempotency_scope] = arguments_digest
                 self._audit(tool, arguments, result)
                 return result
             except asyncio.TimeoutError:
