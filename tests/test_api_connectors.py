@@ -105,3 +105,24 @@ def test_connector_health_api_requires_session_and_reports_status():
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+
+def test_messaging_consent_api_requires_session_and_supports_revocation(monkeypatch, tmp_path):
+    monkeypatch.setenv("RUNE_CONSENT_DB", str(tmp_path / "consent.sqlite3"))
+    server, thread = _server()
+    try:
+        payload = {"channel": "whatsapp", "recipient": "+2348000000000",
+                   "source": "verified consent record"}
+        status, _ = _post(server, "/api/consent/opt-in", payload)
+        assert status == 403
+        status, result = _post(server, "/api/consent/opt-in", payload, "test-session")
+        assert status == 200
+        assert result["consent"] == "opted_in"
+        status, result = _post(server, "/api/consent/revoke", payload, "test-session")
+        assert status == 200
+        assert result["consent"] == "revoked"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
