@@ -12,6 +12,7 @@ from .core.context import ContextAssembler, Retriever
 from .core.identity import IdentityProvider, LocalIdentityProvider
 from .core.tools import ToolRegistry
 from .core.capabilities import build_default_catalogue
+from .core.connectors import build_initial_connector_manager
 from .core.voice import VoicePipeline
 from .core.engine import RUNEEngine
 from .core.model import ModelProvider
@@ -56,6 +57,7 @@ class RUNERuntime:
         self.identity = identity or LocalIdentityProvider()
         self.tools = tools or ToolRegistry()
         self.capability_catalogue = build_default_catalogue()
+        self.connectors = build_initial_connector_manager()
         self.voice = voice or VoicePipeline()
         if node is not None:
             self.node = node
@@ -276,6 +278,7 @@ class RUNERuntime:
             "active_plan": self.active_plan.to_dict() if self.active_plan else None,
             "tools": [spec.__dict__ for spec in self.tools.specs()],
             "capability_catalogue": self.capability_catalogue.snapshot(),
+            "connectors": self.connectors.snapshot(),
             "voice": {
                 "wake_word": self.voice.wake_word is not None,
                 "speech_to_text": self.voice.speech_to_text is not None,
