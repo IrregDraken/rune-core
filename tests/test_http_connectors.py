@@ -560,7 +560,7 @@ def test_pinterest_pin_adapter_posts_to_v5(monkeypatch):
 
 
 
-def test_whatsapp_business_text_message_uses_phone_number_id(monkeypatch):
+def test_whatsapp_business_text_message_uses_phone_number_id(monkeypatch, tmp_path):
     from rune.adapters import http_connectors as module
     from rune.adapters.http_connectors import WhatsAppBusinessAdapter
     import asyncio, json
@@ -576,9 +576,13 @@ def test_whatsapp_business_text_message_uses_phone_number_id(monkeypatch):
     monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "mock-token")
     monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "123456")
     monkeypatch.setenv("WHATSAPP_API_VERSION", "v99.0")
+    monkeypatch.setenv("RUNE_CONSENT_DB", str(tmp_path / "consent.sqlite3"))
+    adapter = WhatsAppBusinessAdapter()
+    adapter.consent.record_opt_in("whatsapp", "2348000000000", "user-confirmed-test")
+    adapter.consent.record_inbound("whatsapp", "2348000000000")
     monkeypatch.setattr(module, "urlopen", fake_urlopen)
     monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
-    result = asyncio.run(WhatsAppBusinessAdapter().invoke("whatsapp.message.send", {
+    result = asyncio.run(adapter.invoke("whatsapp.message.send", {
         "to": "2348000000000", "type": "text", "text": {"body": "Hello"}
     }))
     assert result["messages"][0]["id"] == "wamid.mock"
