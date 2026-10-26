@@ -462,3 +462,72 @@ class DiscordBotAdapter(JsonHttpAdapter):
         operation = HttpOperation("POST", f"/channels/{channel_id}/messages",
             body_keys=("content",))
         return await self.invoke_operation(operation, arguments)
+
+
+
+class DropboxAdapter:
+    """Dropbox API adapter with refresh-token OAuth and bounded file operations."""
+
+    TOKEN_URL = "https://api.dropbox.com/oauth2/token"
+    API_ROOT = "https://api.dropboxapi.com/2"
+
+    def __init__(self) -> None:
+        self._token: str | None = None
+        self._expires_at = 0.0
+        self.timeout = 25.0
+
+    async def health_check(self) -> bool:
+        return all(os.environ.get(k, "").strip() for k in (
+            "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "DROPBOX_REFRESH_TOKEN"))
+
+    async def _access_token(self) -> str:
+        import time
+        if not await self.health_check():
+            raise RuntimeError("connector_credentials_missing")
+        if self._token and time.time() < self._expires_at - 60:
+            return self._token
+        form = urlencode({
+            "grant_type": "refresh_token",
+            "refresh_token": os.environ["DROPBOX_REFRESH_TOKEN"],
+            "client_id": os.environ["DROPBOX_APP_KEY"],
+            "client_secret": os.environ["DROPBOX_APP_SECRET"],
+        }).encode()
+        request = Request(self.TOKEN_URL, data=form,
+            headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+        def refresh() -> dict:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except HTTPError as exc: raise RuntimeError(f"dropbox_oauth_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("dropbox_unreachable") from None
+        payload = await asyncio.to_thread(refresh)
+        if not payload.get("access_token"):
+            raise RuntimeError("dropbox_token_missing")
+        self._token = str(payload["access_token"])
+        self._expires_at = time.time() + int(payload.get("expires_in", 14400))
+        return self._token
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        token = await self._access_token()
+        if tool_name == "dropbox.files.search":
+            endpoint = "/files/search_v2"
+            body = {"query": arguments["query"]}
+            if arguments.get("path"):
+                body["options"] = {"path": arguments["path"]}
+            headers = {"Content-Type": "application/json"}
+        elif tool_name == "drive.upload":
+            # Google Drive upload belongs to GoogleWorkspaceAdapter, not Dropbox.
+            raise RuntimeError("tool_operation_not_implemented")
+        else:
+            raise RuntimeError("tool_operation_not_implemented")
+        request = Request(self.API_ROOT + endpoint, data=json.dumps(body).encode(),
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            method="POST")
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    return json.loads(raw.decode()) if raw else {}
+            except HTTPError as exc: raise RuntimeError(f"dropbox_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("dropbox_unreachable") from None
+        return await asyncio.to_thread(send)
