@@ -913,3 +913,27 @@ class MetaGraphAdapter:
             return await self._request("POST", f"/{user_id}/threads_publish",
                 {"creation_id": creation_id})
         raise RuntimeError("tool_operation_not_implemented")
+
+
+
+class XApiAdapter(JsonHttpAdapter):
+    """X API v2 recent search and post creation using user-context access token."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://api.x.com/2", credential_env="X_ACCESS_TOKEN",
+            operations={
+                "x.search": HttpOperation("GET", "/tweets/search/recent",
+                    query_keys=("query", "max_results")),
+            })
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name == "x.post.create":
+            text_value = str(arguments.get("text", ""))
+            if not text_value or len(text_value) > 280:
+                raise ValueError("invalid_x_post_text")
+            body = {"text": text_value}
+            if arguments.get("reply_to_id"):
+                body["reply"] = {"in_reply_to_tweet_id": arguments["reply_to_id"]}
+            operation = HttpOperation("POST", "/tweets", body_keys=("text", "reply"))
+            return await self.invoke_operation(operation, body)
+        return await super().invoke(tool_name, arguments)
