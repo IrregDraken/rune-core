@@ -1,5 +1,4 @@
 import asyncio
-import pytest
 
 from rune.core.capabilities import ActionRisk
 from rune.core.connectors import (
@@ -94,7 +93,7 @@ def test_bounded_retry():
     manager.register_tool(ToolDefinition(
         "search.web", "search", "search", "Search", {"type": "object"}, max_retries=1,
     ))
-    await manager.health_check("search")
+    asyncio.run(manager.health_check("search"))
     result = asyncio.run(manager.execute("search.web", {}, execution_id="e8"))
     assert result.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
     assert result.attempts == 2
