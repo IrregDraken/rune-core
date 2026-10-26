@@ -836,3 +836,80 @@ class RailwayAdapter(JsonHttpAdapter):
             except HTTPError as exc: raise RuntimeError(f"railway_api_http_{exc.code}") from None
             except (URLError, TimeoutError): raise RuntimeError("railway_unreachable") from None
         return await asyncio.to_thread(send)
+
+
+
+class MetaGraphAdapter:
+    """Official Meta Graph adapter for eligible Instagram, Facebook and Threads APIs."""
+
+    def __init__(self) -> None:
+        self.timeout = 20.0
+
+    def _version(self) -> str:
+        version = os.environ.get("META_GRAPH_VERSION", "").strip()
+        if not version or not version.startswith("v"):
+            raise RuntimeError("meta_graph_version_must_be_configured")
+        return version
+
+    def _token(self) -> str:
+        token = os.environ.get("META_ACCESS_TOKEN", "").strip()
+        if not token: raise RuntimeError("connector_credentials_missing")
+        return token
+
+    async def health_check(self) -> bool:
+        return bool(os.environ.get("META_ACCESS_TOKEN", "").strip()
+                    and os.environ.get("META_GRAPH_VERSION", "").strip())
+
+    async def _request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+        query = {"access_token": self._token()} if method == "GET" else {}
+        url = f"https://graph.facebook.com/{self._version()}{path}"
+        if query: url += "?" + urlencode(query)
+        payload = dict(body or {})
+        if method != "GET": payload["access_token"] = self._token()
+        request = Request(url, data=json.dumps(payload).encode() if method != "GET" else None,
+            headers={"Accept": "application/json",
+                     **({"Content-Type": "application/json"} if method != "GET" else {})},
+            method=method)
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    result = json.loads(raw.decode()) if raw else {}
+                    if isinstance(result, dict) and result.get("error"):
+                        raise RuntimeError("meta_graph_api_rejected_request")
+                    return result
+            except HTTPError as exc: raise RuntimeError(f"meta_graph_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("meta_graph_unreachable") from None
+        return await asyncio.to_thread(send)
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name == "facebook.page.publish":
+            page_id = str(arguments["page_id"]).strip()
+            if not page_id.isdigit(): raise ValueError("invalid_meta_page_id")
+            body = {k: arguments[k] for k in ("message", "link") if k in arguments}
+            return await self._request("POST", f"/{page_id}/feed", body)
+        if tool_name == "instagram.comments.read":
+            user_id, media_id = str(arguments["ig_user_id"]), str(arguments["media_id"])
+            if not user_id.isdigit() or not media_id.isdigit(): raise ValueError("invalid_meta_object_id")
+            return await self._request("GET", f"/{media_id}/comments")
+        if tool_name == "instagram.media.publish":
+            user_id = str(arguments["ig_user_id"]).strip()
+            image_url = str(arguments["image_url"]).strip()
+            if not user_id.isdigit() or not image_url.startswith("https://"):
+                raise ValueError("invalid_instagram_publish_input")
+            create = await self._request("POST", f"/{user_id}/media",
+                {"image_url": image_url, "caption": arguments.get("caption", "")})
+            creation_id = str(create.get("id", ""))
+            if not creation_id: raise RuntimeError("meta_media_container_missing")
+            return await self._request("POST", f"/{user_id}/media_publish",
+                {"creation_id": creation_id})
+        if tool_name == "threads.post.publish":
+            user_id = str(arguments["user_id"]).strip()
+            if not user_id.isdigit(): raise ValueError("invalid_threads_user_id")
+            create = await self._request("POST", f"/{user_id}/threads",
+                {"text": arguments["text"], **({"image_url": arguments["media_url"]} if arguments.get("media_url") else {})})
+            creation_id = str(create.get("id", ""))
+            if not creation_id: raise RuntimeError("meta_threads_container_missing")
+            return await self._request("POST", f"/{user_id}/threads_publish",
+                {"creation_id": creation_id})
+        raise RuntimeError("tool_operation_not_implemented")
