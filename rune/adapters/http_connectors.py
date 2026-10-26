@@ -560,3 +560,129 @@ class DropboxAdapter:
             except HTTPError as exc: raise RuntimeError(f"dropbox_api_http_{exc.code}") from None
             except (URLError, TimeoutError): raise RuntimeError("dropbox_unreachable") from None
         return await asyncio.to_thread(send)
+
+
+
+class SpotifyAdapter:
+    """Spotify Web API adapter with refresh-token OAuth."""
+
+    def __init__(self) -> None:
+        self._token: str | None = None
+        self._expires_at = 0.0
+        self.timeout = 20.0
+
+    async def health_check(self) -> bool:
+        return all(os.environ.get(k, "").strip() for k in (
+            "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REFRESH_TOKEN"))
+
+    async def _access_token(self) -> str:
+        import time
+        if not await self.health_check():
+            raise RuntimeError("connector_credentials_missing")
+        if self._token and time.time() < self._expires_at - 60:
+            return self._token
+        raw = f"{os.environ['SPOTIFY_CLIENT_ID']}:{os.environ['SPOTIFY_CLIENT_SECRET']}".encode()
+        auth = base64.b64encode(raw).decode()
+        form = urlencode({"grant_type": "refresh_token",
+            "refresh_token": os.environ["SPOTIFY_REFRESH_TOKEN"]}).encode()
+        request = Request("https://accounts.spotify.com/api/token", data=form,
+            headers={"Authorization": f"Basic {auth}",
+                     "Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+        def refresh() -> dict:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    return json.loads(response.read().decode())
+            except HTTPError as exc: raise RuntimeError(f"spotify_oauth_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("spotify_unreachable") from None
+        payload = await asyncio.to_thread(refresh)
+        if not payload.get("access_token"): raise RuntimeError("spotify_token_missing")
+        self._token = str(payload["access_token"])
+        self._expires_at = time.time() + int(payload.get("expires_in", 3600))
+        return self._token
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        token = await self._access_token()
+        if tool_name == "spotify.search":
+            query = {"q": arguments["q"], "type": arguments.get("type", "track"),
+                     "limit": arguments.get("limit", 10)}
+            method, path, body = "GET", "/search?" + urlencode(query), None
+        elif tool_name == "spotify.playback.start":
+            query = {"device_id": arguments["device_id"]} if arguments.get("device_id") else {}
+            path = "/me/player/play" + (("?" + urlencode(query)) if query else "")
+            method, body = "PUT", {"context_uri": arguments["uri"]} if arguments["uri"].startswith("spotify:") else {"uris": [arguments["uri"]]}
+        else: raise RuntimeError("tool_operation_not_implemented")
+        request = Request("https://api.spotify.com/v1" + path,
+            data=json.dumps(body).encode() if body is not None else None,
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json",
+                     **({"Content-Type": "application/json"} if body is not None else {})},
+            method=method)
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    return json.loads(raw.decode()) if raw else {"status": "accepted"}
+            except HTTPError as exc: raise RuntimeError(f"spotify_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("spotify_unreachable") from None
+        return await asyncio.to_thread(send)
+
+
+class YouTubeAdapter(JsonHttpAdapter):
+    """YouTube Data API v3 search adapter using a restricted API key."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://www.googleapis.com/youtube/v3",
+            credential_env="YOUTUBE_API_KEY", auth_header="X-Goog-Api-Key",
+            auth_scheme="", operations={
+                "youtube.search": HttpOperation("GET", "/search",
+                    query_keys=("q", "type", "maxResults", "part")),
+            })
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name != "youtube.search":
+            raise RuntimeError("tool_operation_not_implemented")
+        # The API key is sent as a query parameter by this API.
+        credential = self._credential()
+        query = {k: arguments[k] for k in ("q", "type", "maxResults") if k in arguments}
+        query.update({"part": "snippet", "key": credential})
+        request = Request(self.base_url + "/search?" + urlencode(query),
+            headers={"Accept": "application/json"}, method="GET")
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    return json.loads(raw.decode()) if raw else {}
+            except HTTPError as exc: raise RuntimeError(f"youtube_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("youtube_unreachable") from None
+        return await asyncio.to_thread(send)
+
+
+class ZoteroAdapter(JsonHttpAdapter):
+    """Zotero Web API adapter for item search."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://api.zotero.org",
+            credential_env="ZOTERO_API_KEY", auth_header="Zotero-API-Key",
+            auth_scheme="", operations={
+                "zotero.items.search": HttpOperation("GET", "/users/{user_id}/items",
+                    query_keys=("q", "limit", "format")),
+            })
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name != "zotero.items.search":
+            raise RuntimeError("tool_operation_not_implemented")
+        user_id = os.environ.get("ZOTERO_USER_ID", "").strip()
+        if not user_id or not user_id.isdigit():
+            raise RuntimeError("zotero_user_id_missing_or_invalid")
+        credential = self._credential()
+        query = {"q": arguments["q"], "limit": arguments.get("limit", 25),
+                 "format": "json"}
+        request = Request(f"https://api.zotero.org/users/{user_id}/items?" + urlencode(query),
+            headers={"Zotero-API-Key": credential, "Accept": "application/json"})
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    return json.loads(raw.decode()) if raw else []
+            except HTTPError as exc: raise RuntimeError(f"zotero_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("zotero_unreachable") from None
+        return await asyncio.to_thread(send)
