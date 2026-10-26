@@ -204,7 +204,7 @@ class ConnectorManager:
             attempts = attempt + 1
             try:
                 output = await asyncio.wait_for(
-                    adapter.invoke(tool.name, arguments), timeout=tool.timeout_seconds
+                    adapter.invoke(tool.id, arguments), timeout=tool.timeout_seconds
                 )
                 result = ExecutionResult(
                     execution_id, key, connector_id, ExecutionStatus.SUCCEEDED_UNVERIFIED,
