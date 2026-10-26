@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 
 from rune.core.capabilities import ActionRisk
@@ -22,8 +23,7 @@ class MockAdapter:
         return self.outputs
 
 
-@pytest.mark.asyncio
-async def test_connector_health_and_successful_mock_execution():
+def test_connector_health_and_successful_mock_execution():
     manager = ConnectorManager()
     adapter = MockAdapter()
     manager.register_connector(ConnectorRecord("notion", "mcp"), adapter)
@@ -32,27 +32,25 @@ async def test_connector_health_and_successful_mock_execution():
         "Create a page", {"type": "object", "required": ["title"],
         "properties": {"title": {"type": "string"}}, "additionalProperties": False},
     ))
-    assert await manager.health_check("notion") is ConnectorStatus.HEALTHY
-    result = await manager.execute("notion.page.create", {"title": "Plan"}, execution_id="e1")
+    assert asyncio.run(manager.health_check("notion")) is ConnectorStatus.HEALTHY
+    result = asyncio.run(manager.execute("notion.page.create", {"title": "Plan"}, execution_id="e1"))
     assert result.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
     assert result.output == {"ok": True}
     assert len(manager.audit_log) == 1
 
 
-@pytest.mark.asyncio
-async def test_disconnected_connector_never_executes():
+def test_disconnected_connector_never_executes():
     manager = ConnectorManager()
     adapter = MockAdapter()
     manager.register_connector(ConnectorRecord("google", "direct_api"), adapter)
     manager.register_tool(ToolDefinition("gmail.search", "google", "search",
                                          "Search mail", {"type": "object"}))
-    result = await manager.execute("gmail.search", {}, execution_id="e2")
+    result = await manager.execute("gmail.search", {}, execution_id="e2"))
     assert result.status is ExecutionStatus.UNAVAILABLE
     assert adapter.calls == 0
 
 
-@pytest.mark.asyncio
-async def test_high_impact_action_requires_explicit_approval():
+def test_high_impact_action_requires_explicit_approval():
     manager = ConnectorManager()
     adapter = MockAdapter()
     manager.register_connector(ConnectorRecord("google", "direct_api"), adapter)
@@ -61,15 +59,14 @@ async def test_high_impact_action_requires_explicit_approval():
         risk=ActionRisk.EXTERNAL_COMMUNICATION,
     ))
     await manager.health_check("google")
-    result = await manager.execute("gmail.send", {}, execution_id="e3")
+    result = await manager.execute("gmail.send", {}, execution_id="e3"))
     assert result.status is ExecutionStatus.AWAITING_APPROVAL
     assert adapter.calls == 0
-    approved = await manager.execute("gmail.send", {}, execution_id="e4", approved=True)
+    approved = await manager.execute("gmail.send", {}, execution_id="e4", approved=True))
     assert approved.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
 
 
-@pytest.mark.asyncio
-async def test_schema_failure_and_idempotency():
+def test_schema_failure_and_idempotency():
     manager = ConnectorManager()
     adapter = MockAdapter()
     manager.register_connector(ConnectorRecord("search", "direct_api"), adapter)
@@ -79,10 +76,10 @@ async def test_schema_failure_and_idempotency():
          "properties": {"query": {"type": "string"}}, "additionalProperties": False},
     ))
     await manager.health_check("search")
-    invalid = await manager.execute("search.web", {}, execution_id="e5")
+    invalid = await manager.execute("search.web", {}, execution_id="e5"))
     assert invalid.status is ExecutionStatus.BLOCKED
     first = await manager.execute("search.web", {"query": "MCP"},
-                                  execution_id="e6", idempotency_key="same")
+                                  execution_id="e6", idempotency_key="same"))
     second = await manager.execute("search.web", {"query": "MCP"},
                                    execution_id="e7", idempotency_key="same")
     assert first.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
@@ -90,8 +87,7 @@ async def test_schema_failure_and_idempotency():
     assert adapter.calls == 1
 
 
-@pytest.mark.asyncio
-async def test_bounded_retry():
+def test_bounded_retry():
     manager = ConnectorManager()
     adapter = MockAdapter(fail=1)
     manager.register_connector(ConnectorRecord("search", "direct_api"), adapter)
@@ -99,6 +95,6 @@ async def test_bounded_retry():
         "search.web", "search", "search", "Search", {"type": "object"}, max_retries=1,
     ))
     await manager.health_check("search")
-    result = await manager.execute("search.web", {}, execution_id="e8")
+    result = await manager.execute("search.web", {}, execution_id="e8"))
     assert result.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
     assert result.attempts == 2
