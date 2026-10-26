@@ -42,3 +42,11 @@ def test_every_manifest_credential_has_an_env_example_placeholder():
     names = {name for item in integration_catalogue() for name in item.auth_env}
     missing = sorted(name for name in names if f"{name}=" not in content)
     assert not missing, f"Missing environment placeholders: {missing}"
+
+
+
+def test_tool_availability_reflects_device_and_review_restrictions():
+    from rune.core.integration_catalogue import tool_catalogue
+    tools = {item.id: item for item in tool_catalogue()}
+    assert tools["android.alarm.create"].availability == "device_dependent"
+    assert tools["snapchat.public.search"].availability == "restricted_or_review_required"
