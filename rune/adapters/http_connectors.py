@@ -571,10 +571,14 @@ class DropboxAdapter:
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         token = await self._access_token()
         if tool_name == "dropbox.files.search":
-            endpoint = "/files/search_v2"
-            body = {"query": arguments["query"]}
-            if arguments.get("path"):
-                body["options"] = {"path": arguments["path"]}
+            if arguments.get("cursor"):
+                endpoint = "/files/search/continue_v2"
+                body = {"cursor": arguments["cursor"]}
+            else:
+                endpoint = "/files/search_v2"
+                body = {"query": arguments["query"]}
+                if arguments.get("path"):
+                    body["options"] = {"path": arguments["path"]}
             headers = {"Content-Type": "application/json"}
         elif tool_name == "drive.upload":
             # Google Drive upload belongs to GoogleWorkspaceAdapter, not Dropbox.
