@@ -284,7 +284,7 @@ def build_initial_connector_manager() -> ConnectorManager:
         "device": ActionRisk.PRIVILEGED,
     }
     # Concrete, allowlisted adapters; no network call occurs during registration.
-    from ..adapters.http_connectors import BraveSearchAdapter, DropboxAdapter, Microsoft365Adapter, FigmaAdapter, GitHubAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, SlackAdapter, DiscordBotAdapter, SpotifyAdapter, YouTubeAdapter, ZoteroAdapter, HubSpotAdapter, SentryAdapter, VercelAdapter, RailwayAdapter, TavilyAdapter, TelegramBotAdapter
+    from ..adapters.http_connectors import BraveSearchAdapter, DropboxAdapter, Microsoft365Adapter, FigmaAdapter, GitHubAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, SlackAdapter, DiscordBotAdapter, SpotifyAdapter, YouTubeAdapter, ZoteroAdapter, HubSpotAdapter, SentryAdapter, VercelAdapter, RailwayAdapter, MetaGraphAdapter, XApiAdapter, RedditAdapter, PinterestAdapter, TavilyAdapter, TelegramBotAdapter
     manager.adapters["brave_search"] = BraveSearchAdapter()
     manager.adapters["google_workspace"] = GoogleWorkspaceAdapter()
     manager.adapters["figma"] = FigmaAdapter()
@@ -304,6 +304,12 @@ def build_initial_connector_manager() -> ConnectorManager:
     manager.adapters["sentry"] = SentryAdapter()
     manager.adapters["vercel"] = VercelAdapter()
     manager.adapters["railway"] = RailwayAdapter()
+    manager.adapters["instagram"] = MetaGraphAdapter()
+    manager.adapters["facebook"] = manager.adapters["instagram"]
+    manager.adapters["threads"] = manager.adapters["instagram"]
+    manager.adapters["x"] = XApiAdapter()
+    manager.adapters["reddit"] = RedditAdapter()
+    manager.adapters["pinterest"] = PinterestAdapter()
     from ..adapters.local_connectors import HomeAssistantAdapter, ScopedFilesystemAdapter
     manager.adapters["home_assistant"] = HomeAssistantAdapter()
     manager.adapters["filesystem"] = ScopedFilesystemAdapter()
