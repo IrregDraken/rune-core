@@ -307,6 +307,8 @@ def build_initial_connector_manager() -> ConnectorManager:
     from ..adapters.local_connectors import HomeAssistantAdapter, ScopedFilesystemAdapter
     manager.adapters["home_assistant"] = HomeAssistantAdapter()
     manager.adapters["filesystem"] = ScopedFilesystemAdapter()
+    from ..adapters.browser import PlaywrightBrowserAdapter
+    manager.adapters["browser"] = PlaywrightBrowserAdapter()
 
     for item in tool_catalogue():
         manager.register_tool(ToolDefinition(
