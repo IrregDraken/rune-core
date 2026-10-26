@@ -120,12 +120,12 @@ Integrations/MCP: HubSpot, Salesforce, Notion, Linear/Jira, Slack, Microsoft 365
 - Keep execution history, audit logs and cancellation controls.
 Foundations: scheduler, durable job queue, event store, policy engine. Automation must be opt-in, bounded, observable and easy to pause.
 
-### 13. Device and smart-home capabilities (later device phase)
+### 13. Smart-home and device capabilities (Home Assistant connector now; Android later)
 - Set alarms/timers, open apps, share files and display notifications.
 - Control media sessions and supported device settings.
 - Interact with smart-home devices and routines.
 - Use approved accessibility or automation interfaces only where platform policy permits.
-Integrations: future Android companion, Android intents/notification/media APIs, Home Assistant. Not part of the current implementation phase.
+Integrations: Home Assistant's official local REST API is part of the connector implementation. Android intents/notifications/media APIs require the future Android Companion, pairing and OS permissions, and remain in the later device phase.
 
 ## MCP and integration plan
 
