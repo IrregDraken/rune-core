@@ -1128,6 +1128,10 @@ class LinkedInAdapter(JsonHttpAdapter):
         super().__init__(base_url="https://api.linkedin.com/rest",
             credential_env="LINKEDIN_ACCESS_TOKEN", operations={})
 
+    async def health_check(self) -> bool:
+        version = os.environ.get("LINKEDIN_API_VERSION", "").strip()
+        return bool(await super().health_check() and version.isdigit() and len(version) == 6)
+
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if tool_name != "linkedin.post.create":
             raise RuntimeError("tool_operation_not_implemented")
