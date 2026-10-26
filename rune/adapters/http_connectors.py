@@ -769,6 +769,11 @@ class HubSpotAdapter(JsonHttpAdapter):
             operation = HttpOperation("PATCH", f"/crm/v3/objects/deals/{deal_id}",
                 body_keys=("properties",))
             return await self.invoke_operation(operation, arguments)
+        if tool_name == "hubspot.contacts.search":
+            operation = HttpOperation("POST", "/crm/v3/objects/contacts/search",
+                body_keys=("query", "limit"))
+            payload = {"query": arguments.get("q", ""), "limit": arguments.get("limit", 25)}
+            return await self.invoke_operation(operation, payload)
         return await super().invoke(tool_name, arguments)
 
 
@@ -805,7 +810,7 @@ class RailwayAdapter(JsonHttpAdapter):
     """Railway GraphQL adapter for deployment logs."""
 
     def __init__(self) -> None:
-        super().__init__(base_url="https://backboard.railway.app/graphql/v2",
+        super().__init__(base_url="https://backboard.railway.com/graphql/v2",
             credential_env="RAILWAY_API_TOKEN", operations={})
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
@@ -815,7 +820,7 @@ class RailwayAdapter(JsonHttpAdapter):
         if not deployment_id or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for ch in deployment_id):
             raise ValueError("invalid_railway_deployment_id")
         lines = max(1, min(int(arguments.get("lines", 100)), 500))
-        query = "query DeploymentLogs($deploymentId: String!, $limit: Int!) { deploymentLogs(deploymentId: $deploymentId, limit: $limit) }"
+        query = "query deploymentLogs($deploymentId: String!, $limit: Int) { deploymentLogs(deploymentId: $deploymentId, limit: $limit) { timestamp message severity } }"
         request = Request(self.base_url,
             data=json.dumps({"query": query, "variables": {"deploymentId": deployment_id, "limit": lines}}).encode(),
             headers={"Authorization": f"Bearer {self._credential()}",
