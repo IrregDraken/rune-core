@@ -22,6 +22,10 @@ understand -> remember -> retrieve -> reason -> decide -> act with permission ->
 - Shell: workspace state, RUNE Island state and desktop presentation
 - Desktop: lightweight always-on-top Windows RUNE Island with chat and telemetry
 
+## Capability blueprint
+
+The target capability inventory, MCP/direct-API integration priorities, permission model, and implementation boundaries are documented in [`docs/CAPABILITY_BLUEPRINT.md`](docs/CAPABILITY_BLUEPRINT.md). The runtime exposes the current declarative catalogue at `/api/capabilities`. Catalogue entries describe intended support and do not imply that an external service is connected or executable.
+
 ## Desktop presence
 
 On Windows, install the package and run:
