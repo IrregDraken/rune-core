@@ -232,7 +232,7 @@ def integration_catalogue() -> tuple[IntegrationManifest, ...]:
 _TOOL_SCHEMAS: dict[str, dict] = {
     "gmail.search": {"type": "object", "required": ["q"], "properties": {
         "q": {"type": "string", "minLength": 1, "maxLength": 500},
-        "maxResults": {"type": "integer", "minimum": 1, "maximum": 100}}, "additionalProperties": False},
+        "maxResults": {"type": "integer", "minimum": 1, "maximum": 100}, "pageToken": {"type": "string", "maxLength": 2048}}, "additionalProperties": False},
     "gmail.read": {"type": "object", "required": ["message_id"], "properties": {
         "message_id": {"type": "string", "minLength": 1, "maxLength": 256}}, "additionalProperties": False},
     "gmail.draft": {"type": "object", "required": ["to", "subject", "body"], "properties": {
@@ -245,7 +245,7 @@ _TOOL_SCHEMAS: dict[str, dict] = {
         "body": {"type": "string", "maxLength": 100000}}, "additionalProperties": False},
     "calendar.search": {"type": "object", "properties": {
         "timeMin": {"type": "string", "maxLength": 64}, "timeMax": {"type": "string", "maxLength": 64},
-        "q": {"type": "string", "maxLength": 500}, "maxResults": {"type": "integer", "minimum": 1, "maximum": 2500}},
+        "q": {"type": "string", "maxLength": 500}, "maxResults": {"type": "integer", "minimum": 1, "maximum": 2500}, "pageToken": {"type": "string", "maxLength": 2048}},
         "additionalProperties": False},
     "calendar.create": {"type": "object", "required": ["summary", "start", "end"], "properties": {
         "summary": {"type": "string", "minLength": 1, "maxLength": 1024},
@@ -260,11 +260,11 @@ _TOOL_SCHEMAS: dict[str, dict] = {
         "additionalProperties": False},
     "drive.search": {"type": "object", "properties": {
         "q": {"type": "string", "maxLength": 1000}, "pageSize": {"type": "integer", "minimum": 1, "maximum": 1000},
-        "orderBy": {"type": "string", "maxLength": 100}, "fields": {"type": "string", "maxLength": 1000}},
+        "orderBy": {"type": "string", "maxLength": 100}, "fields": {"type": "string", "maxLength": 1000}, "pageToken": {"type": "string", "maxLength": 2048}},
         "additionalProperties": False},
     "contacts.search": {"type": "object", "properties": {
         "pageSize": {"type": "integer", "minimum": 1, "maximum": 1000},
-        "personFields": {"type": "string", "maxLength": 500}}, "additionalProperties": False},
+        "personFields": {"type": "string", "maxLength": 500}, "pageToken": {"type": "string", "maxLength": 2048}}, "additionalProperties": False},
     "notion.search": {"type": "object", "properties": {
         "query": {"type": "string", "maxLength": 500}, "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
         "start_cursor": {"type": "string", "maxLength": 256}}, "additionalProperties": False},
@@ -334,7 +334,7 @@ _TOOL_SCHEMAS: dict[str, dict] = {
             "body": {"type": "string", "maxLength": 65536},
             "draft": {"type": "boolean"}, "maintainer_can_modify": {"type": "boolean"}},
         "additionalProperties": False},
-    "gitlab.project.search": {"type": "object", "required": ["search"], "properties": {"search": {"type": "string", "minLength": 1, "maxLength": 256}, "per_page": {"type": "integer", "minimum": 1, "maximum": 100}}, "additionalProperties": False},
+    "gitlab.project.search": {"type": "object", "required": ["search"], "properties": {"search": {"type": "string", "minLength": 1, "maxLength": 256}, "per_page": {"type": "integer", "minimum": 1, "maximum": 100}, "page": {"type": "integer", "minimum": 1}}, "additionalProperties": False},
     "gitlab.issue.create": {"type": "object", "required": ["project_id", "title"], "properties": {"project_id": {"type": "integer", "minimum": 1}, "title": {"type": "string", "minLength": 1, "maxLength": 255}, "description": {"type": "string", "maxLength": 100000}, "labels": {"type": "string", "maxLength": 1000}}, "additionalProperties": False},
     "gitlab.merge_request.create": {"type": "object", "required": ["project_id", "source_branch", "target_branch", "title"], "properties": {"project_id": {"type": "integer", "minimum": 1}, "source_branch": {"type": "string", "minLength": 1}, "target_branch": {"type": "string", "minLength": 1}, "title": {"type": "string", "minLength": 1, "maxLength": 255}, "description": {"type": "string", "maxLength": 100000}}, "additionalProperties": False},
     "linear.issue.search": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string", "minLength": 1, "maxLength": 256}}, "additionalProperties": False},
@@ -359,7 +359,7 @@ _TOOL_SCHEMAS: dict[str, dict] = {
             "tags": {"type": "array", "items": {"type": "object"}, "maxItems": 20}},
         "additionalProperties": False},
     "drive.upload": {"type": "object", "required": ["file_name", "mime_type", "content_base64"], "properties": {"file_name": {"type": "string"}, "mime_type": {"type": "string"}, "content_base64": {"type": "string"}, "parent_id": {"type": "string"}}, "additionalProperties": False},
-    "slack.search": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}, "count": {"type": "integer"}}, "additionalProperties": False},
+    "slack.search": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}, "count": {"type": "integer"}, "page": {"type": "integer", "minimum": 1}}, "additionalProperties": False},
     "slack.message.send": {"type": "object", "required": ["channel", "text"], "properties": {"channel": {"type": "string"}, "text": {"type": "string"}}, "additionalProperties": False},
     "discord.message.send": {"type": "object", "required": ["channel_id", "content"], "properties": {"channel_id": {"type": "string"}, "content": {"type": "string"}}, "additionalProperties": False},
     "whatsapp.message.send": {"type": "object", "required": ["to", "type"], "properties": {"to": {"type": "string"}, "type": {"type": "string"}, "text": {"type": "object"}, "template": {"type": "object"}}, "additionalProperties": False},
@@ -372,12 +372,12 @@ _TOOL_SCHEMAS: dict[str, dict] = {
     "x.search": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}, "max_results": {"type": "integer"}}, "additionalProperties": False},
     "x.post.create": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}, "reply_to_id": {"type": "string"}}, "additionalProperties": False},
     "linkedin.post.create": {"type": "object", "required": ["author", "commentary"], "properties": {"author": {"type": "string"}, "commentary": {"type": "string"}, "visibility": {"type": "string"}}, "additionalProperties": False},
-    "reddit.search": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}, "subreddit": {"type": "string"}, "sort": {"type": "string"}, "limit": {"type": "integer"}}, "additionalProperties": False},
+    "reddit.search": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}, "subreddit": {"type": "string"}, "sort": {"type": "string"}, "limit": {"type": "integer"}, "after": {"type": "string"}, "before": {"type": "string"}}, "additionalProperties": False},
     "reddit.comment.create": {"type": "object", "required": ["parent_id", "text"], "properties": {"parent_id": {"type": "string"}, "text": {"type": "string"}}, "additionalProperties": False},
     "pinterest.pin.create": {"type": "object", "required": ["board_id", "title", "media_source"], "properties": {"board_id": {"type": "string"}, "title": {"type": "string"}, "description": {"type": "string"}, "link": {"type": "string"}, "media_source": {"type": "object"}}, "additionalProperties": False},
-    "spotify.search": {"type": "object", "required": ["q"], "properties": {"q": {"type": "string"}, "type": {"type": "string"}, "limit": {"type": "integer"}}, "additionalProperties": False},
+    "spotify.search": {"type": "object", "required": ["q"], "properties": {"q": {"type": "string"}, "type": {"type": "string"}, "limit": {"type": "integer"}, "offset": {"type": "integer", "minimum": 0}}, "additionalProperties": False},
     "spotify.playback.start": {"type": "object", "required": ["uri"], "properties": {"uri": {"type": "string"}, "device_id": {"type": "string"}}, "additionalProperties": False},
-    "youtube.search": {"type": "object", "required": ["q"], "properties": {"q": {"type": "string"}, "type": {"type": "string"}, "maxResults": {"type": "integer"}}, "additionalProperties": False},
+    "youtube.search": {"type": "object", "required": ["q"], "properties": {"q": {"type": "string"}, "type": {"type": "string"}, "maxResults": {"type": "integer"}, "pageToken": {"type": "string", "maxLength": 2048}}, "additionalProperties": False},
     "zotero.items.search": {"type": "object", "required": ["q"], "properties": {"q": {"type": "string"}, "limit": {"type": "integer"}}, "additionalProperties": False},
     "hubspot.contacts.search": {"type": "object", "required": [], "properties": {"q": {"type": "string"}, "limit": {"type": "integer"}}, "additionalProperties": False},
     "hubspot.deal.update": {"type": "object", "required": ["deal_id", "properties"], "properties": {"deal_id": {"type": "string"}, "properties": {"type": "object"}}, "additionalProperties": False},
