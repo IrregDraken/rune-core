@@ -24,7 +24,7 @@ understand -> remember -> retrieve -> reason -> decide -> act with permission ->
 
 ## Capability blueprint
 
-The target capability inventory, MCP/direct-API integration priorities, permission model, and implementation boundaries are documented in [`docs/CAPABILITY_BLUEPRINT.md`](docs/CAPABILITY_BLUEPRINT.md). The runtime exposes the capability catalogue at `/api/capabilities`, connector/adapter snapshots at `/api/connectors`, the expanded provider/tool inventory at `/api/integrations`, and authenticated connector health/execute routes at `/api/connectors/health` and `/api/connectors/execute`. High-impact execution first returns `awaiting_approval`; the authorised client must explicitly resubmit with approval. Catalogue entries describe intended support and do not imply that an external service is connected or executable.
+The target capability inventory, MCP/direct-API integration priorities, permission model, and implementation boundaries are documented in [`docs/CAPABILITY_BLUEPRINT.md`](docs/CAPABILITY_BLUEPRINT.md). The runtime exposes the capability catalogue at `/api/capabilities`, connector/adapter snapshots at `/api/connectors`, the expanded provider/tool inventory at `/api/integrations`, and authenticated connector health/execute routes at `/api/connectors/health` and `/api/connectors/execute`, plus owner-managed messaging consent routes at `/api/consent/opt-in` and `/api/consent/revoke`. High-impact execution first returns `awaiting_approval`; the authorised client must explicitly resubmit with approval. Catalogue entries describe intended support and do not imply that an external service is connected or executable.
 
 ## Integration development
 
