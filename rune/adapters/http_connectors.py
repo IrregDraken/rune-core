@@ -832,9 +832,15 @@ class VercelAdapter(JsonHttpAdapter):
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if tool_name == "vercel.production.deploy":
+            project_id = str(arguments.get("projectId", "")).strip()
+            name = str(arguments.get("name", "")).strip()
+            if not project_id or not name or not arguments.get("gitSource"):
+                raise ValueError("vercel_deploy_requires_project_name_and_git_source")
             operation = HttpOperation("POST", "/v13/deployments",
-                body_keys=("name", "project", "target", "gitSource", "builds", "env"))
-            return await self.invoke_operation(operation, arguments)
+                body_keys=("name", "project", "target", "gitSource"))
+            payload = dict(arguments)
+            payload["project"] = project_id
+            return await self.invoke_operation(operation, payload)
         return await super().invoke(tool_name, arguments)
 
 
