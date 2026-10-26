@@ -13,6 +13,7 @@ from .core.identity import IdentityProvider, LocalIdentityProvider
 from .core.tools import ToolRegistry
 from .core.capabilities import build_default_catalogue
 from .core.connectors import build_initial_connector_manager
+from .core.integration_catalogue import snapshot as integration_snapshot
 from .core.voice import VoicePipeline
 from .core.engine import RUNEEngine
 from .core.model import ModelProvider
@@ -279,6 +280,7 @@ class RUNERuntime:
             "tools": [spec.__dict__ for spec in self.tools.specs()],
             "capability_catalogue": self.capability_catalogue.snapshot(),
             "connectors": self.connectors.snapshot(),
+            "integration_catalogue": integration_snapshot(),
             "voice": {
                 "wake_word": self.voice.wake_word is not None,
                 "speech_to_text": self.voice.speech_to_text is not None,
