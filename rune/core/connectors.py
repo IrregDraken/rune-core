@@ -284,7 +284,7 @@ def build_initial_connector_manager() -> ConnectorManager:
         "device": ActionRisk.PRIVILEGED,
     }
     # Concrete, allowlisted adapters; no network call occurs during registration.
-    from ..adapters.http_connectors import BraveSearchAdapter, DropboxAdapter, FigmaAdapter, GitHubAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, SlackAdapter, DiscordBotAdapter, TavilyAdapter, TelegramBotAdapter
+    from ..adapters.http_connectors import BraveSearchAdapter, DropboxAdapter, FigmaAdapter, GitHubAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, SlackAdapter, DiscordBotAdapter, SpotifyAdapter, YouTubeAdapter, ZoteroAdapter, TavilyAdapter, TelegramBotAdapter
     manager.adapters["brave_search"] = BraveSearchAdapter()
     manager.adapters["google_workspace"] = GoogleWorkspaceAdapter()
     manager.adapters["figma"] = FigmaAdapter()
@@ -296,6 +296,9 @@ def build_initial_connector_manager() -> ConnectorManager:
     manager.adapters["slack"] = SlackAdapter()
     manager.adapters["discord"] = DiscordBotAdapter()
     manager.adapters["dropbox"] = DropboxAdapter()
+    manager.adapters["spotify"] = SpotifyAdapter()
+    manager.adapters["youtube"] = YouTubeAdapter()
+    manager.adapters["zotero"] = ZoteroAdapter()
 
     for item in tool_catalogue():
         manager.register_tool(ToolDefinition(
