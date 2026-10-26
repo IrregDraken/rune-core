@@ -158,8 +158,8 @@ class ConnectorManager:
         record.status = ConnectorStatus.CONNECTING
         try:
             healthy = await asyncio.wait_for(adapter.health_check(), timeout=10)
-            record.status = ConnectorStatus.HEALTHY if healthy else ConnectorStatus.DEGRADED
-            record.last_error_code = None if healthy else "health_check_failed"
+            record.status = ConnectorStatus.HEALTHY if healthy else ConnectorStatus.NEEDS_AUTH
+            record.last_error_code = None if healthy else "credentials_missing_or_health_check_failed"
         except Exception:
             record.status = ConnectorStatus.ERROR
             record.last_error_code = "health_check_error"
