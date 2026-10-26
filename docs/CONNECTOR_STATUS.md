@@ -78,7 +78,7 @@ An attached adapter means a real provider-specific implementation exists in code
 
 ## Verification
 
-The latest confirmed successful GitHub Actions run before this document was created was run 291, commit eacd18fbb9ee14e46160dc2279a71243f3572c7b: 107 passed, 1 skipped. A newer test batch is being validated separately; do not assume that earlier green run covers subsequent commits.
+The latest confirmed successful GitHub Actions run is run 326, commit fc2f2cfc092e053a96e6b9f1aa652f1c098b25c2: 126 passed, 1 skipped. The test job completed successfully after dependency installation. Any later code commit must receive its own CI result before it is considered validated.
 
 Offline mock tests cover representative provider routes, OAuth refresh flows, request payloads, auth headers, path validation, filesystem confinement, MCP transport configuration, approval policy and idempotency. Coverage is not yet exhaustive for every provider operation. No real provider credentials or external account calls have been used.
 
