@@ -184,3 +184,18 @@ def test_factory_retries_read_tools_but_never_retries_external_writes():
     assert manager.tools["gmail.search"].max_retries == 2
     assert manager.tools["gmail.send"].max_retries == 0
     assert manager.tools["whatsapp.message.send"].max_retries == 0
+
+
+
+def test_connector_snapshot_distinguishes_attached_and_deferred_adapters():
+    from rune.core.connectors import build_initial_connector_manager
+    manager = build_initial_connector_manager()
+    snapshot = manager.snapshot()
+    connectors = {item["id"]: item for item in snapshot["connectors"]}
+    tools = {item["id"]: item for item in snapshot["tools"]}
+    assert connectors["google_workspace"]["adapter_attached"] is True
+    assert connectors["snapchat"]["adapter_attached"] is False
+    assert tools["gmail.search"]["adapter_attached"] is True
+    assert tools["snapchat.public.search"]["adapter_attached"] is False
+    assert tools["gmail.search"]["max_retries"] == 2
+    assert tools["gmail.send"]["max_retries"] == 0
