@@ -319,6 +319,9 @@ def build_initial_connector_manager() -> ConnectorManager:
     from ..adapters.browser import PlaywrightBrowserAdapter
     manager.adapters["browser"] = PlaywrightBrowserAdapter()
 
+    from ..adapters.mcp_client import attach_configured_mcp_adapters
+    attach_configured_mcp_adapters(manager)
+
     for item in tool_catalogue():
         manager.register_tool(ToolDefinition(
             id=item.id,
