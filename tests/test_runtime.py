@@ -72,3 +72,13 @@ def test_runtime_restores_active_plan(tmp_path: Path):
     assert restored.active_plan.goal == "ship"
     assert restored.active_plan.steps[0].status.value == "ready"
     restored.close()
+
+
+def test_runtime_exposes_capability_catalogue(tmp_path: Path):
+    runtime = RUNERuntime(DeterministicModel(), db_path=str(tmp_path / "rune.db"))
+    snapshot = runtime.snapshot()
+    runtime.close()
+
+    catalogue = snapshot["capability_catalogue"]
+    assert any(item["id"] == "communication.email.send" for item in catalogue["capabilities"])
+    assert any(item["id"] == "github" for item in catalogue["connectors"])

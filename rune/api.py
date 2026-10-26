@@ -54,6 +54,13 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             self._send(200, {"events": self.runtime.recent_events()})
         elif path == "/api/tools":
             self._send(200, {"tools": [spec.__dict__ for spec in self.runtime.tools.specs()]})
+        elif path == "/api/capabilities":
+            self._send(200, self.runtime.capability_catalogue.snapshot())
+        elif path == "/api/connectors":
+            self._send(200, self.runtime.connectors.snapshot())
+        elif path == "/api/integrations":
+            from .core.integration_catalogue import snapshot as integration_snapshot
+            self._send(200, integration_snapshot())
         elif path == "/api/voice":
             voice = self.runtime.voice
             self._send(200, {
@@ -87,6 +94,10 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             "/api/goal",
             "/api/plan",
             "/api/plan/verify",
+            "/api/connectors/health",
+            "/api/connectors/execute",
+            "/api/consent/opt-in",
+            "/api/consent/revoke",
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
@@ -98,6 +109,66 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
 
             if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify"} and not self._authorized():
                 self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path in {"/api/connectors/health", "/api/connectors/execute"} and not self._authorized():
+                self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path in {"/api/consent/opt-in", "/api/consent/revoke"} and not self._authorized():
+                self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path in {"/api/consent/opt-in", "/api/consent/revoke"}:
+                channel = str(payload.get("channel", "")).strip().lower()
+                recipient = str(payload.get("recipient", "")).strip()
+                source = str(payload.get("source", "")).strip()
+                if not channel or not recipient or not source:
+                    self._send(400, {"error": "channel, recipient and consent evidence source are required"})
+                    return
+                from .core.messaging_consent import MessagingConsentRegistry
+                registry = MessagingConsentRegistry(os.environ.get("RUNE_CONSENT_DB"))
+                if request_path == "/api/consent/opt-in":
+                    registry.record_opt_in(channel, recipient, source)
+                    result = "opted_in"
+                else:
+                    registry.revoke(channel, recipient, source)
+                    result = "revoked"
+                self._send(200, {"channel": channel, "recipient": recipient, "consent": result})
+                return
+
+            if request_path == "/api/connectors/health":
+                connector_id = str(payload.get("connector_id", "")).strip()
+                if not connector_id:
+                    self._send(400, {"error": "connector_id is required"})
+                    return
+                try:
+                    status = __import__("asyncio").run(self.runtime.connectors.health_check(connector_id))
+                except KeyError:
+                    self._send(404, {"error": "connector not found"})
+                    return
+                self._send(200, {"connector_id": connector_id, "status": status.value})
+                return
+
+            if request_path == "/api/connectors/execute":
+                tool_id = str(payload.get("tool_id", "")).strip()
+                execution_id = str(payload.get("execution_id", "")).strip()
+                arguments = payload.get("arguments", {})
+                if not tool_id or not execution_id or not isinstance(arguments, dict):
+                    self._send(400, {"error": "tool_id, execution_id and object arguments are required"})
+                    return
+                result = __import__("asyncio").run(self.runtime.connectors.execute(
+                    tool_id, arguments, execution_id=execution_id,
+                    approved=payload.get("approved") is True,
+                    idempotency_key=payload.get("idempotency_key"),
+                ))
+                self._send(200, {"execution": {
+                    "execution_id": result.execution_id, "tool_id": result.tool_id,
+                    "connector_id": result.connector_id, "status": result.status.value,
+                    "output": result.output, "error_code": result.error_code,
+                    "attempts": result.attempts, "verified": result.verified,
+                    "idempotency_key": result.idempotency_key,
+                }})
                 return
 
             if request_path == "/api/memory":
