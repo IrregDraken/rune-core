@@ -63,7 +63,7 @@ class PlaywrightBrowserAdapter:
             from playwright.async_api import async_playwright
         except ImportError as exc:
             raise RuntimeError("playwright_not_installed_install_rune_core_browser") from exc
-        target = validate_public_http_url(str(arguments.get("url", "")))
+        target = await asyncio.to_thread(validate_public_http_url, str(arguments.get("url", "")))
         async with async_playwright() as runtime:
             browser = await runtime.chromium.launch(headless=True)
             try:
@@ -73,7 +73,7 @@ class PlaywrightBrowserAdapter:
                 )
                 async def guard(route: Any) -> None:
                     try:
-                        validate_public_http_url(route.request.url)
+                        await asyncio.to_thread(validate_public_http_url, route.request.url)
                     except ValueError:
                         await route.abort("blockedbyclient")
                     else:
