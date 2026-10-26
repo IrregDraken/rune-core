@@ -183,3 +183,104 @@ class NotionAdapter(JsonHttpAdapter):
                 ),
             }
         return await super().invoke(tool_name, arguments)
+
+class GoogleWorkspaceAdapter:
+    """Google Workspace REST adapter using an OAuth refresh-token grant."""
+
+    TOKEN_URL = "https://oauth2.googleapis.com/token"
+    API_ROOT = "https://www.googleapis.com"
+
+    def __init__(self) -> None:
+        self._access_token: str | None = None
+        self._expires_at = 0.0
+        self.timeout = 20.0
+        self.operations = {
+            "gmail.search": ("GET", "/gmail/v1/users/me/messages", ("q", "maxResults")),
+            "calendar.search": ("GET", "/calendar/v3/calendars/primary/events", ("timeMin", "timeMax", "q", "maxResults")),
+            "drive.search": ("GET", "/drive/v3/files", ("q", "pageSize", "orderBy", "fields")),
+            "contacts.search": ("GET", "/people/v1/people/me/connections", ("pageSize", "personFields")),
+        }
+
+    async def health_check(self) -> bool:
+        return all(os.environ.get(key, "").strip() for key in (
+            "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN"
+        ))
+
+    async def _token(self) -> str:
+        import time
+        if self._access_token and time.time() < self._expires_at - 60:
+            return self._access_token
+        from urllib.parse import urlencode
+        data = urlencode({
+            "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+            "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+            "refresh_token": os.environ.get("GOOGLE_REFRESH_TOKEN", ""),
+            "grant_type": "refresh_token",
+        }).encode()
+        request = Request(self.TOKEN_URL, data=data,
+                          headers={"Content-Type": "application/x-www-form-urlencoded"},
+                          method="POST")
+        def refresh() -> dict:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except HTTPError as exc:
+                raise RuntimeError(f"google_oauth_http_{exc.code}") from None
+            except (URLError, TimeoutError):
+                raise RuntimeError("google_oauth_unreachable") from None
+        payload = await asyncio.to_thread(refresh)
+        token = payload.get("access_token")
+        if not token:
+            raise RuntimeError("google_oauth_token_missing")
+        self._access_token = str(token)
+        self._expires_at = time.time() + int(payload.get("expires_in", 3600))
+        return self._access_token
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        operation = self.operations.get(tool_name)
+        if operation is None:
+            raise RuntimeError("tool_operation_not_implemented")
+        method, path, query_keys = operation
+        query = {key: arguments[key] for key in query_keys if key in arguments}
+        url = self.API_ROOT + path + (("?" + urlencode(query, doseq=True)) if query else "")
+        token = await self._token()
+        request = Request(url, headers={"Authorization": f"Bearer {token}",
+                                        "Accept": "application/json"}, method=method)
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    return json.loads(raw.decode("utf-8")) if raw else {}
+            except HTTPError as exc:
+                raise RuntimeError(f"google_api_http_{exc.code}") from None
+            except (URLError, TimeoutError):
+                raise RuntimeError("google_api_unreachable") from None
+        return await asyncio.to_thread(send)
+
+
+class FigmaAdapter(JsonHttpAdapter):
+    def __init__(self) -> None:
+        super().__init__(
+            base_url="https://api.figma.com/v1",
+            credential_env="FIGMA_ACCESS_TOKEN",
+            auth_header="X-Figma-Token",
+            auth_scheme="",
+            operations={
+                "figma.file.get": HttpOperation("GET", "/files/{file_key}"),
+                "figma.comments.list": HttpOperation("GET", "/files/{file_key}/comments"),
+            },
+        )
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        operation = self.operations.get(tool_name)
+        if operation is None:
+            raise RuntimeError("tool_operation_not_implemented")
+        file_key = str(arguments.get("file_key", "")).strip()
+        if not file_key or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for ch in file_key):
+            raise ValueError("invalid_file_key")
+        self.operations = {
+            **self.operations,
+            tool_name: HttpOperation(operation.method, operation.path.replace("{file_key}", file_key),
+                                     operation.query_keys, operation.body_keys),
+        }
+        return await super().invoke(tool_name, arguments)
