@@ -84,8 +84,6 @@ class HomeAssistantAdapter:
                     and os.environ.get("HOME_ASSISTANT_URL", "").strip())
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
-        token = os.environ.get("HOME_ASSISTANT_TOKEN", "").strip()
-        if not token: raise RuntimeError("connector_credentials_missing")
         base = self._base_url()
         if tool_name == "home_assistant.entity.read":
             entity = str(arguments.get("entity_id", "")).strip()
@@ -102,6 +100,8 @@ class HomeAssistantAdapter:
             body = {**arguments.get("service_data", {}), "entity_id": entity}
         else:
             raise RuntimeError("tool_operation_not_implemented")
+        token = os.environ.get("HOME_ASSISTANT_TOKEN", "").strip()
+        if not token: raise RuntimeError("connector_credentials_missing")
         request = Request(base + path,
             data=json.dumps(body).encode() if body is not None else None,
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json",
