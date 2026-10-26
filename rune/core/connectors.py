@@ -284,7 +284,7 @@ def build_initial_connector_manager() -> ConnectorManager:
         "device": ActionRisk.PRIVILEGED,
     }
     # Concrete, allowlisted adapters; no network call occurs during registration.
-    from ..adapters.http_connectors import BraveSearchAdapter, FigmaAdapter, GitHubAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, TavilyAdapter, TelegramBotAdapter
+    from ..adapters.http_connectors import BraveSearchAdapter, FigmaAdapter, GitHubAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, SlackAdapter, DiscordBotAdapter, TavilyAdapter, TelegramBotAdapter
     manager.adapters["brave_search"] = BraveSearchAdapter()
     manager.adapters["google_workspace"] = GoogleWorkspaceAdapter()
     manager.adapters["figma"] = FigmaAdapter()
@@ -293,6 +293,8 @@ def build_initial_connector_manager() -> ConnectorManager:
     manager.adapters["email_delivery"] = ResendAdapter()
     manager.adapters["telegram"] = TelegramBotAdapter()
     manager.adapters["github"] = GitHubAdapter()
+    manager.adapters["slack"] = SlackAdapter()
+    manager.adapters["discord"] = DiscordBotAdapter()
 
     for item in tool_catalogue():
         manager.register_tool(ToolDefinition(
