@@ -6,8 +6,11 @@ MCP is a transport for tools, not a replacement for provider-specific policy.
 Server definitions must come from trusted local configuration, never tool input.
 """
 
+import ipaddress
 import json
 import os
+import re
+from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -25,8 +28,22 @@ class MCPServerConfig:
     def __post_init__(self) -> None:
         if bool(self.url) == bool(self.command):
             raise ValueError("configure exactly one MCP URL or command")
-        if self.url and not self.url.startswith(("https://", "http://127.0.0.1", "http://localhost")):
-            raise ValueError("MCP HTTP endpoints must use HTTPS or loopback")
+        if self.url:
+            parsed = urlparse(self.url)
+            if parsed.scheme not in {"https", "http"} or not parsed.hostname:
+                raise ValueError("invalid_mcp_http_endpoint")
+            if parsed.username or parsed.password:
+                raise ValueError("MCP endpoint credentials must use configured auth, not URL userinfo")
+            if parsed.scheme == "http":
+                host = parsed.hostname.lower()
+                try:
+                    loopback = ipaddress.ip_address(host).is_loopback
+                except ValueError:
+                    loopback = host == "localhost"
+                if not loopback:
+                    raise ValueError("MCP HTTP endpoints must use HTTPS or loopback")
+        if any(not re.fullmatch(r"[A-Z_][A-Z0-9_]*", name) for name in self.env_names):
+            raise ValueError("invalid_mcp_environment_allowlist")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
 
