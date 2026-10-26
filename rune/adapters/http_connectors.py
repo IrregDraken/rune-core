@@ -1061,6 +1061,8 @@ class WhatsAppBusinessAdapter(JsonHttpAdapter):
     def __init__(self) -> None:
         super().__init__(base_url="https://graph.facebook.com",
             credential_env="WHATSAPP_ACCESS_TOKEN", operations={})
+        from ..core.messaging_consent import MessagingConsentRegistry
+        self.consent = MessagingConsentRegistry(os.environ.get("RUNE_CONSENT_DB"))
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if tool_name != "whatsapp.message.send":
@@ -1073,6 +1075,8 @@ class WhatsAppBusinessAdapter(JsonHttpAdapter):
         message_type = str(arguments.get("type", "")).strip()
         if not recipient or len(recipient) > 32 or not recipient.replace("+", "").isdigit():
             raise ValueError("invalid_whatsapp_recipient")
+        if not self.consent.can_send("whatsapp", recipient, message_type):
+            raise RuntimeError("whatsapp_recipient_consent_or_window_required")
         if message_type == "text":
             text_body = arguments.get("text")
             if not isinstance(text_body, dict) or not text_body.get("body"):
