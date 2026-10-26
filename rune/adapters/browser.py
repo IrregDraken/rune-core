@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import os
+import re
 import socket
 from typing import Any
 from urllib.parse import urlparse
@@ -87,9 +88,9 @@ class PlaywrightBrowserAdapter:
                     if not isinstance(fields, dict) or len(fields) > 50:
                         raise ValueError("invalid_browser_form_fields")
                     for name, value in fields.items():
-                        if not isinstance(name, str) or not name or len(name) > 128:
+                        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.:-]{0,127}", name):
                             raise ValueError("invalid_browser_field_name")
-                        selector = f'[name="{name.replace(chr(34), "")}"]'
+                        selector = f'[name="{name}"]'
                         await page.locator(selector).first.fill(str(value)[:4000])
                     forms = page.locator("form")
                     if await forms.count() == 0:
