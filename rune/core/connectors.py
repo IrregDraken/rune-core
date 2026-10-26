@@ -284,12 +284,13 @@ def build_initial_connector_manager() -> ConnectorManager:
         "device": ActionRisk.PRIVILEGED,
     }
     # Concrete, allowlisted adapters; no network call occurs during registration.
-    from ..adapters.http_connectors import BraveSearchAdapter, FigmaAdapter, GoogleWorkspaceAdapter, NotionAdapter, TavilyAdapter
+    from ..adapters.http_connectors import BraveSearchAdapter, FigmaAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, TavilyAdapter
     manager.adapters["brave_search"] = BraveSearchAdapter()
     manager.adapters["google_workspace"] = GoogleWorkspaceAdapter()
     manager.adapters["figma"] = FigmaAdapter()
     manager.adapters["notion"] = NotionAdapter()
     manager.adapters["tavily"] = TavilyAdapter()
+    manager.adapters["email_delivery"] = ResendAdapter()
 
     for item in tool_catalogue():
         manager.register_tool(ToolDefinition(
