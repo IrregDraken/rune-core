@@ -431,3 +431,51 @@ def test_spotify_adapter_rejects_missing_credentials(monkeypatch):
     for key in ("SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REFRESH_TOKEN"):
         monkeypatch.delenv(key, raising=False)
     assert not asyncio.run(SpotifyAdapter().health_check())
+
+
+
+def test_railway_logs_uses_public_graphql_endpoint_and_bounded_limit(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import RailwayAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"data":{"deploymentLogs":[]}}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("RAILWAY_API_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(RailwayAdapter().invoke("railway.logs.read", {
+        "deploymentId": "deploy_123", "lines": 9999
+    }))
+    assert result == {"deploymentLogs": []}
+    assert captured[0].full_url == "https://backboard.railway.com/graphql/v2"
+    payload = __import__("json").loads(captured[0].data)
+    assert payload["variables"]["limit"] == 500
+
+
+def test_hubspot_contact_search_maps_q_to_query(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import HubSpotAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"results":[]}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("HUBSPOT_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    asyncio.run(HubSpotAdapter().invoke("hubspot.contacts.search", {"q": "Ada", "limit": 10}))
+    body = json.loads(captured[0].data)
+    assert body == {"query": "Ada", "limit": 10}
+    assert captured[0].full_url.endswith("/crm/v3/objects/contacts/search")
