@@ -246,7 +246,7 @@ class GoogleWorkspaceAdapter:
             query = {k: arguments[k] for k in ("q", "maxResults") if k in arguments}
         elif tool_name == "gmail.read":
             item = str(arguments.get("message_id", "")).strip()
-            if not item or "/" in item: raise ValueError("invalid_message_id")
+            if not item or not all(ch.isalnum() or ch in "-_" for ch in item): raise ValueError("invalid_message_id")
             path, query = f"/gmail/v1/users/me/messages/{item}", {"format": "full"}
         elif tool_name in {"gmail.draft", "gmail.send"}:
             message = EmailMessage()
@@ -264,7 +264,7 @@ class GoogleWorkspaceAdapter:
             body = {k: arguments[k] for k in ("summary", "description", "start", "end", "attendees") if k in arguments}
         elif tool_name == "calendar.update":
             item = str(arguments.get("event_id", "")).strip()
-            if not item or "/" in item: raise ValueError("invalid_event_id")
+            if not item or not all(ch.isalnum() or ch in "-_" for ch in item): raise ValueError("invalid_event_id")
             method, path = "PATCH", f"/calendar/v3/calendars/primary/events/{item}"
             body = {k: arguments[k] for k in ("summary", "description", "start", "end", "attendees", "status") if k in arguments}
             if not body: raise ValueError("empty_event_update")
