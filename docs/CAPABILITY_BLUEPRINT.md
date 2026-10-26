@@ -180,7 +180,7 @@ All first-wave connectors are registered in a disconnected state. Registration i
 
 ## Connector implementation boundary
 
-`rune.core.connectors` defines connector lifecycle state, tool definitions, adapter and approval-policy protocols, schema-validated invocation, bounded retries/timeouts, idempotency keys, audit digests and explicit result states. The runtime exposes connector status through `GET /api/connectors`. The current registry contains no live adapters or credentials; tests use deterministic mocks.
+`rune.core.connectors` defines connector lifecycle state, tool definitions, adapter and approval-policy protocols, schema-validated invocation, bounded retries/timeouts, idempotency keys, audit digests and explicit result states. The runtime exposes connector status through `GET /api/connectors`. The registry includes concrete HTTP adapter classes for Brave Search, Tavily, Notion search/database queries, Google Workspace read/search endpoints and Figma file/comment reads. These adapters read credentials from environment variables at runtime. The remaining integrations have registered tool contracts but still need provider-specific adapters and policy review. No credentials are committed, and tests use deterministic mocks.
 
 ## Core implementation requirements before model intelligence
 
