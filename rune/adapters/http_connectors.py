@@ -403,7 +403,9 @@ class GitHubAdapter(JsonHttpAdapter):
         if tool_name in {"github.issue.create", "github.pull_request.create"}:
             owner = str(arguments.get("owner", "")).strip()
             repo = str(arguments.get("repo", "")).strip()
-            if not owner or not repo or any(ch in owner + repo for ch in "/?#"):
+            if (not owner or not repo or owner in {".", ".."} or repo in {".", ".."}
+                    or any(not (part.replace("-", "").replace("_", "").replace(".", "").isalnum())
+                           for part in (owner, repo))):
                 raise ValueError("invalid_github_repository")
             if tool_name == "github.issue.create":
                 operation = HttpOperation("POST", f"/repos/{owner}/{repo}/issues",
