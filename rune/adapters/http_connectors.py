@@ -416,3 +416,49 @@ class GitHubAdapter(JsonHttpAdapter):
         if operation is None:
             raise RuntimeError("tool_operation_not_implemented")
         return await self.invoke_operation(operation, arguments)
+
+
+
+class SlackAdapter(JsonHttpAdapter):
+    """Slack Web API adapter for search and bot messaging."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            base_url="https://slack.com/api",
+            credential_env="SLACK_BOT_TOKEN",
+            operations={
+                "slack.search": HttpOperation("GET", "/search.messages",
+                    query_keys=("query", "count")),
+                "slack.message.send": HttpOperation("POST", "/chat.postMessage",
+                    body_keys=("channel", "text")),
+            },
+        )
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        result = await super().invoke(tool_name, arguments)
+        if isinstance(result, dict) and result.get("ok") is False:
+            raise RuntimeError("slack_api_rejected_request")
+        return result
+
+
+class DiscordBotAdapter(JsonHttpAdapter):
+    """Discord bot REST adapter. Uses bot tokens, never user-account tokens."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            base_url="https://discord.com/api/v10",
+            credential_env="DISCORD_BOT_TOKEN",
+            auth_scheme="Bot",
+            operations={},
+        )
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name != "discord.message.send":
+            raise RuntimeError("tool_operation_not_implemented")
+        channel_id = str(arguments.get("channel_id", "")).strip()
+        content = str(arguments.get("content", ""))
+        if not channel_id.isdigit() or not content or len(content) > 2000:
+            raise ValueError("invalid_discord_message")
+        operation = HttpOperation("POST", f"/channels/{channel_id}/messages",
+            body_keys=("content",))
+        return await self.invoke_operation(operation, arguments)
