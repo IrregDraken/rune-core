@@ -1232,8 +1232,8 @@ class LinearAdapter:
         token = os.environ.get("LINEAR_API_KEY", "").strip()
         if not token: raise RuntimeError("connector_credentials_missing")
         if tool_name == "linear.issue.search":
-            query = "query IssueSearch($query: String!) { issues(filter: { title: { containsIgnoreCase: $query } }) { nodes { id identifier title url state { name } } } }"
-            variables = {"query": arguments["query"]}
+            query = "query IssueSearch($query: String!, $first: Int!, $after: String) { issues(first: $first, after: $after, filter: { title: { containsIgnoreCase: $query } }) { nodes { id identifier title url state { name } } pageInfo { hasNextPage endCursor } } }"
+            variables = {"query": arguments["query"], "first": min(max(int(arguments.get("first", 50)), 1), 100), "after": arguments.get("after")}
         elif tool_name == "linear.issue.create":
             query = "mutation IssueCreate($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier url } } }"
             variables = {"input": {"teamId": arguments["team_id"], "title": arguments["title"],
