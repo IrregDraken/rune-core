@@ -657,3 +657,116 @@ def test_linear_issue_create_uses_graphql_mutation(monkeypatch):
     assert result["issueCreate"]["success"]
     assert captured[0].full_url == "https://api.linear.app/graphql"
     assert "IssueCreate" in json.loads(captured[0].data)["query"]
+
+
+
+def test_spotify_oauth_refresh_and_search(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import SpotifyAdapter
+    import asyncio
+    requests = []
+    class Response:
+        def __init__(self, payload): self.payload = payload
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return self.payload
+    def fake_urlopen(request, timeout):
+        requests.append(request)
+        if request.full_url.endswith("/api/token"):
+            return Response(b'{"access_token":"spotify-access","expires_in":3600}')
+        return Response(b'{"tracks":{"items":[]}}')
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("SPOTIFY_CLIENT_ID", "client")
+    monkeypatch.setenv("SPOTIFY_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("SPOTIFY_REFRESH_TOKEN", "refresh")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(SpotifyAdapter().invoke("spotify.search", {"q": "lofi", "type": "track"}))
+    assert result["tracks"]["items"] == []
+    assert requests[0].full_url == "https://accounts.spotify.com/api/token"
+    assert requests[1].full_url.startswith("https://api.spotify.com/v1/search?")
+    assert requests[1].get_header("Authorization") == "Bearer spotify-access"
+
+
+def test_microsoft365_oauth_refresh_and_outlook_search(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import Microsoft365Adapter
+    import asyncio
+    requests = []
+    class Response:
+        def __init__(self, payload): self.payload = payload
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return self.payload
+    def fake_urlopen(request, timeout):
+        requests.append(request)
+        if "oauth2/v2.0/token" in request.full_url:
+            return Response(b'{"access_token":"graph-access","expires_in":3600}')
+        return Response(b'{"value":[]}')
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("MICROSOFT_CLIENT_ID", "client")
+    monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("MICROSOFT_REFRESH_TOKEN", "refresh")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(Microsoft365Adapter().invoke("outlook.search", {"query": "RUNE"}))
+    assert result["value"] == []
+    assert requests[1].full_url.startswith("https://graph.microsoft.com/v1.0/me/messages?")
+    assert requests[1].get_header("Authorization") == "Bearer graph-access"
+
+
+def test_linkedin_posts_api_uses_versioned_headers(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import LinkedInAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        status = 201
+        headers = {"x-restli-id": "urn:li:share:1"}
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b""
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("LINKEDIN_ACCESS_TOKEN", "mock-token")
+    monkeypatch.setenv("LINKEDIN_API_VERSION", "202610")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(LinkedInAdapter().invoke("linkedin.post.create", {
+        "author": "urn:li:person:123", "commentary": "Hello"
+    }))
+    assert result["status"] == 201
+    assert captured[0].full_url == "https://api.linkedin.com/rest/posts"
+    assert captured[0].get_header("Linkedin-version") == "202610"
+    assert json.loads(captured[0].data)["author"] == "urn:li:person:123"
+
+
+def test_reddit_oauth_refresh_and_comment(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import RedditAdapter
+    import asyncio
+    requests = []
+    class Response:
+        def __init__(self, payload): self.payload = payload
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return self.payload
+    def fake_urlopen(request, timeout):
+        requests.append(request)
+        if request.full_url.endswith("/api/v1/access_token"):
+            return Response(b'{"access_token":"reddit-access","expires_in":3600}')
+        return Response(b'{"json":{"data":{"things":[]}}}')
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("REDDIT_CLIENT_ID", "client")
+    monkeypatch.setenv("REDDIT_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("REDDIT_REFRESH_TOKEN", "refresh")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(RedditAdapter().invoke("reddit.comment.create", {
+        "parent_id": "t1_abc123", "text": "Useful post"
+    }))
+    assert result["json"]["data"]["things"] == []
+    assert requests[1].full_url == "https://oauth.reddit.com/api/comment"
+    assert requests[1].get_header("Authorization") == "Bearer reddit-access"
