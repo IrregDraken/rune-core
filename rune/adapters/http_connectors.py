@@ -749,3 +749,85 @@ class Microsoft365Adapter:
             except HTTPError as exc: raise RuntimeError(f"microsoft_graph_http_{exc.code}") from None
             except (URLError, TimeoutError): raise RuntimeError("microsoft_graph_unreachable") from None
         return await asyncio.to_thread(send)
+
+
+
+class HubSpotAdapter(JsonHttpAdapter):
+    """HubSpot CRM search and deal update adapter."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://api.hubapi.com", credential_env="HUBSPOT_ACCESS_TOKEN",
+            operations={
+                "hubspot.contacts.search": HttpOperation("POST", "/crm/v3/objects/contacts/search",
+                    body_keys=("query", "limit", "filterGroups", "properties", "sorts")),
+            })
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name == "hubspot.deal.update":
+            deal_id = str(arguments.get("deal_id", "")).strip()
+            if not deal_id.isdigit(): raise ValueError("invalid_hubspot_deal_id")
+            operation = HttpOperation("PATCH", f"/crm/v3/objects/deals/{deal_id}",
+                body_keys=("properties",))
+            return await self.invoke_operation(operation, arguments)
+        return await super().invoke(tool_name, arguments)
+
+
+class SentryAdapter(JsonHttpAdapter):
+    """Sentry issue search adapter."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://sentry.io/api/0", credential_env="SENTRY_AUTH_TOKEN",
+            auth_scheme="Bearer", operations={
+                "sentry.issues.search": HttpOperation("GET", "/issues/",
+                    query_keys=("query", "project", "limit")),
+            })
+
+
+class VercelAdapter(JsonHttpAdapter):
+    """Vercel deployment list and deployment creation adapter."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://api.vercel.com", credential_env="VERCEL_TOKEN",
+            operations={
+                "vercel.deployments.list": HttpOperation("GET", "/v6/deployments",
+                    query_keys=("projectId", "limit")),
+            })
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name == "vercel.production.deploy":
+            operation = HttpOperation("POST", "/v13/deployments",
+                body_keys=("name", "project", "target", "gitSource", "builds", "env"))
+            return await self.invoke_operation(operation, arguments)
+        return await super().invoke(tool_name, arguments)
+
+
+class RailwayAdapter(JsonHttpAdapter):
+    """Railway GraphQL adapter for deployment logs."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://backboard.railway.app/graphql/v2",
+            credential_env="RAILWAY_API_TOKEN", operations={})
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name != "railway.logs.read":
+            raise RuntimeError("tool_operation_not_implemented")
+        deployment_id = str(arguments.get("deploymentId", "")).strip()
+        if not deployment_id or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for ch in deployment_id):
+            raise ValueError("invalid_railway_deployment_id")
+        lines = max(1, min(int(arguments.get("lines", 100)), 500))
+        query = "query DeploymentLogs($deploymentId: String!, $limit: Int!) { deploymentLogs(deploymentId: $deploymentId, limit: $limit) }"
+        request = Request(self.base_url,
+            data=json.dumps({"query": query, "variables": {"deploymentId": deployment_id, "limit": lines}}).encode(),
+            headers={"Authorization": f"Bearer {self._credential()}",
+                     "Content-Type": "application/json", "Accept": "application/json"},
+            method="POST")
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    payload = json.loads(raw.decode()) if raw else {}
+                    if payload.get("errors"): raise RuntimeError("railway_graphql_error")
+                    return payload.get("data", {})
+            except HTTPError as exc: raise RuntimeError(f"railway_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("railway_unreachable") from None
+        return await asyncio.to_thread(send)
