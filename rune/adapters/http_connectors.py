@@ -807,8 +807,8 @@ class HubSpotAdapter(JsonHttpAdapter):
             return await self.invoke_operation(operation, arguments)
         if tool_name == "hubspot.contacts.search":
             operation = HttpOperation("POST", "/crm/v3/objects/contacts/search",
-                body_keys=("query", "limit"))
-            payload = {"query": arguments.get("q", ""), "limit": arguments.get("limit", 25)}
+                body_keys=("query", "limit", "after"))
+            payload = {"query": arguments.get("q", ""), "limit": arguments.get("limit", 25), **({"after": arguments["after"]} if arguments.get("after") else {})}
             return await self.invoke_operation(operation, payload)
         return await super().invoke(tool_name, arguments)
 
