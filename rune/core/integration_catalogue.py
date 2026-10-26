@@ -373,7 +373,7 @@ _TOOL_SCHEMAS: dict[str, dict] = {
     "hubspot.deal.update": {"type": "object", "required": ["deal_id", "properties"], "properties": {"deal_id": {"type": "string"}, "properties": {"type": "object"}}, "additionalProperties": False},
     "sentry.issues.search": {"type": "object", "required": [], "properties": {"query": {"type": "string"}, "project": {"type": "string"}, "limit": {"type": "integer"}}, "additionalProperties": False},
     "vercel.deployments.list": {"type": "object", "required": [], "properties": {"projectId": {"type": "string"}, "limit": {"type": "integer"}}, "additionalProperties": False},
-    "vercel.production.deploy": {"type": "object", "required": ["projectId"], "properties": {"projectId": {"type": "string"}, "target": {"type": "string"}, "gitSource": {"type": "object"}}, "additionalProperties": False},
+    "vercel.production.deploy": {"type": "object", "required": ["projectId", "name", "gitSource"], "properties": {"projectId": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1}, "target": {"type": "string", "enum": ["production", "preview"]}, "gitSource": {"type": "object"}}, "additionalProperties": False},
     "railway.logs.read": {"type": "object", "required": ["deploymentId"], "properties": {"deploymentId": {"type": "string"}, "lines": {"type": "integer"}}, "additionalProperties": False},
     "outlook.search": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}, "top": {"type": "integer"}}, "additionalProperties": False},
     "dropbox.files.search": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}, "path": {"type": "string"}}, "additionalProperties": False},
