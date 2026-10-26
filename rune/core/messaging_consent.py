@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from contextlib import contextmanager
+from typing import Iterator
 from pathlib import Path
 
 
@@ -12,7 +14,7 @@ class MessagingConsentRegistry:
         configured = database_path or "~/.rune/consent.sqlite3"
         self.path = Path(configured).expanduser().resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as db:
+        with self._session() as db:
             db.execute("""
                 CREATE TABLE IF NOT EXISTS messaging_consent (
                     channel TEXT NOT NULL,
@@ -29,6 +31,15 @@ class MessagingConsentRegistry:
         connection = sqlite3.connect(self.path, timeout=10)
         connection.execute("PRAGMA journal_mode=WAL")
         return connection
+
+    @contextmanager
+    def _session(self) -> Iterator[sqlite3.Connection]:
+        connection = self._connect()
+        try:
+            yield connection
+            connection.commit()
+        finally:
+            connection.close()
 
     @staticmethod
     def _recipient(value: str) -> str:
