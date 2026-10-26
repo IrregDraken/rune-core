@@ -123,3 +123,42 @@ def test_google_workspace_routes_gmail_and_calendar_writes(monkeypatch):
     }))
     assert captured[-1].full_url.endswith("/calendar/v3/calendars/primary/events/event123")
     assert captured[-1].get_method() == "PATCH"
+
+
+
+def test_resend_adapter_is_allowlisted_and_requires_key(monkeypatch):
+    from rune.adapters.http_connectors import ResendAdapter
+    monkeypatch.delenv("RESEND_API_KEY", raising=False)
+    adapter = ResendAdapter()
+    assert not __import__("asyncio").run(adapter.health_check())
+    assert set(adapter.operations) == {"email.send"}
+
+
+def test_resend_adapter_sends_only_declared_fields(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import ResendAdapter
+    adapter = ResendAdapter()
+    captured = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"email_mock"}'
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args):
+        return fn()
+
+    monkeypatch.setenv("RESEND_API_KEY", "test-key")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = __import__("asyncio").run(adapter.invoke("email.send", {
+        "from": "RUNE <noreply@example.com>", "to": ["user@example.com"],
+        "subject": "Test", "text": "Hello", "unexpected": "must-not-pass"
+    }))
+    assert result["id"] == "email_mock"
+    assert captured[0].full_url == "https://api.resend.com/emails"
+    assert b"unexpected" not in captured[0].data
