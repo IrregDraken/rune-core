@@ -112,3 +112,6 @@ def test_initial_manager_registers_all_catalogue_tools_without_live_auth():
     assert manager.adapters["notion"] is not None
     assert manager.adapters["google_workspace"] is not None
     assert manager.adapters["figma"] is not None
+    assert manager.adapters["email_delivery"] is not None
+    assert manager.adapters["telegram"] is not None
+    assert manager.adapters["github"] is not None
