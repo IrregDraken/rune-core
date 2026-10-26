@@ -123,7 +123,7 @@ class MCPClientAdapter:
         return tuple({
             "name": item.name,
             "description": item.description,
-            "input_schema": item.inputSchema,
+            "input_schema": getattr(item, "inputSchema", getattr(item, "input_schema", {})),
         } for item in result.tools)
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
