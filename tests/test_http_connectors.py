@@ -162,3 +162,44 @@ def test_resend_adapter_sends_only_declared_fields(monkeypatch):
     assert result["id"] == "email_mock"
     assert captured[0].full_url == "https://api.resend.com/emails"
     assert b"unexpected" not in captured[0].data
+
+
+
+def test_telegram_bot_adapter_uses_official_send_message_endpoint(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import TelegramBotAdapter
+    import asyncio
+    adapter = TelegramBotAdapter()
+    captured = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"ok":true,"result":{"message_id":7}}'
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args):
+        return fn()
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock-secret")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(adapter.invoke("telegram.message.send", {
+        "chat_id": "12345", "text": "Hello", "unexpected": "discard"
+    }))
+    assert result["message_id"] == 7
+    assert captured[0].full_url.endswith("/botmock-secret/sendMessage")
+    assert b"unexpected" not in captured[0].data
+
+
+def test_telegram_adapter_rejects_unknown_operation_and_missing_credentials(monkeypatch):
+    from rune.adapters.http_connectors import TelegramBotAdapter
+    import asyncio
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    adapter = TelegramBotAdapter()
+    assert not asyncio.run(adapter.health_check())
+    with pytest.raises(RuntimeError, match="tool_operation_not_implemented"):
+        asyncio.run(adapter.invoke("telegram.other", {"chat_id": "1", "text": "x"}))
