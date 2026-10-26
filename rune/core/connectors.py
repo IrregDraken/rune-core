@@ -262,7 +262,7 @@ class ConnectorManager:
 
 def build_initial_connector_manager() -> ConnectorManager:
     """Register every planned integration and named tool without activating them."""
-    from .integration_catalogue import integration_catalogue, tool_catalogue
+    from .integration_catalogue import integration_catalogue, tool_catalogue, tool_schema
 
     manager = ConnectorManager()
     for item in integration_catalogue():
@@ -297,7 +297,7 @@ def build_initial_connector_manager() -> ConnectorManager:
             connector_id=item.integration_id,
             name=item.name,
             description=item.description,
-            input_schema={"type": "object"},
+            input_schema=tool_schema(item.id),
             risk=risk_map.get(item.risk, ActionRisk.READ),
             requires_confirmation=item.confirmation,
         ))
