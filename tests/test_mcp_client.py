@@ -117,3 +117,23 @@ def test_mcp_subprocess_environment_allowlist_is_validated():
     with pytest.raises(ValueError, match="environment_allowlist"):
         MCPServerConfig(name="bad", command="python", args=("server.py",),
                         env_names=("PATH;touch /tmp/pwned",))
+
+
+
+def test_mcp_list_tools_normalizes_sdk_schema_fields(monkeypatch):
+    class Tool:
+        name = "lookup"
+        description = "Lookup"
+        input_schema = {"type": "object", "properties": {"id": {"type": "string"}}}
+    class FakeClient:
+        def __init__(self, server, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return False
+        async def list_tools(self): return types.SimpleNamespace(tools=[Tool()])
+    fake = types.ModuleType("mcp")
+    fake.Client = FakeClient
+    fake.StdioServerParameters = lambda **kwargs: kwargs
+    monkeypatch.setitem(sys.modules, "mcp", fake)
+    adapter = MCPClientAdapter(MCPServerConfig(name="test", url="https://mcp.example/mcp"))
+    tools = asyncio.run(adapter.list_tools())
+    assert tools[0]["input_schema"]["properties"]["id"]["type"] == "string"
