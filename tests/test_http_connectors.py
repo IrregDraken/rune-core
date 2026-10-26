@@ -607,3 +607,52 @@ def test_tiktok_publish_uses_url_pull_and_privacy(monkeypatch):
     body = json.loads(captured[0].data)
     assert body["source_info"]["source"] == "PULL_FROM_URL"
     assert body["post_info"]["privacy_level"] == "SELF_ONLY"
+
+
+
+def test_gitlab_issue_create_uses_project_scoped_endpoint(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import GitLabAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":7}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("GITLAB_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(GitLabAdapter().invoke("gitlab.issue.create", {
+        "project_id": 123, "title": "Bug"
+    }))
+    assert result["id"] == 7
+    assert captured[0].full_url == "https://gitlab.com/api/v4/projects/123/issues"
+    assert captured[0].get_header("Private-token") == "mock-token"
+
+
+def test_linear_issue_create_uses_graphql_mutation(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import LinearAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"data":{"issueCreate":{"success":true}}}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("LINEAR_API_KEY", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(LinearAdapter().invoke("linear.issue.create", {
+        "team_id": "team1", "title": "Build connectors"
+    }))
+    assert result["issueCreate"]["success"]
+    assert captured[0].full_url == "https://api.linear.app/graphql"
+    assert "IssueCreate" in json.loads(captured[0].data)["query"]
