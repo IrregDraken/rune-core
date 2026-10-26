@@ -36,3 +36,5 @@ def test_every_catalogue_tool_has_a_closed_schema():
         schema = tool_schema(item.id)
         assert schema.get("type") == "object"
         assert schema.get("additionalProperties") is False
+        assert schema.get("properties"), f"{item.id} needs an explicit argument contract"
+        assert schema is not None
