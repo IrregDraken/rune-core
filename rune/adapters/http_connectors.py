@@ -318,3 +318,20 @@ class FigmaAdapter(JsonHttpAdapter):
             operation.query_keys, operation.body_keys,
         )
         return await self.invoke_operation(operation, arguments)
+
+
+
+class ResendAdapter(JsonHttpAdapter):
+    """Resend transactional email API adapter."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            base_url="https://api.resend.com",
+            credential_env="RESEND_API_KEY",
+            operations={
+                "email.send": HttpOperation(
+                    "POST", "/emails",
+                    body_keys=("from", "to", "subject", "html", "text", "reply_to", "cc", "bcc", "tags"),
+                ),
+            },
+        )
