@@ -283,6 +283,12 @@ def build_initial_connector_manager() -> ConnectorManager:
         "privileged": ActionRisk.PRIVILEGED,
         "device": ActionRisk.PRIVILEGED,
     }
+    # Concrete, allowlisted adapters; no network call occurs during registration.
+    from ..adapters.http_connectors import BraveSearchAdapter, NotionAdapter, TavilyAdapter
+    manager.adapters["brave_search"] = BraveSearchAdapter()
+    manager.adapters["notion"] = NotionAdapter()
+    manager.adapters["tavily"] = TavilyAdapter()
+
     for item in tool_catalogue():
         manager.register_tool(ToolDefinition(
             id=item.id,
