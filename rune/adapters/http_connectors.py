@@ -1136,3 +1136,67 @@ class TikTokContentAdapter(JsonHttpAdapter):
             except HTTPError as exc: raise RuntimeError(f"tiktok_api_http_{exc.code}") from None
             except (URLError, TimeoutError): raise RuntimeError("tiktok_unreachable") from None
         return await asyncio.to_thread(send)
+
+
+
+class GitLabAdapter(JsonHttpAdapter):
+    """GitLab REST adapter for project search, issue and merge-request creation."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url=os.environ.get("GITLAB_API_URL", "https://gitlab.com/api/v4"),
+            credential_env="GITLAB_TOKEN", auth_header="PRIVATE-TOKEN", auth_scheme="",
+            operations={
+                "gitlab.project.search": HttpOperation("GET", "/projects",
+                    query_keys=("search", "per_page", "membership")),
+            })
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name in {"gitlab.issue.create", "gitlab.merge_request.create"}:
+            project_id = arguments.get("project_id")
+            if not isinstance(project_id, int) or project_id <= 0:
+                raise ValueError("invalid_gitlab_project_id")
+            if tool_name == "gitlab.issue.create":
+                operation = HttpOperation("POST", f"/projects/{project_id}/issues",
+                    body_keys=("title", "description", "labels"))
+            else:
+                operation = HttpOperation("POST", f"/projects/{project_id}/merge_requests",
+                    body_keys=("source_branch", "target_branch", "title", "description"))
+            return await self.invoke_operation(operation, arguments)
+        return await super().invoke(tool_name, arguments)
+
+
+class LinearAdapter:
+    """Linear GraphQL adapter for issue search and creation."""
+
+    def __init__(self) -> None:
+        self.timeout = 20.0
+        self.endpoint = "https://api.linear.app/graphql"
+
+    async def health_check(self) -> bool:
+        return bool(os.environ.get("LINEAR_API_KEY", "").strip())
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        token = os.environ.get("LINEAR_API_KEY", "").strip()
+        if not token: raise RuntimeError("connector_credentials_missing")
+        if tool_name == "linear.issue.search":
+            query = "query IssueSearch($query: String!) { issues(filter: { title: { containsIgnoreCase: $query } }) { nodes { id identifier title url state { name } } } }"
+            variables = {"query": arguments["query"]}
+        elif tool_name == "linear.issue.create":
+            query = "mutation IssueCreate($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier url } } }"
+            variables = {"input": {"teamId": arguments["team_id"], "title": arguments["title"],
+                **({"description": arguments["description"]} if arguments.get("description") else {}),
+                **({"assigneeId": arguments["assignee_id"]} if arguments.get("assignee_id") else {})}}
+        else: raise RuntimeError("tool_operation_not_implemented")
+        request = Request(self.endpoint, data=json.dumps({"query": query, "variables": variables}).encode(),
+            headers={"Authorization": token, "Content-Type": "application/json", "Accept": "application/json"},
+            method="POST")
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    payload = json.loads(raw.decode()) if raw else {}
+                    if payload.get("errors"): raise RuntimeError("linear_graphql_error")
+                    return payload.get("data", {})
+            except HTTPError as exc: raise RuntimeError(f"linear_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("linear_unreachable") from None
+        return await asyncio.to_thread(send)
