@@ -100,5 +100,5 @@ class MessagingConsentRegistry:
             return True
         if message_type == "text":
             current = now if now is not None else time.time()
-            return bool(row[1] and current - row[1] <= 24 * 60 * 60)
+            return bool(row[1] and 0 <= current - row[1] <= 24 * 60 * 60)
         return False
