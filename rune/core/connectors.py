@@ -284,7 +284,7 @@ def build_initial_connector_manager() -> ConnectorManager:
         "device": ActionRisk.PRIVILEGED,
     }
     # Concrete, allowlisted adapters; no network call occurs during registration.
-    from ..adapters.http_connectors import BraveSearchAdapter, DropboxAdapter, Microsoft365Adapter, FigmaAdapter, GitHubAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, SlackAdapter, DiscordBotAdapter, SpotifyAdapter, YouTubeAdapter, ZoteroAdapter, HubSpotAdapter, SentryAdapter, VercelAdapter, RailwayAdapter, MetaGraphAdapter, XApiAdapter, RedditAdapter, PinterestAdapter, TavilyAdapter, TelegramBotAdapter
+    from ..adapters.http_connectors import BraveSearchAdapter, DropboxAdapter, Microsoft365Adapter, FigmaAdapter, GitHubAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, SlackAdapter, DiscordBotAdapter, SpotifyAdapter, YouTubeAdapter, ZoteroAdapter, HubSpotAdapter, SentryAdapter, VercelAdapter, RailwayAdapter, MetaGraphAdapter, XApiAdapter, RedditAdapter, PinterestAdapter, WhatsAppBusinessAdapter, LinkedInAdapter, TikTokContentAdapter, TavilyAdapter, TelegramBotAdapter
     manager.adapters["brave_search"] = BraveSearchAdapter()
     manager.adapters["google_workspace"] = GoogleWorkspaceAdapter()
     manager.adapters["figma"] = FigmaAdapter()
@@ -310,6 +310,9 @@ def build_initial_connector_manager() -> ConnectorManager:
     manager.adapters["x"] = XApiAdapter()
     manager.adapters["reddit"] = RedditAdapter()
     manager.adapters["pinterest"] = PinterestAdapter()
+    manager.adapters["whatsapp"] = WhatsAppBusinessAdapter()
+    manager.adapters["linkedin"] = LinkedInAdapter()
+    manager.adapters["tiktok"] = TikTokContentAdapter()
     from ..adapters.local_connectors import HomeAssistantAdapter, ScopedFilesystemAdapter
     manager.adapters["home_assistant"] = HomeAssistantAdapter()
     manager.adapters["filesystem"] = ScopedFilesystemAdapter()
