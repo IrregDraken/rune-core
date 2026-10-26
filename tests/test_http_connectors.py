@@ -869,3 +869,27 @@ def test_linear_issue_search_uses_graphql_query(monkeypatch):
     result = asyncio.run(LinearAdapter().invoke("linear.issue.search", {"query": "RUNE"}))
     assert result["issues"]["nodes"] == []
     assert "IssueSearch" in json.loads(captured[0].data)["query"]
+
+
+
+def test_http_adapter_sanitizes_provider_error_bodies(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import BraveSearchAdapter
+    from urllib.error import HTTPError
+    import asyncio
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "top-secret")
+    def fail(request, timeout):
+        raise HTTPError(request.full_url, 401, "unauthorized", {}, __import__("io").BytesIO(b"secret provider body"))
+    monkeypatch.setattr(module, "urlopen", fail)
+    with pytest.raises(RuntimeError, match="provider_http_401") as error:
+        asyncio.run(BraveSearchAdapter().invoke("brave.search", {"q": "test"}))
+    assert "top-secret" not in str(error.value)
+    assert "secret provider body" not in str(error.value)
+
+
+def test_http_adapter_rejects_unregistered_operations_before_network(monkeypatch):
+    from rune.adapters.http_connectors import BraveSearchAdapter
+    import asyncio
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "mock-token")
+    with pytest.raises(RuntimeError, match="tool_operation_not_implemented"):
+        asyncio.run(BraveSearchAdapter().invoke("arbitrary.fetch", {"url": "https://example.com"}))
