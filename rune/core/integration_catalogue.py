@@ -65,7 +65,7 @@ INTEGRATIONS: tuple[IntegrationManifest, ...] = (
     IntegrationManifest("linear", "Linear", "productivity", "direct_api_or_mcp",
         ("LINEAR_API_KEY",), ("issues", "projects", "cycles")),
     IntegrationManifest("slack", "Slack", "communication", "direct_api_or_mcp",
-        ("SLACK_BOT_TOKEN", "SLACK_SIGNING_SECRET"), ("search", "messages", "channels")),
+        ("SLACK_BOT_TOKEN", "SLACK_USER_TOKEN", "SLACK_SIGNING_SECRET"), ("search", "messages", "channels")),
     IntegrationManifest("discord", "Discord", "communication", "official_bot_api",
         ("DISCORD_BOT_TOKEN",), ("guilds", "channels", "messages"),
         notes=("Bot permissions and server installation are required; not arbitrary personal-account automation.",)),
