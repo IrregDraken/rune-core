@@ -58,6 +58,9 @@ class JsonHttpAdapter:
         operation = self.operations.get(tool_name)
         if operation is None:
             raise RuntimeError("tool_operation_not_implemented")
+        return await self.invoke_operation(operation, arguments)
+
+    async def invoke_operation(self, operation: HttpOperation, arguments: dict[str, Any]) -> Any:
         credential = self._credential()
         query = {key: arguments[key] for key in operation.query_keys if key in arguments}
         body = {key: arguments[key] for key in operation.body_keys if key in arguments}
@@ -171,18 +174,18 @@ class NotionAdapter(JsonHttpAdapter):
         )
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        operation = self.operations.get(tool_name)
+        if operation is None:
+            raise RuntimeError("tool_operation_not_implemented")
         if tool_name == "notion.database.query":
             database_id = str(arguments.get("database_id", "")).strip()
             if not database_id or any(ch not in "0123456789abcdefABCDEF-" for ch in database_id):
                 raise ValueError("invalid_database_id")
-            self.operations = {
-                **self.operations,
-                tool_name: HttpOperation(
-                    "POST", f"/databases/{database_id}/query",
-                    body_keys=("filter", "sorts", "page_size", "start_cursor"),
-                ),
-            }
-        return await super().invoke(tool_name, arguments)
+            operation = HttpOperation(
+                "POST", f"/databases/{database_id}/query",
+                body_keys=("filter", "sorts", "page_size", "start_cursor"),
+            )
+        return await self.invoke_operation(operation, arguments)
 
 class GoogleWorkspaceAdapter:
     """Google Workspace REST adapter using an OAuth refresh-token grant."""
@@ -278,9 +281,8 @@ class FigmaAdapter(JsonHttpAdapter):
         file_key = str(arguments.get("file_key", "")).strip()
         if not file_key or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for ch in file_key):
             raise ValueError("invalid_file_key")
-        self.operations = {
-            **self.operations,
-            tool_name: HttpOperation(operation.method, operation.path.replace("{file_key}", file_key),
-                                     operation.query_keys, operation.body_keys),
-        }
-        return await super().invoke(tool_name, arguments)
+        operation = HttpOperation(
+            operation.method, operation.path.replace("{file_key}", file_key),
+            operation.query_keys, operation.body_keys,
+        )
+        return await self.invoke_operation(operation, arguments)
