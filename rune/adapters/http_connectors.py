@@ -288,10 +288,10 @@ class GoogleWorkspaceAdapter:
                 metadata["parents"] = [arguments["parent_id"]]
             boundary = "rune-upload-boundary"
             payload = (
-                f"--{boundary}\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n"
+                f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"
                 + json.dumps(metadata)
-                + f"\\r\\n--{boundary}\\r\\nContent-Type: {mime_type}\\r\\n\\r\\n"
-            ).encode() + binary + f"\\r\\n--{boundary}--".encode()
+                + f"\r\n--{boundary}\r\nContent-Type: {mime_type}\r\n\r\n"
+            ).encode() + binary + f"\r\n--{boundary}--".encode()
             query = {"uploadType": "multipart", "fields": "id,name,mimeType,webViewLink"}
             path = "/upload/drive/v3/files"
             method = "POST"
