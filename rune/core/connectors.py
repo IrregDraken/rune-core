@@ -345,5 +345,6 @@ def build_initial_connector_manager() -> ConnectorManager:
             input_schema=tool_schema(item.id),
             risk=risk_map.get(item.risk, ActionRisk.READ),
             requires_confirmation=item.confirmation,
+            max_retries=2 if risk_map.get(item.risk, ActionRisk.READ) is ActionRisk.READ else 0,
         ))
     return manager
