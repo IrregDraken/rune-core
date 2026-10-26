@@ -97,3 +97,18 @@ def test_bounded_retry():
     result = asyncio.run(manager.execute("search.web", {}, execution_id="e8"))
     assert result.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
     assert result.attempts == 2
+
+def test_initial_manager_registers_all_catalogue_tools_without_live_auth():
+    from rune.core.connectors import build_initial_connector_manager
+    from rune.core.integration_catalogue import integration_catalogue, tool_catalogue
+
+    manager = build_initial_connector_manager()
+    assert set(manager.records) == {item.id for item in integration_catalogue()}
+    assert set(manager.tools) == {item.id for item in tool_catalogue()}
+    assert manager.records["whatsapp"].status is ConnectorStatus.DISCONNECTED
+    assert manager.records["instagram"].status is ConnectorStatus.DISCONNECTED
+    assert manager.adapters["brave_search"] is not None
+    assert manager.adapters["tavily"] is not None
+    assert manager.adapters["notion"] is not None
+    assert manager.adapters["google_workspace"] is not None
+    assert manager.adapters["figma"] is not None
