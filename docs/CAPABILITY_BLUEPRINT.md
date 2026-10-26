@@ -157,6 +157,21 @@ MCP is a protocol for exposing tools/resources to R.U.N.E; it is not itself a ca
 ### Integration decision rule
 For each service, record: official API availability, MCP server maturity/maintenance, OAuth scopes, data sensitivity, rate limits, cost, webhook support, user value, and fallback. Use an MCP server only when it is maintained, auditable, scoped and materially improves interoperability. R.U.N.E must be able to use a direct adapter instead.
 
+## Selected first-wave integrations
+
+The initial provider selection is fixed as follows:
+
+1. **Google Workspace**: Gmail, Calendar, Drive and Contacts. Prefer Google OAuth and official APIs for reliable scope control; use a vetted MCP server only where it adds clear value.
+2. **Notion**: pages, databases and project/task tracking. Start with the official Notion API; retain MCP compatibility behind the same adapter boundary.
+3. **Brave Search + Tavily**: both are independent research-provider targets. RUNE can query either or both, compare overlap, and retain source URLs/provenance. API keys remain environment references, never stored in the connector registry.
+4. **GitHub, scoped filesystem and browser automation**: core development/runtime support alongside the selected services.
+
+All first-wave connectors are registered in a disconnected state. Registration is not account authorisation, and no network call is made until an adapter is configured and health-checked.
+
+## Connector implementation boundary
+
+`rune.core.connectors` defines connector lifecycle state, tool definitions, adapter and approval-policy protocols, schema-validated invocation, bounded retries/timeouts, idempotency keys, audit digests and explicit result states. The runtime exposes connector status through `GET /api/connectors`. The current registry contains no live adapters or credentials; tests use deterministic mocks.
+
 ## Core implementation requirements before model intelligence
 
 1. Capability catalogue with stable IDs, categories, descriptions, status, prerequisites, transports, risk and confirmation policy.
