@@ -1064,6 +1064,11 @@ class WhatsAppBusinessAdapter(JsonHttpAdapter):
         from ..core.messaging_consent import MessagingConsentRegistry
         self.consent = MessagingConsentRegistry(os.environ.get("RUNE_CONSENT_DB"))
 
+    async def health_check(self) -> bool:
+        return bool(await super().health_check() and
+                    os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip().isdigit() and
+                    os.environ.get("WHATSAPP_API_VERSION", "").strip().startswith("v"))
+
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if tool_name != "whatsapp.message.send":
             raise RuntimeError("tool_operation_not_implemented")
