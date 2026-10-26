@@ -341,3 +341,40 @@ def test_dropbox_adapter_refreshes_oauth_and_searches_files(monkeypatch):
     assert requests[0].full_url == "https://api.dropbox.com/oauth2/token"
     assert requests[1].full_url == "https://api.dropboxapi.com/2/files/search_v2"
     assert requests[1].get_header("Authorization") == "Bearer mock-access"
+
+
+
+def test_google_drive_upload_uses_multipart_and_size_guard(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import GoogleWorkspaceAdapter
+    import asyncio, base64
+    adapter = GoogleWorkspaceAdapter()
+    captured = []
+
+    async def token(): return "mock-token"
+    monkeypatch.setattr(adapter, "_token", token)
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"file1","name":"notes.txt"}'
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(adapter.invoke("drive.upload", {
+        "file_name": "notes.txt", "mime_type": "text/plain",
+        "content_base64": base64.b64encode(b"hello").decode()
+    }))
+    assert result["id"] == "file1"
+    assert captured[0].full_url.startswith("https://www.googleapis.com/upload/drive/v3/files?")
+    assert "multipart/related" in captured[0].get_header("Content-type")
+    assert b"hello" in captured[0].data
+    with pytest.raises(ValueError, match="invalid_base64"):
+        asyncio.run(adapter.invoke("drive.upload", {
+            "file_name": "bad.txt", "mime_type": "text/plain", "content_base64": "not base64!"
+        }))
