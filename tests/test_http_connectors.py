@@ -27,3 +27,35 @@ def test_brave_operation_registry_is_allowlisted():
 def test_tavily_operation_registry_is_allowlisted():
     adapter = TavilyAdapter()
     assert {"tavily.search", "tavily.extract"} == set(adapter.operations)
+
+
+
+def test_notion_database_query_does_not_mutate_shared_operations(monkeypatch):
+    adapter = NotionAdapter()
+    original = dict(adapter.operations)
+    captured = []
+
+    async def capture(operation, arguments):
+        captured.append(operation)
+
+    monkeypatch.setattr(adapter, "invoke_operation", capture)
+    asyncio = __import__("asyncio")
+    asyncio.run(adapter.invoke("notion.database.query", {"database_id": "abc123"}))
+    assert captured[0].path == "/databases/abc123/query"
+    assert adapter.operations == original
+
+
+def test_figma_file_lookup_does_not_mutate_shared_operations(monkeypatch):
+    from rune.adapters.http_connectors import FigmaAdapter
+
+    adapter = FigmaAdapter()
+    original = dict(adapter.operations)
+    captured = []
+
+    async def capture(operation, arguments):
+        captured.append(operation)
+
+    monkeypatch.setattr(adapter, "invoke_operation", capture)
+    __import__("asyncio").run(adapter.invoke("figma.file.get", {"file_key": "file_123"}))
+    assert captured[0].path == "/files/file_123"
+    assert adapter.operations == original
