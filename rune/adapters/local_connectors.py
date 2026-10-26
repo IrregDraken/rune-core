@@ -99,7 +99,7 @@ class HomeAssistantAdapter:
                 raise ValueError("invalid_home_assistant_service")
             if "." not in entity or any(ch in entity for ch in "/?#"): raise ValueError("invalid_entity_id")
             method, path = "POST", f"/api/services/{domain}/{service}"
-            body = {"entity_id": entity, **arguments.get("service_data", {})}
+            body = {**arguments.get("service_data", {}), "entity_id": entity}
         else:
             raise RuntimeError("tool_operation_not_implemented")
         request = Request(base + path,
