@@ -23,6 +23,9 @@ dist/
 *.db
 *.sqlite
 *.sqlite3
+*.db-*
+*.sqlite-*
+*.sqlite3-*
 data/
 runtime-data/
 logs/
