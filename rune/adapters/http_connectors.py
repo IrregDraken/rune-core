@@ -272,6 +272,31 @@ class GoogleWorkspaceAdapter:
             path = "/drive/v3/files"
             query = {k: arguments[k] for k in ("q", "pageSize", "orderBy", "fields") if k in arguments}
             query.setdefault("fields", "files(id,name,mimeType,webViewLink),nextPageToken")
+        elif tool_name == "drive.upload":
+            filename = str(arguments.get("file_name", "")).strip()
+            mime_type = str(arguments.get("mime_type", "application/octet-stream")).strip()
+            if not filename or len(filename) > 255 or "/" in filename or "\\\\" in filename:
+                raise ValueError("invalid_drive_filename")
+            try:
+                binary = base64.b64decode(arguments["content_base64"], validate=True)
+            except Exception:
+                raise ValueError("invalid_base64_content") from None
+            if len(binary) > 10 * 1024 * 1024:
+                raise ValueError("drive_upload_exceeds_10mb_limit")
+            metadata = {"name": filename}
+            if arguments.get("parent_id"):
+                metadata["parents"] = [arguments["parent_id"]]
+            boundary = "rune-upload-boundary"
+            payload = (
+                f"--{boundary}\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n"
+                + json.dumps(metadata)
+                + f"\\r\\n--{boundary}\\r\\nContent-Type: {mime_type}\\r\\n\\r\\n"
+            ).encode() + binary + f"\\r\\n--{boundary}--".encode()
+            query = {"uploadType": "multipart", "fields": "id,name,mimeType,webViewLink"}
+            path = "/upload/drive/v3/files"
+            method = "POST"
+            body = None
+            upload_payload = payload
         elif tool_name == "contacts.search":
             path = "/people/v1/people/me/connections"
             query = {k: arguments[k] for k in ("pageSize", "personFields") if k in arguments}
@@ -280,7 +305,11 @@ class GoogleWorkspaceAdapter:
         url = self.API_ROOT + path + (("?" + urlencode(query, doseq=True)) if query else "")
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
         data = json.dumps(body).encode("utf-8") if body is not None else None
-        if data is not None: headers["Content-Type"] = "application/json"
+        if tool_name == "drive.upload":
+            data = upload_payload
+            headers["Content-Type"] = "multipart/related; boundary=rune-upload-boundary"
+        elif data is not None:
+            headers["Content-Type"] = "application/json"
         request = Request(url, data=data, headers=headers, method=method)
         def send() -> Any:
             try:
