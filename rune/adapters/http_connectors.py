@@ -189,10 +189,16 @@ class NotionAdapter(JsonHttpAdapter):
                 "POST", f"/databases/{database_id}/query",
                 body_keys=("filter", "sorts", "page_size", "start_cursor"),
             )
+        elif tool_name == "notion.page.update":
+            page_id = str(arguments.get("page_id", "")).strip()
+            if not page_id or any(ch not in "0123456789abcdefABCDEF-" for ch in page_id):
+                raise ValueError("invalid_page_id")
+            operation = HttpOperation("PATCH", f"/pages/{page_id}",
+                body_keys=("properties", "archived", "in_trash", "icon", "cover"))
         return await self.invoke_operation(operation, arguments)
 
 class GoogleWorkspaceAdapter:
-    """Google Workspace REST adapter using an OAuth refresh-token grant."""
+    """Google Workspace REST adapter using OAuth refresh-token credentials."""
 
     TOKEN_URL = "https://oauth2.googleapis.com/token"
     API_ROOT = "https://www.googleapis.com"
@@ -201,12 +207,6 @@ class GoogleWorkspaceAdapter:
         self._access_token: str | None = None
         self._expires_at = 0.0
         self.timeout = 20.0
-        self.operations = {
-            "gmail.search": ("GET", "/gmail/v1/users/me/messages", ("q", "maxResults")),
-            "calendar.search": ("GET", "/calendar/v3/calendars/primary/events", ("timeMin", "timeMax", "q", "maxResults")),
-            "drive.search": ("GET", "/drive/v3/files", ("q", "pageSize", "orderBy", "fields")),
-            "contacts.search": ("GET", "/people/v1/people/me/connections", ("pageSize", "personFields")),
-        }
 
     async def health_check(self) -> bool:
         return all(os.environ.get(key, "").strip() for key in (
@@ -215,53 +215,80 @@ class GoogleWorkspaceAdapter:
 
     async def _token(self) -> str:
         import time
+        if not await self.health_check():
+            raise RuntimeError("connector_credentials_missing")
         if self._access_token and time.time() < self._expires_at - 60:
             return self._access_token
-        from urllib.parse import urlencode
-        data = urlencode({
-            "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+        data = urlencode({"client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
             "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
             "refresh_token": os.environ.get("GOOGLE_REFRESH_TOKEN", ""),
-            "grant_type": "refresh_token",
-        }).encode()
+            "grant_type": "refresh_token"}).encode()
         request = Request(self.TOKEN_URL, data=data,
-                          headers={"Content-Type": "application/x-www-form-urlencoded"},
-                          method="POST")
+            headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
         def refresh() -> dict:
             try:
                 with urlopen(request, timeout=self.timeout) as response:
                     return json.loads(response.read().decode("utf-8"))
-            except HTTPError as exc:
-                raise RuntimeError(f"google_oauth_http_{exc.code}") from None
-            except (URLError, TimeoutError):
-                raise RuntimeError("google_oauth_unreachable") from None
+            except HTTPError as exc: raise RuntimeError(f"google_oauth_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("google_oauth_unreachable") from None
         payload = await asyncio.to_thread(refresh)
         token = payload.get("access_token")
-        if not token:
-            raise RuntimeError("google_oauth_token_missing")
+        if not token: raise RuntimeError("google_oauth_token_missing")
         self._access_token = str(token)
         self._expires_at = time.time() + int(payload.get("expires_in", 3600))
         return self._access_token
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
-        operation = self.operations.get(tool_name)
-        if operation is None:
-            raise RuntimeError("tool_operation_not_implemented")
-        method, path, query_keys = operation
-        query = {key: arguments[key] for key in query_keys if key in arguments}
-        url = self.API_ROOT + path + (("?" + urlencode(query, doseq=True)) if query else "")
         token = await self._token()
-        request = Request(url, headers={"Authorization": f"Bearer {token}",
-                                        "Accept": "application/json"}, method=method)
+        method, path, query, body = "GET", "", {}, None
+        if tool_name == "gmail.search":
+            path = "/gmail/v1/users/me/messages"
+            query = {k: arguments[k] for k in ("q", "maxResults") if k in arguments}
+        elif tool_name == "gmail.read":
+            item = str(arguments.get("message_id", "")).strip()
+            if not item or "/" in item: raise ValueError("invalid_message_id")
+            path, query = f"/gmail/v1/users/me/messages/{item}", {"format": "full"}
+        elif tool_name in {"gmail.draft", "gmail.send"}:
+            message = EmailMessage()
+            message["To"], message["Subject"] = arguments["to"], arguments["subject"]
+            message.set_content(arguments["body"])
+            raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
+            body, method = {"message": {"raw": raw}}, "POST"
+            path = ("/gmail/v1/users/me/drafts" if tool_name == "gmail.draft"
+                    else "/gmail/v1/users/me/messages/send")
+        elif tool_name == "calendar.search":
+            path = "/calendar/v3/calendars/primary/events"
+            query = {k: arguments[k] for k in ("timeMin", "timeMax", "q", "maxResults") if k in arguments}
+        elif tool_name == "calendar.create":
+            method, path = "POST", "/calendar/v3/calendars/primary/events"
+            body = {k: arguments[k] for k in ("summary", "description", "start", "end", "attendees") if k in arguments}
+        elif tool_name == "calendar.update":
+            item = str(arguments.get("event_id", "")).strip()
+            if not item or "/" in item: raise ValueError("invalid_event_id")
+            method, path = "PATCH", f"/calendar/v3/calendars/primary/events/{item}"
+            body = {k: arguments[k] for k in ("summary", "description", "start", "end", "attendees", "status") if k in arguments}
+            if not body: raise ValueError("empty_event_update")
+        elif tool_name == "drive.search":
+            path = "/drive/v3/files"
+            query = {k: arguments[k] for k in ("q", "pageSize", "orderBy", "fields") if k in arguments}
+            query.setdefault("fields", "files(id,name,mimeType,webViewLink),nextPageToken")
+        elif tool_name == "contacts.search":
+            path = "/people/v1/people/me/connections"
+            query = {k: arguments[k] for k in ("pageSize", "personFields") if k in arguments}
+            query.setdefault("personFields", "names,emailAddresses,phoneNumbers")
+        else: raise RuntimeError("tool_operation_not_implemented")
+        url = self.API_ROOT + path + (("?" + urlencode(query, doseq=True)) if query else "")
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+        data = json.dumps(body).encode("utf-8") if body is not None else None
+        if data is not None: headers["Content-Type"] = "application/json"
+        request = Request(url, data=data, headers=headers, method=method)
         def send() -> Any:
             try:
                 with urlopen(request, timeout=self.timeout) as response:
                     raw = response.read()
                     return json.loads(raw.decode("utf-8")) if raw else {}
-            except HTTPError as exc:
-                raise RuntimeError(f"google_api_http_{exc.code}") from None
-            except (URLError, TimeoutError):
-                raise RuntimeError("google_api_unreachable") from None
+            except HTTPError as exc: raise RuntimeError(f"google_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("google_api_unreachable") from None
         return await asyncio.to_thread(send)
 
 
