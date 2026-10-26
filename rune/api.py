@@ -94,6 +94,8 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             "/api/goal",
             "/api/plan",
             "/api/plan/verify",
+            "/api/connectors/health",
+            "/api/connectors/execute",
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
@@ -105,6 +107,44 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
 
             if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify"} and not self._authorized():
                 self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path in {"/api/connectors/health", "/api/connectors/execute"} and not self._authorized():
+                self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path == "/api/connectors/health":
+                connector_id = str(payload.get("connector_id", "")).strip()
+                if not connector_id:
+                    self._send(400, {"error": "connector_id is required"})
+                    return
+                try:
+                    status = __import__("asyncio").run(self.runtime.connectors.health_check(connector_id))
+                except KeyError:
+                    self._send(404, {"error": "connector not found"})
+                    return
+                self._send(200, {"connector_id": connector_id, "status": status.value})
+                return
+
+            if request_path == "/api/connectors/execute":
+                tool_id = str(payload.get("tool_id", "")).strip()
+                execution_id = str(payload.get("execution_id", "")).strip()
+                arguments = payload.get("arguments", {})
+                if not tool_id or not execution_id or not isinstance(arguments, dict):
+                    self._send(400, {"error": "tool_id, execution_id and object arguments are required"})
+                    return
+                result = __import__("asyncio").run(self.runtime.connectors.execute(
+                    tool_id, arguments, execution_id=execution_id,
+                    approved=payload.get("approved") is True,
+                    idempotency_key=payload.get("idempotency_key"),
+                ))
+                self._send(200, {"execution": {
+                    "execution_id": result.execution_id, "tool_id": result.tool_id,
+                    "connector_id": result.connector_id, "status": result.status.value,
+                    "output": result.output, "error_code": result.error_code,
+                    "attempts": result.attempts, "verified": result.verified,
+                    "idempotency_key": result.idempotency_key,
+                }})
                 return
 
             if request_path == "/api/memory":
