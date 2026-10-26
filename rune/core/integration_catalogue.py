@@ -114,7 +114,7 @@ INTEGRATIONS: tuple[IntegrationManifest, ...] = (
         IntegrationState.PROVIDER_REVIEW_REQUIRED,
         ("Playback control depends on current Spotify developer policy, account and active-device requirements.",)),
     IntegrationManifest("youtube", "YouTube", "media", "official_api",
-        ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"), ("search", "channels", "videos", "uploads")),
+        ("YOUTUBE_API_KEY", "YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"), ("search", "channels", "videos", "uploads")),
     IntegrationManifest("zotero", "Zotero", "research", "official_api",
         ("ZOTERO_API_KEY", "ZOTERO_USER_ID"), ("libraries", "items", "collections")),
     IntegrationManifest("hubspot", "HubSpot", "business", "official_api",
