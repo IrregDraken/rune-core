@@ -277,6 +277,8 @@ class GoogleWorkspaceAdapter:
             mime_type = str(arguments.get("mime_type", "application/octet-stream")).strip()
             if not filename or len(filename) > 255 or "/" in filename or "\\\\" in filename:
                 raise ValueError("invalid_drive_filename")
+            if not mime_type or len(mime_type) > 128 or any(ord(ch) in (10, 13) for ch in mime_type):
+                raise ValueError("invalid_drive_mime_type")
             try:
                 binary = base64.b64decode(arguments["content_base64"], validate=True)
             except Exception:
