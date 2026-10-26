@@ -261,22 +261,36 @@ class ConnectorManager:
 
 
 def build_initial_connector_manager() -> ConnectorManager:
-    """Register the selected first-wave services without connecting accounts."""
+    """Register every planned integration and named tool without activating them."""
+    from .integration_catalogue import integration_catalogue, tool_catalogue
+
     manager = ConnectorManager()
-    initial = (
-        ("google_workspace", "direct_api", ("GMAIL_OAUTH_CLIENT_ID", "GMAIL_OAUTH_CLIENT_SECRET")),
-        ("notion", "direct_api", ("NOTION_API_TOKEN",)),
-        ("brave_search", "direct_api", ("BRAVE_SEARCH_API_KEY",)),
-        ("tavily_search", "direct_api", ("TAVILY_API_KEY",)),
-        ("github", "mcp_or_direct_api", ("GITHUB_TOKEN",)),
-        ("filesystem", "local", ()),
-        ("browser", "browser", ()),
-    )
-    for connector_id, transport, credential_env in initial:
+    for item in integration_catalogue():
         manager.register_connector(ConnectorRecord(
-            id=connector_id,
-            transport=transport,
+            id=item.id,
+            transport=item.transport,
             status=ConnectorStatus.DISCONNECTED,
-            credential_env=credential_env,
+            credential_env=item.auth_env,
+            metadata={"category": item.category, "activation_state": item.state.value},
+        ))
+
+    risk_map = {
+        "read": ActionRisk.READ,
+        "write": ActionRisk.WRITE,
+        "external_communication": ActionRisk.EXTERNAL_COMMUNICATION,
+        "financial": ActionRisk.FINANCIAL,
+        "destructive": ActionRisk.DESTRUCTIVE,
+        "privileged": ActionRisk.PRIVILEGED,
+        "device": ActionRisk.PRIVILEGED,
+    }
+    for item in tool_catalogue():
+        manager.register_tool(ToolDefinition(
+            id=item.id,
+            connector_id=item.integration_id,
+            name=item.name,
+            description=item.description,
+            input_schema={"type": "object"},
+            risk=risk_map.get(item.risk, ActionRisk.READ),
+            requires_confirmation=item.confirmation,
         ))
     return manager
