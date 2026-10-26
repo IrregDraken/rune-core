@@ -378,3 +378,56 @@ def test_google_drive_upload_uses_multipart_and_size_guard(monkeypatch):
         asyncio.run(adapter.invoke("drive.upload", {
             "file_name": "bad.txt", "mime_type": "text/plain", "content_base64": "not base64!"
         }))
+
+
+
+def test_youtube_search_uses_api_key_and_fixed_part(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import YouTubeAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"items":[]}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("YOUTUBE_API_KEY", "mock-key")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(YouTubeAdapter().invoke("youtube.search", {"q": "RUNE", "maxResults": 5}))
+    assert result == {"items": []}
+    assert "key=mock-key" in captured[0].full_url
+    assert "part=snippet" in captured[0].full_url
+
+
+def test_zotero_search_requires_user_id_and_uses_key_header(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import ZoteroAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'[]'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("ZOTERO_API_KEY", "mock-key")
+    monkeypatch.setenv("ZOTERO_USER_ID", "123")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    assert asyncio.run(ZoteroAdapter().invoke("zotero.items.search", {"q": "memory"})) == []
+    assert captured[0].get_header("Zotero-api-key") == "mock-key"
+    assert "/users/123/items?" in captured[0].full_url
+
+
+def test_spotify_adapter_rejects_missing_credentials(monkeypatch):
+    from rune.adapters.http_connectors import SpotifyAdapter
+    import asyncio
+    for key in ("SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REFRESH_TOKEN"):
+        monkeypatch.delenv(key, raising=False)
+    assert not asyncio.run(SpotifyAdapter().health_check())
