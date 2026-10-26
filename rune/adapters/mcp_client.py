@@ -19,6 +19,7 @@ class MCPServerConfig:
     args: tuple[str, ...] = ()
     env_names: tuple[str, ...] = ()
     timeout_seconds: float = 30.0
+    tool_name_map: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if bool(self.url) == bool(self.command):
@@ -108,4 +109,16 @@ class MCPClientAdapter:
         } for item in result.tools)
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
-        return await self._connect_and("call", tool_name, arguments)
+        remote_name = self.config.tool_name_map.get(tool_name, tool_name)
+        return await self._connect_and("call", remote_name, arguments)
+
+
+
+def attach_mcp_adapter(manager: Any, connector_id: str, config: MCPServerConfig) -> MCPClientAdapter:
+    """Attach an explicitly configured MCP server to an existing connector record."""
+    key = connector_id.strip().lower()
+    if key not in manager.records:
+        raise KeyError(f"unknown_connector:{key}")
+    adapter = MCPClientAdapter(config)
+    manager.adapters[key] = adapter
+    return adapter
