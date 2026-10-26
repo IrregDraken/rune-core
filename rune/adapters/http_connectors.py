@@ -335,3 +335,47 @@ class ResendAdapter(JsonHttpAdapter):
                 ),
             },
         )
+
+
+
+class TelegramBotAdapter:
+    """Official Telegram Bot API adapter for authorised bot messaging."""
+
+    def __init__(self) -> None:
+        self.timeout = 20.0
+
+    async def health_check(self) -> bool:
+        return bool(os.environ.get("TELEGRAM_BOT_TOKEN", "").strip())
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if tool_name != "telegram.message.send":
+            raise RuntimeError("tool_operation_not_implemented")
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+        if not token:
+            raise RuntimeError("connector_credentials_missing")
+        chat_id = str(arguments.get("chat_id", "")).strip()
+        text_value = str(arguments.get("text", ""))
+        if not chat_id or len(chat_id) > 128 or not text_value or len(text_value) > 4096:
+            raise ValueError("invalid_telegram_message")
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        body = {"chat_id": chat_id, "text": text_value}
+        if "parse_mode" in arguments:
+            body["parse_mode"] = arguments["parse_mode"]
+        if "disable_notification" in arguments:
+            body["disable_notification"] = arguments["disable_notification"]
+        request = Request(url, data=json.dumps(body).encode("utf-8"),
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            method="POST")
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    payload = json.loads(raw.decode("utf-8")) if raw else {}
+                    if not payload.get("ok", False):
+                        raise RuntimeError("telegram_api_rejected_request")
+                    return payload.get("result", {})
+            except HTTPError as exc:
+                raise RuntimeError(f"telegram_api_http_{exc.code}") from None
+            except (URLError, TimeoutError):
+                raise RuntimeError("telegram_api_unreachable") from None
+        return await asyncio.to_thread(send)
