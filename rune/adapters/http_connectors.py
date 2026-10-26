@@ -937,3 +937,80 @@ class XApiAdapter(JsonHttpAdapter):
             operation = HttpOperation("POST", "/tweets", body_keys=("text", "reply"))
             return await self.invoke_operation(operation, body)
         return await super().invoke(tool_name, arguments)
+
+
+
+class RedditAdapter:
+    """Reddit OAuth adapter for search and authorised comment creation."""
+
+    def __init__(self) -> None:
+        self._token: str | None = None
+        self._expires_at = 0.0
+        self.timeout = 20.0
+
+    async def health_check(self) -> bool:
+        return all(os.environ.get(k, "").strip() for k in (
+            "REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_REFRESH_TOKEN"))
+
+    async def _access_token(self) -> str:
+        import time
+        if not await self.health_check(): raise RuntimeError("connector_credentials_missing")
+        if self._token and time.time() < self._expires_at - 60: return self._token
+        basic = base64.b64encode((os.environ["REDDIT_CLIENT_ID"] + ":" +
+            os.environ["REDDIT_CLIENT_SECRET"]).encode()).decode()
+        form = urlencode({"grant_type": "refresh_token",
+            "refresh_token": os.environ["REDDIT_REFRESH_TOKEN"]}).encode()
+        request = Request("https://www.reddit.com/api/v1/access_token", data=form,
+            headers={"Authorization": f"Basic {basic}",
+                     "Content-Type": "application/x-www-form-urlencoded",
+                     "User-Agent": "RUNE/0.1 connector"}, method="POST")
+        def refresh() -> dict:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    return json.loads(response.read().decode())
+            except HTTPError as exc: raise RuntimeError(f"reddit_oauth_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("reddit_unreachable") from None
+        payload = await asyncio.to_thread(refresh)
+        if not payload.get("access_token"): raise RuntimeError("reddit_token_missing")
+        self._token = str(payload["access_token"])
+        self._expires_at = time.time() + int(payload.get("expires_in", 3600))
+        return self._token
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        token = await self._access_token()
+        headers = {"Authorization": f"Bearer {token}", "User-Agent": "RUNE/0.1 connector",
+                   "Accept": "application/json"}
+        if tool_name == "reddit.search":
+            query = {"q": arguments["query"], "limit": min(int(arguments.get("limit", 25)), 100),
+                     "sort": arguments.get("sort", "relevance")}
+            path = "/search.json?" + urlencode(query)
+            request = Request("https://oauth.reddit.com" + path, headers=headers)
+        elif tool_name == "reddit.comment.create":
+            parent = str(arguments["parent_id"]).strip()
+            text_value = str(arguments["text"])
+            if not parent.startswith(("t1_", "t3_")) or not text_value or len(text_value) > 10000:
+                raise ValueError("invalid_reddit_comment")
+            data = urlencode({"thing_id": parent, "text": text_value}).encode()
+            request = Request("https://oauth.reddit.com/api/comment", data=data,
+                headers={**headers, "Content-Type": "application/x-www-form-urlencoded"},
+                method="POST")
+        else: raise RuntimeError("tool_operation_not_implemented")
+        def send() -> Any:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read()
+                    return json.loads(raw.decode()) if raw else {}
+            except HTTPError as exc: raise RuntimeError(f"reddit_api_http_{exc.code}") from None
+            except (URLError, TimeoutError): raise RuntimeError("reddit_unreachable") from None
+        return await asyncio.to_thread(send)
+
+
+class PinterestAdapter(JsonHttpAdapter):
+    """Pinterest API v5 pin creation."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url="https://api.pinterest.com/v5",
+            credential_env="PINTEREST_ACCESS_TOKEN", operations={
+                "pinterest.pin.create": HttpOperation("POST", "/pins",
+                    body_keys=("board_id", "title", "description", "link", "media_source")),
+            })
