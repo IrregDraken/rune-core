@@ -71,3 +71,35 @@ def test_mcp_client_rejects_tool_not_exposed(monkeypatch):
     adapter = MCPClientAdapter(MCPServerConfig(name="test", url="https://mcp.example/mcp"))
     with pytest.raises(RuntimeError, match="not_exposed"):
         asyncio.run(adapter.invoke("unknown", {}))
+
+
+
+def test_configured_mcp_servers_attach_only_to_registered_connectors(monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from rune.adapters.mcp_client import attach_configured_mcp_adapters
+    manager = SimpleNamespace(
+        records={"notion": object()},
+        adapters={"notion": "direct"},
+    )
+    monkeypatch.setenv("RUNE_MCP_SERVERS_JSON", json.dumps([{
+        "connector_id": "notion",
+        "name": "notion-mcp",
+        "url": "https://mcp.example/mcp",
+        "tool_name_map": {"notion.search": "search"},
+    }]))
+    attached = attach_configured_mcp_adapters(manager)
+    assert attached == ("notion",)
+    assert manager.adapters["notion"].config.tool_name_map == {"notion.search": "search"}
+
+
+def test_configured_mcp_servers_reject_unknown_connector(monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from rune.adapters.mcp_client import attach_configured_mcp_adapters
+    manager = SimpleNamespace(records={}, adapters={})
+    monkeypatch.setenv("RUNE_MCP_SERVERS_JSON", json.dumps([{
+        "connector_id": "not-registered", "url": "https://mcp.example/mcp"
+    }]))
+    with pytest.raises(ValueError, match="not_registered"):
+        attach_configured_mcp_adapters(manager)
