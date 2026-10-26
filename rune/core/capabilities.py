@@ -300,11 +300,13 @@ def build_default_catalogue() -> CapabilityCatalogue:
 
     connectors = [
         ConnectorSpec("github", "GitHub", "Repository and developer workflow access.", mcp, "A", ("repositories", "issues", "pull requests", "actions"), ("repo", "read:user"), status=CapabilityStatus.PROVIDER_DEPENDENT),
-        ConnectorSpec("google_workspace", "Google Workspace", "Gmail, Calendar, Drive and contacts.", mcp, "A", ("gmail", "calendar", "drive", "contacts"), ("least-privilege OAuth scopes",), status=CapabilityStatus.PROVIDER_DEPENDENT),
+        ConnectorSpec("google_workspace", "Google Workspace", "Gmail, Calendar, Drive and contacts through Google APIs; MCP where appropriate.", api, "A", ("gmail", "calendar", "drive", "contacts"), ("least-privilege OAuth scopes",), status=CapabilityStatus.PROVIDER_DEPENDENT),
         ConnectorSpec("microsoft365", "Microsoft 365", "Outlook, Calendar, OneDrive and SharePoint.", mcp, "A", ("mail", "calendar", "files"), ("least-privilege Graph scopes",), status=CapabilityStatus.PROVIDER_DEPENDENT),
-        ConnectorSpec("notion", "Notion", "Pages, databases and project knowledge.", mcp, "A", ("pages", "databases", "search"), ("read/write only where granted",), status=CapabilityStatus.PROVIDER_DEPENDENT),
+        ConnectorSpec("notion", "Notion", "Pages, databases and project knowledge through the Notion API or vetted MCP server.", api, "A", ("pages", "databases", "search"), ("read/write only where granted",), status=CapabilityStatus.PROVIDER_DEPENDENT),
         ConnectorSpec("filesystem", "Scoped filesystem", "RUNE-managed workspace files only.", local, "A", ("read", "write", "search"), (), status=CapabilityStatus.FOUNDATION, notes=("Never expose unrestricted host filesystem access.",)),
-        ConnectorSpec("browser_search", "Search and browser", "Web search and isolated browser automation.", browser, "A", ("search", "fetch", "browser"), (), status=CapabilityStatus.PLANNED, notes=("Web content is untrusted input.",)),
+        ConnectorSpec("brave_search", "Brave Search", "Independent web search provider for public-web research.", api, "A", ("web search",), ("BRAVE_SEARCH_API_KEY",), status=CapabilityStatus.PROVIDER_DEPENDENT),
+        ConnectorSpec("tavily_search", "Tavily", "Research-oriented web search and extraction provider.", api, "A", ("search", "extract"), ("TAVILY_API_KEY",), status=CapabilityStatus.PROVIDER_DEPENDENT),
+        ConnectorSpec("browser_search", "Browser automation", "Isolated browser navigation and page interaction, separate from search providers.", browser, "A", ("fetch", "browser"), (), status=CapabilityStatus.PLANNED, notes=("Web content is untrusted input.",)),
         ConnectorSpec("linear", "Linear", "Issue and project tracking.", mcp, "B", ("issues", "projects", "cycles"), ("workspace scopes",), status=CapabilityStatus.PLANNED),
         ConnectorSpec("slack", "Slack", "Search and authorised workspace messaging.", mcp, "B", ("search", "messages", "channels"), ("least-privilege OAuth scopes",), status=CapabilityStatus.PLANNED),
         ConnectorSpec("discord", "Discord", "Later communication channel and approved bot integration.", api, "B", ("messages", "servers", "commands"), ("bot scopes and intents",), status=CapabilityStatus.PLANNED),
