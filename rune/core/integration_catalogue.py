@@ -400,6 +400,18 @@ _TOOL_SCHEMAS: dict[str, dict] = {
 _DEFAULT_SCHEMA = {"type": "object", "additionalProperties": False}
 
 
+def _integration_availability(integration_id: str) -> str:
+    state = next((item.state for item in INTEGRATIONS if item.id == integration_id),
+                 IntegrationState.READY_FOR_CONFIGURATION)
+    if state is IntegrationState.DEVICE_PHASE:
+        return "device_dependent"
+    if state is IntegrationState.MANUAL_FALLBACK:
+        return "manual_fallback"
+    if state is IntegrationState.PROVIDER_REVIEW_REQUIRED:
+        return "restricted_or_review_required"
+    return "provider_dependent"
+
+
 def tool_catalogue() -> tuple[ToolManifest, ...]:
     return tuple(
         ToolManifest(
@@ -409,13 +421,7 @@ def tool_catalogue() -> tuple[ToolManifest, ...]:
             description=description,
             risk=risk,
             confirmation=confirmation,
-            availability=(
-                "restricted_or_review_required"
-                if next((item.state for item in INTEGRATIONS if item.id == integration_id),
-                        IntegrationState.READY_FOR_CONFIGURATION)
-                is IntegrationState.PROVIDER_REVIEW_REQUIRED
-                else "provider_dependent"
-            ),
+            availability=_integration_availability(integration_id),
         )
         for integration_id, tool_id, description, risk, confirmation in _TOOL_ROWS
     )
