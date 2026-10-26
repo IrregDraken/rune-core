@@ -115,3 +115,5 @@ def test_initial_manager_registers_all_catalogue_tools_without_live_auth():
     assert manager.adapters["email_delivery"] is not None
     assert manager.adapters["telegram"] is not None
     assert manager.adapters["github"] is not None
+    assert manager.adapters["slack"] is not None
+    assert manager.adapters["discord"] is not None
