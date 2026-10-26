@@ -1185,7 +1185,7 @@ class GitLabAdapter(JsonHttpAdapter):
     """GitLab REST adapter for project search, issue and merge-request creation."""
 
     def __init__(self) -> None:
-        super().__init__(base_url=os.environ.get("GITLAB_API_URL", "https://gitlab.com/api/v4"),
+        super().__init__(base_url=os.environ.get("GITLAB_API_URL") or "https://gitlab.com/api/v4",
             credential_env="GITLAB_TOKEN", auth_header="PRIVATE-TOKEN", auth_scheme="",
             operations={
                 "gitlab.project.search": HttpOperation("GET", "/projects",
