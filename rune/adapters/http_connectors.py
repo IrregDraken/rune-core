@@ -575,6 +575,8 @@ class DropboxAdapter:
                 endpoint = "/files/search/continue_v2"
                 body = {"cursor": arguments["cursor"]}
             else:
+                if not str(arguments.get("query", "")).strip():
+                    raise ValueError("dropbox_search_query_required_without_cursor")
                 endpoint = "/files/search_v2"
                 body = {"query": arguments["query"]}
                 if arguments.get("path"):
