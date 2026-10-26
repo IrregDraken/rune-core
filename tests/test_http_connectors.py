@@ -307,3 +307,37 @@ def test_discord_adapter_uses_bot_auth_and_validates_channel(monkeypatch):
     assert captured[-1].get_header("Authorization") == "Bot mock-token"
     with pytest.raises(ValueError, match="invalid_discord_message"):
         asyncio.run(adapter.invoke("discord.message.send", {"channel_id": "bad/id", "content": "x"}))
+
+
+
+def test_dropbox_adapter_refreshes_oauth_and_searches_files(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import DropboxAdapter
+    import asyncio
+    adapter = DropboxAdapter()
+    requests = []
+
+    class Response:
+        def __init__(self, payload): self.payload = payload
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return self.payload
+
+    def fake_urlopen(request, timeout):
+        requests.append(request)
+        if request.full_url.endswith("/oauth2/token"):
+            return Response(b'{"access_token":"mock-access","expires_in":3600}')
+        return Response(b'{"matches":[]}')
+
+    async def inline_thread(fn, *args): return fn()
+
+    monkeypatch.setenv("DROPBOX_APP_KEY", "key")
+    monkeypatch.setenv("DROPBOX_APP_SECRET", "secret")
+    monkeypatch.setenv("DROPBOX_REFRESH_TOKEN", "refresh")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(adapter.invoke("dropbox.files.search", {"query": "notes"}))
+    assert result == {"matches": []}
+    assert requests[0].full_url == "https://api.dropbox.com/oauth2/token"
+    assert requests[1].full_url == "https://api.dropboxapi.com/2/files/search_v2"
+    assert requests[1].get_header("Authorization") == "Bearer mock-access"
