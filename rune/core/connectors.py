@@ -260,12 +260,15 @@ class ConnectorManager:
                     "credential_env": list(r.credential_env),
                     "last_health_check": r.last_health_check,
                     "last_error_code": r.last_error_code,
+                    "adapter_attached": r.id in self.adapters,
                 }
                 for r in self.records.values()
             ],
             "tools": [
                 {"id": t.id, "connector_id": t.connector_id, "name": t.name,
-                 "risk": t.risk.value, "requires_confirmation": t.requires_confirmation}
+                 "risk": t.risk.value, "requires_confirmation": t.requires_confirmation,
+                 "adapter_attached": t.connector_id in self.adapters,
+                 "max_retries": t.max_retries}
                 for t in self.tools.values()
             ],
             "audit_events": len(self.audit_log),
