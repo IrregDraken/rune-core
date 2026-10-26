@@ -203,3 +203,48 @@ def test_telegram_adapter_rejects_unknown_operation_and_missing_credentials(monk
     assert not asyncio.run(adapter.health_check())
     with pytest.raises(RuntimeError, match="tool_operation_not_implemented"):
         asyncio.run(adapter.invoke("telegram.other", {"chat_id": "1", "text": "x"}))
+
+
+
+def test_github_adapter_routes_issue_and_pr_calls(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import GitHubAdapter
+    import asyncio
+    adapter = GitHubAdapter()
+    captured = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"number":12}'
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args):
+        return fn()
+
+    monkeypatch.setenv("GITHUB_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    asyncio.run(adapter.invoke("github.issue.create", {
+        "owner": "acme", "repo": "project", "title": "Bug"
+    }))
+    assert captured[-1].full_url == "https://api.github.com/repos/acme/project/issues"
+    assert captured[-1].get_method() == "POST"
+    asyncio.run(adapter.invoke("github.pull_request.create", {
+        "owner": "acme", "repo": "project", "title": "Feature",
+        "head": "feature", "base": "main"
+    }))
+    assert captured[-1].full_url == "https://api.github.com/repos/acme/project/pulls"
+
+
+def test_github_adapter_rejects_path_injection(monkeypatch):
+    from rune.adapters.http_connectors import GitHubAdapter
+    import asyncio
+    monkeypatch.setenv("GITHUB_TOKEN", "mock-token")
+    with pytest.raises(ValueError, match="invalid_github_repository"):
+        asyncio.run(GitHubAdapter().invoke("github.issue.create", {
+            "owner": "../attacker", "repo": "repo", "title": "x"
+        }))
