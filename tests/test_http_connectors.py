@@ -770,3 +770,96 @@ def test_reddit_oauth_refresh_and_comment(monkeypatch):
     assert result["json"]["data"]["things"] == []
     assert requests[1].full_url == "https://oauth.reddit.com/api/comment"
     assert requests[1].get_header("Authorization") == "Bearer reddit-access"
+
+
+
+def test_sentry_issue_search_uses_bearer_token(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import SentryAdapter
+    import asyncio
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'[]'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("SENTRY_AUTH_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    assert asyncio.run(SentryAdapter().invoke("sentry.issues.search", {"query": "is:unresolved"})) == []
+    assert captured[0].full_url.startswith("https://sentry.io/api/0/issues/?")
+    assert captured[0].get_header("Authorization") == "Bearer mock-token"
+
+
+def test_vercel_deployment_create_requires_source_and_maps_project(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import VercelAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"deployment1"}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("VERCEL_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(VercelAdapter().invoke("vercel.production.deploy", {
+        "projectId": "prj_123", "name": "rune-web",
+        "gitSource": {"type": "github", "repoId": "123"}
+    }))
+    assert result["id"] == "deployment1"
+    assert captured[0].full_url == "https://api.vercel.com/v13/deployments"
+    assert json.loads(captured[0].data)["project"] == "prj_123"
+
+
+def test_gitlab_merge_request_create_uses_source_and_target_branches(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import GitLabAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"iid":4}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("GITLAB_TOKEN", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(GitLabAdapter().invoke("gitlab.merge_request.create", {
+        "project_id": 123, "source_branch": "feature", "target_branch": "main", "title": "Feature"
+    }))
+    assert result["iid"] == 4
+    body = json.loads(captured[0].data)
+    assert body["source_branch"] == "feature"
+    assert body["target_branch"] == "main"
+
+
+def test_linear_issue_search_uses_graphql_query(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import LinearAdapter
+    import asyncio, json
+    captured = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"data":{"issues":{"nodes":[]}}}'
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+    async def inline_thread(fn, *args): return fn()
+    monkeypatch.setenv("LINEAR_API_KEY", "mock-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(LinearAdapter().invoke("linear.issue.search", {"query": "RUNE"}))
+    assert result["issues"]["nodes"] == []
+    assert "IssueSearch" in json.loads(captured[0].data)["query"]
