@@ -45,7 +45,7 @@ def test_disconnected_connector_never_executes():
     manager.register_connector(ConnectorRecord("google", "direct_api"), adapter)
     manager.register_tool(ToolDefinition("gmail.search", "google", "search",
                                          "Search mail", {"type": "object"}))
-    result = await manager.execute("gmail.search", {}, execution_id="e2"))
+    result = asyncio.run(manager.execute("gmail.search", {}, execution_id="e2"))
     assert result.status is ExecutionStatus.UNAVAILABLE
     assert adapter.calls == 0
 
@@ -58,11 +58,11 @@ def test_high_impact_action_requires_explicit_approval():
         "gmail.send", "google", "send", "Send mail", {"type": "object"},
         risk=ActionRisk.EXTERNAL_COMMUNICATION,
     ))
-    await manager.health_check("google")
-    result = await manager.execute("gmail.send", {}, execution_id="e3"))
+    asyncio.run(manager.health_check("google"))
+    result = asyncio.run(manager.execute("gmail.send", {}, execution_id="e3"))
     assert result.status is ExecutionStatus.AWAITING_APPROVAL
     assert adapter.calls == 0
-    approved = await manager.execute("gmail.send", {}, execution_id="e4", approved=True))
+    approved = asyncio.run(manager.execute("gmail.send", {}, execution_id="e4", approved=True))
     assert approved.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
 
 
@@ -75,13 +75,13 @@ def test_schema_failure_and_idempotency():
         {"type": "object", "required": ["query"],
          "properties": {"query": {"type": "string"}}, "additionalProperties": False},
     ))
-    await manager.health_check("search")
-    invalid = await manager.execute("search.web", {}, execution_id="e5"))
+    asyncio.run(manager.health_check("search"))
+    invalid = asyncio.run(manager.execute("search.web", {}, execution_id="e5"))
     assert invalid.status is ExecutionStatus.BLOCKED
-    first = await manager.execute("search.web", {"query": "MCP"},
+    first = asyncio.run(manager.execute("search.web", {"query": "MCP"},
                                   execution_id="e6", idempotency_key="same"))
-    second = await manager.execute("search.web", {"query": "MCP"},
-                                   execution_id="e7", idempotency_key="same")
+    second = asyncio.run(manager.execute("search.web", {"query": "MCP"},
+                                   execution_id="e7", idempotency_key="same"))
     assert first.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
     assert second.execution_id == "e6"
     assert adapter.calls == 1
@@ -95,6 +95,6 @@ def test_bounded_retry():
         "search.web", "search", "search", "Search", {"type": "object"}, max_retries=1,
     ))
     await manager.health_check("search")
-    result = await manager.execute("search.web", {}, execution_id="e8"))
+    result = asyncio.run(manager.execute("search.web", {}, execution_id="e8"))
     assert result.status is ExecutionStatus.SUCCEEDED_UNVERIFIED
     assert result.attempts == 2
