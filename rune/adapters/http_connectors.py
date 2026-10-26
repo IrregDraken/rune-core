@@ -8,7 +8,9 @@ environment at invocation time and are never included in results or logs.
 """
 
 import asyncio
+import base64
 import json
+from email.message import EmailMessage
 import os
 from dataclasses import dataclass
 from typing import Any
@@ -170,6 +172,8 @@ class NotionAdapter(JsonHttpAdapter):
                     "POST", "/databases/{database_id}/query",
                     body_keys=("filter", "sorts", "page_size", "start_cursor"),
                 ),
+                "notion.page.create": HttpOperation("POST", "/pages", body_keys=("parent", "properties", "children", "icon", "cover")),
+                "notion.page.update": HttpOperation("PATCH", "/pages/{page_id}", body_keys=("properties", "archived", "in_trash", "icon", "cover")),
             },
         )
 
@@ -271,6 +275,7 @@ class FigmaAdapter(JsonHttpAdapter):
             operations={
                 "figma.file.get": HttpOperation("GET", "/files/{file_key}"),
                 "figma.comments.list": HttpOperation("GET", "/files/{file_key}/comments"),
+                "figma.comment.create": HttpOperation("POST", "/files/{file_key}/comments", body_keys=("message", "client_meta")),
             },
         )
 
