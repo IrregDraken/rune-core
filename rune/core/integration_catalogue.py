@@ -132,7 +132,7 @@ INTEGRATIONS: tuple[IntegrationManifest, ...] = (
         ("DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "DROPBOX_REFRESH_TOKEN"), ("files", "sharing")),
     IntegrationManifest("home_assistant", "Home Assistant", "device_smart_home", "local_api",
         ("HOME_ASSISTANT_URL", "HOME_ASSISTANT_TOKEN"), ("entities", "scenes", "automations"),
-        IntegrationState.DEVICE_PHASE),
+        notes=("Requires an explicitly configured Home Assistant instance and long-lived access token.",)),
     IntegrationManifest("android_companion", "Android Companion", "device", "device_bridge",
         (), ("alarms", "notifications", "open_apps", "media_sessions", "share"),
         IntegrationState.DEVICE_PHASE,
