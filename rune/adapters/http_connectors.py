@@ -243,7 +243,7 @@ class GoogleWorkspaceAdapter:
         method, path, query, body = "GET", "", {}, None
         if tool_name == "gmail.search":
             path = "/gmail/v1/users/me/messages"
-            query = {k: arguments[k] for k in ("q", "maxResults") if k in arguments}
+            query = {k: arguments[k] for k in ("q", "maxResults", "pageToken") if k in arguments}
         elif tool_name == "gmail.read":
             item = str(arguments.get("message_id", "")).strip()
             if not item or not all(ch.isalnum() or ch in "-_" for ch in item): raise ValueError("invalid_message_id")
@@ -258,7 +258,7 @@ class GoogleWorkspaceAdapter:
                     else "/gmail/v1/users/me/messages/send")
         elif tool_name == "calendar.search":
             path = "/calendar/v3/calendars/primary/events"
-            query = {k: arguments[k] for k in ("timeMin", "timeMax", "q", "maxResults") if k in arguments}
+            query = {k: arguments[k] for k in ("timeMin", "timeMax", "q", "maxResults", "pageToken") if k in arguments}
         elif tool_name == "calendar.create":
             method, path = "POST", "/calendar/v3/calendars/primary/events"
             body = {k: arguments[k] for k in ("summary", "description", "start", "end", "attendees") if k in arguments}
@@ -270,7 +270,7 @@ class GoogleWorkspaceAdapter:
             if not body: raise ValueError("empty_event_update")
         elif tool_name == "drive.search":
             path = "/drive/v3/files"
-            query = {k: arguments[k] for k in ("q", "pageSize", "orderBy", "fields") if k in arguments}
+            query = {k: arguments[k] for k in ("q", "pageSize", "orderBy", "fields", "pageToken") if k in arguments}
             query.setdefault("fields", "files(id,name,mimeType,webViewLink),nextPageToken")
         elif tool_name == "drive.upload":
             filename = str(arguments.get("file_name", "")).strip()
@@ -299,7 +299,7 @@ class GoogleWorkspaceAdapter:
             upload_payload = payload
         elif tool_name == "contacts.search":
             path = "/people/v1/people/me/connections"
-            query = {k: arguments[k] for k in ("pageSize", "personFields") if k in arguments}
+            query = {k: arguments[k] for k in ("pageSize", "personFields", "pageToken") if k in arguments}
             query.setdefault("personFields", "names,emailAddresses,phoneNumbers")
         else: raise RuntimeError("tool_operation_not_implemented")
         url = self.API_ROOT + path + (("?" + urlencode(query, doseq=True)) if query else "")
@@ -468,7 +468,7 @@ class SlackAdapter(JsonHttpAdapter):
             if not token:
                 raise RuntimeError("slack_user_token_required_for_search")
             operation = HttpOperation("GET", "/search.messages",
-                query_keys=("query", "count"))
+                query_keys=("query", "count", "page"))
         elif tool_name == "slack.message.send":
             token = os.environ.get("SLACK_BOT_TOKEN", "").strip()
             if not token:
@@ -636,7 +636,7 @@ class SpotifyAdapter:
         token = await self._access_token()
         if tool_name == "spotify.search":
             query = {"q": arguments["q"], "type": arguments.get("type", "track"),
-                     "limit": arguments.get("limit", 10)}
+                     "limit": arguments.get("limit", 10), "offset": arguments.get("offset", 0)}
             method, path, body = "GET", "/search?" + urlencode(query), None
         elif tool_name == "spotify.playback.start":
             query = {"device_id": arguments["device_id"]} if arguments.get("device_id") else {}
@@ -674,7 +674,7 @@ class YouTubeAdapter(JsonHttpAdapter):
             raise RuntimeError("tool_operation_not_implemented")
         # The API key is sent as a query parameter by this API.
         credential = self._credential()
-        query = {k: arguments[k] for k in ("q", "type", "maxResults") if k in arguments}
+        query = {k: arguments[k] for k in ("q", "type", "maxResults", "pageToken") if k in arguments}
         query.update({"part": "snippet", "key": credential})
         request = Request(self.base_url + "/search?" + urlencode(query),
             headers={"Accept": "application/json"}, method="GET")
@@ -1020,7 +1020,9 @@ class RedditAdapter:
                    "Accept": "application/json"}
         if tool_name == "reddit.search":
             query = {"q": arguments["query"], "limit": min(int(arguments.get("limit", 25)), 100),
-                     "sort": arguments.get("sort", "relevance")}
+                     "sort": arguments.get("sort", "relevance"),
+                     **({"after": arguments["after"]} if arguments.get("after") else {}),
+                     **({"before": arguments["before"]} if arguments.get("before") else {})}
             path = "/search.json?" + urlencode(query)
             request = Request("https://oauth.reddit.com" + path, headers=headers)
         elif tool_name == "reddit.comment.create":
@@ -1194,7 +1196,7 @@ class GitLabAdapter(JsonHttpAdapter):
             credential_env="GITLAB_TOKEN", auth_header="PRIVATE-TOKEN", auth_scheme="",
             operations={
                 "gitlab.project.search": HttpOperation("GET", "/projects",
-                    query_keys=("search", "per_page", "membership")),
+                    query_keys=("search", "per_page", "page", "membership")),
             })
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
