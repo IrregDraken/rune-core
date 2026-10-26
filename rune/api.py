@@ -96,6 +96,8 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             "/api/plan/verify",
             "/api/connectors/health",
             "/api/connectors/execute",
+            "/api/consent/opt-in",
+            "/api/consent/revoke",
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
@@ -111,6 +113,28 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
 
             if request_path in {"/api/connectors/health", "/api/connectors/execute"} and not self._authorized():
                 self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path in {"/api/consent/opt-in", "/api/consent/revoke"} and not self._authorized():
+                self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path in {"/api/consent/opt-in", "/api/consent/revoke"}:
+                channel = str(payload.get("channel", "")).strip().lower()
+                recipient = str(payload.get("recipient", "")).strip()
+                source = str(payload.get("source", "")).strip()
+                if not channel or not recipient or not source:
+                    self._send(400, {"error": "channel, recipient and consent evidence source are required"})
+                    return
+                from .core.messaging_consent import MessagingConsentRegistry
+                registry = MessagingConsentRegistry(os.environ.get("RUNE_CONSENT_DB"))
+                if request_path == "/api/consent/opt-in":
+                    registry.record_opt_in(channel, recipient, source)
+                    result = "opted_in"
+                else:
+                    registry.revoke(channel, recipient, source)
+                    result = "revoked"
+                self._send(200, {"channel": channel, "recipient": recipient, "consent": result})
                 return
 
             if request_path == "/api/connectors/health":
