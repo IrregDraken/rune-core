@@ -157,6 +157,16 @@ MCP is a protocol for exposing tools/resources to R.U.N.E; it is not itself a ca
 ### Integration decision rule
 For each service, record: official API availability, MCP server maturity/maintenance, OAuth scopes, data sensitivity, rate limits, cost, webhook support, user value, and fallback. Use an MCP server only when it is maintained, auditable, scoped and materially improves interoperability. R.U.N.E must be able to use a direct adapter instead.
 
+## Expanded integration inventory
+
+The executable catalogue in rune/core/integration_catalogue.py registers the planned integration surface, including Google Workspace, Notion, Brave, Tavily, GitHub/GitLab, Figma, Linear, Slack, Discord, WhatsApp Business, Instagram, Facebook, Threads, Snapchat, TikTok, X, LinkedIn, Telegram, Reddit, Pinterest, Spotify, YouTube, Zotero, HubSpot, Sentry, Vercel, Railway, Microsoft 365, Dropbox, Home Assistant, Android Companion, scoped filesystem, Playwright browser, Resend and AI media services. It also defines more than fifty named tool contracts with risk and confirmation metadata.
+
+The catalogue distinguishes configuration readiness from platform/API eligibility. Instagram capabilities depend on official Graph API products, account type, scopes and app review. Snapchat does not expose a general personal-chat API. WhatsApp is scoped to the official Business Platform, with opt-in, template and messaging-window requirements. Discord and Telegram use authorised bots, not arbitrary personal-account sessions. TikTok, X, LinkedIn, Threads and other social tools remain subject to app review, API tiers, scopes and rate limits.
+
+Browser automation is a fallback for permitted workflows, not a way to bypass MFA, CAPTCHA, platform controls, access restrictions or terms of service. RUNE may prepare a message, caption, reply or outreach sequence. Sending or publishing externally requires approval. For social outreach, RUNE should identify the recipient and channel, prepare the message, show it to the user and obtain confirmation before sending. No autonomous spam, impersonation or bulk unsolicited messaging.
+
+The inventory is exposed at /api/integrations; tool contracts are included in its response. Optional dependency groups are declared in pyproject.toml so users can install only the relevant provider packages.
+
 ## Selected first-wave integrations
 
 The initial provider selection is fixed as follows:
