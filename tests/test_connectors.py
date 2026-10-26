@@ -117,3 +117,20 @@ def test_initial_manager_registers_all_catalogue_tools_without_live_auth():
     assert manager.adapters["github"] is not None
     assert manager.adapters["slack"] is not None
     assert manager.adapters["discord"] is not None
+
+
+
+def test_every_tool_has_an_adapter_or_an_explicit_deferred_phase():
+    from rune.core.connectors import build_initial_connector_manager
+    from rune.core.integration_catalogue import tool_catalogue
+    manager = build_initial_connector_manager()
+    deferred = {"snapchat", "android_companion"}
+    missing = {
+        item.integration_id for item in tool_catalogue()
+        if item.integration_id not in manager.adapters
+    }
+    assert missing == deferred
+    assert all(
+        item.integration_id in manager.adapters or item.integration_id in deferred
+        for item in tool_catalogue()
+    )
