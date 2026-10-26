@@ -58,6 +58,9 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             self._send(200, self.runtime.capability_catalogue.snapshot())
         elif path == "/api/connectors":
             self._send(200, self.runtime.connectors.snapshot())
+        elif path == "/api/integrations":
+            from .core.integration_catalogue import snapshot as integration_snapshot
+            self._send(200, integration_snapshot())
         elif path == "/api/voice":
             voice = self.runtime.voice
             self._send(200, {
