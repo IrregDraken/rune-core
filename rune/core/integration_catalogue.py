@@ -304,6 +304,18 @@ _TOOL_SCHEMAS: dict[str, dict] = {
         "file_key": {"type": "string", "minLength": 1, "maxLength": 128},
         "message": {"type": "string", "minLength": 1, "maxLength": 10000},
         "client_meta": {"type": "object"}}, "additionalProperties": False},
+    "email.send": {"type": "object", "required": ["from", "to", "subject"],
+        "properties": {
+            "from": {"type": "string", "minLength": 3, "maxLength": 320},
+            "to": {"type": "array", "items": {"type": "string", "minLength": 3, "maxLength": 320}, "minItems": 1, "maxItems": 50},
+            "subject": {"type": "string", "minLength": 1, "maxLength": 998},
+            "html": {"type": "string", "maxLength": 100000},
+            "text": {"type": "string", "maxLength": 100000},
+            "reply_to": {"type": "string", "maxLength": 320},
+            "cc": {"type": "array", "items": {"type": "string"}, "maxItems": 50},
+            "bcc": {"type": "array", "items": {"type": "string"}, "maxItems": 50},
+            "tags": {"type": "array", "items": {"type": "object"}, "maxItems": 20}},
+        "additionalProperties": False},
 }
 _DEFAULT_SCHEMA = {"type": "object", "additionalProperties": False}
 
