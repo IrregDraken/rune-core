@@ -284,7 +284,7 @@ def build_initial_connector_manager() -> ConnectorManager:
         "device": ActionRisk.PRIVILEGED,
     }
     # Concrete, allowlisted adapters; no network call occurs during registration.
-    from ..adapters.http_connectors import BraveSearchAdapter, DropboxAdapter, Microsoft365Adapter, FigmaAdapter, GitHubAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, SlackAdapter, DiscordBotAdapter, SpotifyAdapter, YouTubeAdapter, ZoteroAdapter, HubSpotAdapter, SentryAdapter, VercelAdapter, RailwayAdapter, MetaGraphAdapter, XApiAdapter, RedditAdapter, PinterestAdapter, WhatsAppBusinessAdapter, LinkedInAdapter, TikTokContentAdapter, TavilyAdapter, TelegramBotAdapter
+    from ..adapters.http_connectors import BraveSearchAdapter, DropboxAdapter, Microsoft365Adapter, FigmaAdapter, GitHubAdapter, GitLabAdapter, LinearAdapter, GoogleWorkspaceAdapter, NotionAdapter, ResendAdapter, SlackAdapter, DiscordBotAdapter, SpotifyAdapter, YouTubeAdapter, ZoteroAdapter, HubSpotAdapter, SentryAdapter, VercelAdapter, RailwayAdapter, MetaGraphAdapter, XApiAdapter, RedditAdapter, PinterestAdapter, WhatsAppBusinessAdapter, LinkedInAdapter, TikTokContentAdapter, TavilyAdapter, TelegramBotAdapter
     manager.adapters["brave_search"] = BraveSearchAdapter()
     manager.adapters["google_workspace"] = GoogleWorkspaceAdapter()
     manager.adapters["figma"] = FigmaAdapter()
@@ -293,6 +293,8 @@ def build_initial_connector_manager() -> ConnectorManager:
     manager.adapters["email_delivery"] = ResendAdapter()
     manager.adapters["telegram"] = TelegramBotAdapter()
     manager.adapters["github"] = GitHubAdapter()
+    manager.adapters["gitlab"] = GitLabAdapter()
+    manager.adapters["linear"] = LinearAdapter()
     manager.adapters["slack"] = SlackAdapter()
     manager.adapters["discord"] = DiscordBotAdapter()
     manager.adapters["dropbox"] = DropboxAdapter()
