@@ -59,3 +59,67 @@ def test_figma_file_lookup_does_not_mutate_shared_operations(monkeypatch):
     __import__("asyncio").run(adapter.invoke("figma.file.get", {"file_key": "file_123"}))
     assert captured[0].path == "/files/file_123"
     assert adapter.operations == original
+
+
+
+def test_notion_page_update_uses_validated_page_path_without_mutation(monkeypatch):
+    adapter = NotionAdapter()
+    original = dict(adapter.operations)
+    captured = []
+
+    async def capture(operation, arguments):
+        captured.append(operation)
+
+    monkeypatch.setattr(adapter, "invoke_operation", capture)
+    __import__("asyncio").run(adapter.invoke(
+        "notion.page.update", {"page_id": "abc123", "archived": True}
+    ))
+    assert captured[0].method == "PATCH"
+    assert captured[0].path == "/pages/abc123"
+    assert adapter.operations == original
+
+
+def test_google_workspace_routes_gmail_and_calendar_writes(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import GoogleWorkspaceAdapter
+
+    adapter = GoogleWorkspaceAdapter()
+    async def token():
+        return "test-token"
+    monkeypatch.setattr(adapter, "_token", token)
+    captured = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"mock"}'
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args):
+        return fn()
+
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+
+    import asyncio
+    asyncio.run(adapter.invoke("gmail.draft", {
+        "to": "test@example.com", "subject": "Hello", "body": "Draft body"
+    }))
+    assert captured[-1].full_url.endswith("/gmail/v1/users/me/drafts")
+    assert captured[-1].get_method() == "POST"
+
+    asyncio.run(adapter.invoke("calendar.create", {
+        "summary": "Planning", "start": {"dateTime": "2026-10-27T10:00:00Z"},
+        "end": {"dateTime": "2026-10-27T10:30:00Z"}
+    }))
+    assert captured[-1].full_url.endswith("/calendar/v3/calendars/primary/events")
+    assert captured[-1].get_method() == "POST"
+
+    asyncio.run(adapter.invoke("calendar.update", {
+        "event_id": "event123", "summary": "Updated"
+    }))
+    assert captured[-1].full_url.endswith("/calendar/v3/calendars/primary/events/event123")
+    assert captured[-1].get_method() == "PATCH"
