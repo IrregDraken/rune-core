@@ -103,3 +103,17 @@ def test_configured_mcp_servers_reject_unknown_connector(monkeypatch):
     }]))
     with pytest.raises(ValueError, match="not_registered"):
         attach_configured_mcp_adapters(manager)
+
+
+
+def test_mcp_http_loopback_check_does_not_accept_localhost_prefix_spoofing():
+    with pytest.raises(ValueError, match="HTTPS or loopback"):
+        MCPServerConfig(name="bad", url="http://localhost.attacker.example/mcp")
+    with pytest.raises(ValueError, match="userinfo"):
+        MCPServerConfig(name="bad", url="https://user:pass@mcp.example/mcp")
+
+
+def test_mcp_subprocess_environment_allowlist_is_validated():
+    with pytest.raises(ValueError, match="environment_allowlist"):
+        MCPServerConfig(name="bad", command="python", args=("server.py",),
+                        env_names=("PATH;touch /tmp/pwned",))
