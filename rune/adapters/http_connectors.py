@@ -379,3 +379,38 @@ class TelegramBotAdapter:
             except (URLError, TimeoutError):
                 raise RuntimeError("telegram_api_unreachable") from None
         return await asyncio.to_thread(send)
+
+
+
+class GitHubAdapter(JsonHttpAdapter):
+    """GitHub REST adapter for repository search, issue and pull-request creation."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            base_url="https://api.github.com",
+            credential_env="GITHUB_TOKEN",
+            fixed_headers={"X-GitHub-Api-Version": "2022-11-28"},
+            operations={
+                "github.repo.search": HttpOperation(
+                    "GET", "/search/repositories",
+                    query_keys=("q", "sort", "order", "per_page", "page"),
+                ),
+            },
+        )
+
+    async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        operation = self.operations.get(tool_name)
+        if tool_name in {"github.issue.create", "github.pull_request.create"}:
+            owner = str(arguments.get("owner", "")).strip()
+            repo = str(arguments.get("repo", "")).strip()
+            if not owner or not repo or any(ch in owner + repo for ch in "/?#"):
+                raise ValueError("invalid_github_repository")
+            if tool_name == "github.issue.create":
+                operation = HttpOperation("POST", f"/repos/{owner}/{repo}/issues",
+                    body_keys=("title", "body", "assignees", "labels", "milestone"))
+            else:
+                operation = HttpOperation("POST", f"/repos/{owner}/{repo}/pulls",
+                    body_keys=("title", "head", "base", "body", "draft", "maintainer_can_modify"))
+        if operation is None:
+            raise RuntimeError("tool_operation_not_implemented")
+        return await self.invoke_operation(operation, arguments)
