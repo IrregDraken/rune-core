@@ -28,7 +28,7 @@ The target capability inventory, MCP/direct-API integration priorities, permissi
 
 ## Integration development
 
-The provider and tool inventory is executable configuration in `rune/core/integration_catalogue.py`. It currently defines the provider inventory and named tool contracts in code. Concrete dependency-free HTTP adapters are implemented for Brave Search, Tavily, Notion search/database query/page create/update, Google Workspace Gmail and Calendar read/write plus Drive/Contacts search, Figma file/comment operations, Resend transactional email, Telegram bot messaging, and GitHub repository search plus issue/pull-request creation, Slack search/messaging, and Discord bot messaging. Google Drive upload, remaining catalogue providers, and provider-specific review work remain outstanding. Every catalogue tool now has an explicit closed argument schema. A schema defines the contract, not provider implementation: tools without an attached adapter remain unavailable until their provider adapter is built and tested. Registration does not imply live authentication or production readiness. See `.env.example` for the environment-variable names; it contains placeholders only.
+The provider and tool inventory is executable configuration in `rune/core/integration_catalogue.py`: 37 integration manifests and 67 tool contracts, each with a closed argument schema. Concrete adapters are attached for Google Workspace, Notion, Brave, Tavily, GitHub, GitLab, Linear, Figma, Slack, Discord, WhatsApp Business, eligible Meta Graph surfaces (Instagram/Facebook/Threads), TikTok, X, LinkedIn, Telegram, Reddit, Pinterest, Spotify, YouTube, Zotero, HubSpot, Sentry, Vercel, Railway, Microsoft 365, Dropbox, Home Assistant, scoped filesystem, Playwright browser, Resend, and configured MCP servers. The Google adapter includes Gmail and Calendar read/write, Drive search/upload, and Contacts search. The MCP bridge uses the official Python SDK v2 and accepts only administrator-configured server definitions. Snapchat public search is deliberately not wired because the catalogue does not imply a general public-search API; Android Companion remains a device-phase integration. OpenAI and Google AI service manifests are reserved for the later Intelligence/provider layer. Adapters use environment placeholders and mocked HTTP tests; no real credentials or external accounts are required during this phase. Adapter registration does not imply live authentication, provider approval, or production readiness. See `.env.example` for placeholders.
 
 ## Desktop presence
 
@@ -72,7 +72,7 @@ Milestone 0.4: persistent cognition + durable memory + verified planning + authe
 
 The runtime now has explicit appraisal signals, durable episodic/semantic/preference memory, persistent goals, serializable plans, verified plan progression, authenticated memory/goal/plan writes, Windows window/process control, and sandboxed user-home file capabilities.
 
-Next major layers are richer computer perception/control, real voice providers, identity hardening with trusted-device/passkey/biometric boundaries, cross-device nodes, and only then external tool/API connectors.
+The active milestone is the connector implementation and verification phase. Intelligence, the Memory redesign, WhatsApp as a user-facing channel, Discord channel integration, and the Android Companion remain deliberately sequenced after connector readiness. The desktop UI remains untouched and dormant while the connector layer is completed.
 
 ## Brand system
 
