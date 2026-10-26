@@ -6,6 +6,7 @@ MCP is a transport for tools, not a replacement for provider-specific policy.
 Server definitions must come from trusted local configuration, never tool input.
 """
 
+import json
 import os
 from dataclasses import dataclass, field
 from typing import Any
@@ -122,3 +123,39 @@ def attach_mcp_adapter(manager: Any, connector_id: str, config: MCPServerConfig)
     adapter = MCPClientAdapter(config)
     manager.adapters[key] = adapter
     return adapter
+
+
+
+def attach_configured_mcp_adapters(manager: Any) -> tuple[str, ...]:
+    """Load trusted MCP server definitions from RUNE_MCP_SERVERS_JSON.
+
+    This setting is administrator-owned configuration. Tool arguments can never
+    choose a command, URL, environment variable, or process argument.
+    """
+    raw = os.environ.get("RUNE_MCP_SERVERS_JSON", "").strip()
+    if not raw:
+        return ()
+    try:
+        entries = json.loads(raw)
+    except json.JSONDecodeError:
+        raise RuntimeError("invalid_rune_mcp_servers_json") from None
+    if not isinstance(entries, list) or len(entries) > 20:
+        raise ValueError("rune_mcp_servers_must_be_a_list_of_at_most_20")
+    attached = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError("invalid_mcp_server_entry")
+        connector_id = str(entry.get("connector_id", "")).strip().lower()
+        if not connector_id or connector_id not in manager.records:
+            raise ValueError("mcp_connector_id_not_registered")
+        config = MCPServerConfig(
+            name=str(entry.get("name", connector_id)),
+            url=entry.get("url"), command=entry.get("command"),
+            args=tuple(entry.get("args", ())),
+            env_names=tuple(entry.get("env_names", ())),
+            timeout_seconds=float(entry.get("timeout_seconds", 30)),
+            tool_name_map=dict(entry.get("tool_name_map", {})),
+        )
+        attach_mcp_adapter(manager, connector_id, config)
+        attached.append(connector_id)
+    return tuple(attached)
