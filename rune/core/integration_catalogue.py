@@ -224,6 +224,90 @@ def integration_catalogue() -> tuple[IntegrationManifest, ...]:
     return INTEGRATIONS
 
 
+_TOOL_SCHEMAS: dict[str, dict] = {
+    "gmail.search": {"type": "object", "required": ["q"], "properties": {
+        "q": {"type": "string", "minLength": 1, "maxLength": 500},
+        "maxResults": {"type": "integer", "minimum": 1, "maximum": 100}}, "additionalProperties": False},
+    "gmail.read": {"type": "object", "required": ["message_id"], "properties": {
+        "message_id": {"type": "string", "minLength": 1, "maxLength": 256}}, "additionalProperties": False},
+    "gmail.draft": {"type": "object", "required": ["to", "subject", "body"], "properties": {
+        "to": {"type": "string", "minLength": 3, "maxLength": 320},
+        "subject": {"type": "string", "maxLength": 998},
+        "body": {"type": "string", "maxLength": 100000}}, "additionalProperties": False},
+    "gmail.send": {"type": "object", "required": ["to", "subject", "body"], "properties": {
+        "to": {"type": "string", "minLength": 3, "maxLength": 320},
+        "subject": {"type": "string", "maxLength": 998},
+        "body": {"type": "string", "maxLength": 100000}}, "additionalProperties": False},
+    "calendar.search": {"type": "object", "properties": {
+        "timeMin": {"type": "string", "maxLength": 64}, "timeMax": {"type": "string", "maxLength": 64},
+        "q": {"type": "string", "maxLength": 500}, "maxResults": {"type": "integer", "minimum": 1, "maximum": 2500}},
+        "additionalProperties": False},
+    "calendar.create": {"type": "object", "required": ["summary", "start", "end"], "properties": {
+        "summary": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "description": {"type": "string", "maxLength": 8192},
+        "start": {"type": "object"}, "end": {"type": "object"},
+        "attendees": {"type": "array", "items": {"type": "object"}, "maxItems": 100}},
+        "additionalProperties": False},
+    "calendar.update": {"type": "object", "required": ["event_id"], "properties": {
+        "event_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "summary": {"type": "string", "maxLength": 1024}, "description": {"type": "string", "maxLength": 8192},
+        "start": {"type": "object"}, "end": {"type": "object"}, "status": {"type": "string", "enum": ["confirmed", "cancelled"]}},
+        "additionalProperties": False},
+    "drive.search": {"type": "object", "properties": {
+        "q": {"type": "string", "maxLength": 1000}, "pageSize": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "orderBy": {"type": "string", "maxLength": 100}, "fields": {"type": "string", "maxLength": 1000}},
+        "additionalProperties": False},
+    "contacts.search": {"type": "object", "properties": {
+        "pageSize": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "personFields": {"type": "string", "maxLength": 500}}, "additionalProperties": False},
+    "notion.search": {"type": "object", "properties": {
+        "query": {"type": "string", "maxLength": 500}, "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
+        "start_cursor": {"type": "string", "maxLength": 256}}, "additionalProperties": False},
+    "notion.database.query": {"type": "object", "required": ["database_id"], "properties": {
+        "database_id": {"type": "string", "minLength": 1, "maxLength": 64},
+        "filter": {"type": "object"}, "sorts": {"type": "array", "items": {"type": "object"}, "maxItems": 10},
+        "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
+        "start_cursor": {"type": "string", "maxLength": 256}}, "additionalProperties": False},
+    "notion.page.create": {"type": "object", "required": ["parent", "properties"], "properties": {
+        "parent": {"type": "object"}, "properties": {"type": "object"},
+        "children": {"type": "array", "items": {"type": "object"}, "maxItems": 100},
+        "icon": {"type": "object"}, "cover": {"type": "object"}}, "additionalProperties": False},
+    "notion.page.update": {"type": "object", "required": ["page_id"], "properties": {
+        "page_id": {"type": "string", "minLength": 1, "maxLength": 64},
+        "properties": {"type": "object"}, "archived": {"type": "boolean"},
+        "in_trash": {"type": "boolean"}, "icon": {"type": "object"}, "cover": {"type": "object"}},
+        "additionalProperties": False},
+    "brave.search": {"type": "object", "required": ["q"], "properties": {
+        "q": {"type": "string", "minLength": 1, "maxLength": 500},
+        "count": {"type": "integer", "minimum": 1, "maximum": 20},
+        "country": {"type": "string", "maxLength": 2}, "search_lang": {"type": "string", "maxLength": 10},
+        "freshness": {"type": "string", "maxLength": 10}}, "additionalProperties": False},
+    "tavily.search": {"type": "object", "required": ["query"], "properties": {
+        "query": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "search_depth": {"type": "string", "enum": ["basic", "advanced"]},
+        "topic": {"type": "string", "enum": ["general", "news", "finance"]},
+        "max_results": {"type": "integer", "minimum": 1, "maximum": 20},
+        "include_answer": {"type": "boolean"}, "include_raw_content": {"type": "boolean"},
+        "include_domains": {"type": "array", "items": {"type": "string"}, "maxItems": 50},
+        "exclude_domains": {"type": "array", "items": {"type": "string"}, "maxItems": 50}},
+        "additionalProperties": False},
+    "tavily.extract": {"type": "object", "required": ["urls"], "properties": {
+        "urls": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 20},
+        "include_images": {"type": "boolean"}, "extract_depth": {"type": "string", "enum": ["basic", "advanced"]},
+        "format": {"type": "string", "enum": ["markdown", "text"]}}, "additionalProperties": False},
+    "figma.file.get": {"type": "object", "required": ["file_key"], "properties": {
+        "file_key": {"type": "string", "minLength": 1, "maxLength": 128},
+        "depth": {"type": "integer", "minimum": 1, "maximum": 10}}, "additionalProperties": False},
+    "figma.comments.list": {"type": "object", "required": ["file_key"], "properties": {
+        "file_key": {"type": "string", "minLength": 1, "maxLength": 128}}, "additionalProperties": False},
+    "figma.comment.create": {"type": "object", "required": ["file_key", "message"], "properties": {
+        "file_key": {"type": "string", "minLength": 1, "maxLength": 128},
+        "message": {"type": "string", "minLength": 1, "maxLength": 10000},
+        "client_meta": {"type": "object"}}, "additionalProperties": False},
+}
+_DEFAULT_SCHEMA = {"type": "object", "additionalProperties": False}
+
+
 def tool_catalogue() -> tuple[ToolManifest, ...]:
     return tuple(
         ToolManifest(
@@ -243,6 +327,14 @@ def tool_catalogue() -> tuple[ToolManifest, ...]:
         )
         for integration_id, tool_id, description, risk, confirmation in _TOOL_ROWS
     )
+
+
+def tool_schema(tool_id: str) -> dict:
+    """Return a defensive copy of the strict schema for a known tool."""
+    import copy
+    if tool_id not in {row[1] for row in _TOOL_ROWS}:
+        raise KeyError(tool_id)
+    return copy.deepcopy(_TOOL_SCHEMAS.get(tool_id, _DEFAULT_SCHEMA))
 
 
 def snapshot() -> dict:
