@@ -39,7 +39,21 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             self._send(503, {"error": "RUNE runtime unavailable"})
             return
         path = urlparse(self.path).path
-        if path == "/api/health":
+        if path == "/api/webhooks/whatsapp":
+            from urllib.parse import parse_qs
+            params = parse_qs(urlparse(self.path).query)
+            mode = (params.get("hub.mode") or [""])[0]
+            token = (params.get("hub.verify_token") or [""])[0]
+            challenge = (params.get("hub.challenge") or [""])[0]
+            expected = os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
+            if mode == "subscribe" and expected and token == expected and challenge:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(challenge.encode("utf-8"))
+            else:
+                self._send(403, {"error": "webhook_verification_failed"})
+        elif path == "/api/health":
             self._send(200, {"status": "online"})
         elif path == "/api/state":
             state = self.runtime.snapshot()
@@ -98,6 +112,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             "/api/connectors/execute",
             "/api/consent/opt-in",
             "/api/consent/revoke",
+            "/api/webhooks/whatsapp",
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
@@ -105,7 +120,23 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
 
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(length) or b"{}")
+            if length < 0 or length > 1048576:
+                self._send(413, {"error": "request_body_too_large"})
+                return
+            raw_body = self.rfile.read(length)
+            if request_path == "/api/webhooks/whatsapp":
+                from .core.messaging_consent import MessagingConsentRegistry, WhatsAppWebhookVerifier
+                secret = os.environ.get("WHATSAPP_APP_SECRET", "")
+                signature = self.headers.get("X-Hub-Signature-256", "")
+                if not WhatsAppWebhookVerifier.verify_signature(raw_body, signature, secret):
+                    self._send(401, {"error": "webhook_signature_invalid"})
+                    return
+                payload = json.loads(raw_body or b"{}")
+                registry = MessagingConsentRegistry(os.environ.get("RUNE_CONSENT_DB"))
+                result = WhatsAppWebhookVerifier.ingest(payload, registry)
+                self._send(200, {"status": "accepted", **result})
+                return
+            payload = json.loads(raw_body or b"{}")
 
             if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify"} and not self._authorized():
                 self._send(403, {"error": "privileged session required"})
