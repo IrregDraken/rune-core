@@ -50,3 +50,21 @@ def test_tool_availability_reflects_device_and_review_restrictions():
     tools = {item.id: item for item in tool_catalogue()}
     assert tools["android.alarm.create"].availability == "device_dependent"
     assert tools["snapchat.public.search"].availability == "restricted_or_review_required"
+
+
+def test_every_catalogue_tool_has_its_own_strict_schema():
+    from rune.core.integration_catalogue import tool_catalogue, tool_schema
+
+    tools = tool_catalogue()
+    assert len({tool.id for tool in tools}) == len(tools)
+    for tool in tools:
+        schema = tool_schema(tool.id)
+        assert schema.get("type") == "object", tool.id
+        assert schema.get("additionalProperties") is False, tool.id
+        assert schema is not tool_schema(tool.id), "schemas must be defensive copies"
+    try:
+        tool_schema("unknown.tool")
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("unknown tool ids must not receive a permissive default schema")
