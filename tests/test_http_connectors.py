@@ -1109,3 +1109,59 @@ def test_linear_search_includes_cursor_pagination_fields(monkeypatch):
     variables = json.loads(captured[0].data)["variables"]
     assert variables["first"] == 20
     assert variables["after"] == "cursor0"
+
+
+
+def test_whatsapp_adapter_requires_opt_in_and_uses_phone_number_id(monkeypatch, tmp_path):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import WhatsAppBusinessAdapter
+    from rune.core.messaging_consent import MessagingConsentRegistry
+    import asyncio, json
+
+    monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "mock-access-token")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "123456789")
+    monkeypatch.setenv("WHATSAPP_API_VERSION", "v99.0")
+    monkeypatch.setenv("RUNE_CONSENT_DB", str(tmp_path / "consent.sqlite3"))
+    adapter = WhatsAppBusinessAdapter()
+    captured = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"messages":[{"id":"wamid.mock"}]}'
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args): return fn()
+
+    with pytest.raises(RuntimeError, match="whatsapp_recipient_consent_or_window_required"):
+        asyncio.run(adapter.invoke("whatsapp.message.send", {
+            "to": "2348000000000", "type": "template",
+            "template": {"name": "hello_world", "language": {"code": "en_US"}},
+        }))
+
+    adapter.consent.record_opt_in("whatsapp", "2348000000000", "test_explicit_opt_in")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+    result = asyncio.run(adapter.invoke("whatsapp.message.send", {
+        "to": "2348000000000", "type": "template",
+        "template": {"name": "hello_world", "language": {"code": "en_US"}},
+    }))
+    assert result["messages"][0]["id"] == "wamid.mock"
+    assert captured[0].full_url == "https://graph.facebook.com/v99.0/123456789/messages"
+    assert captured[0].get_header("Authorization") == "Bearer mock-access-token"
+    assert json.loads(captured[0].data)["template"]["name"] == "hello_world"
+
+
+def test_whatsapp_health_check_requires_all_runtime_configuration(monkeypatch):
+    from rune.adapters.http_connectors import WhatsAppBusinessAdapter
+    import asyncio
+
+    monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "token")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "123456789")
+    monkeypatch.delenv("WHATSAPP_API_VERSION", raising=False)
+    assert not asyncio.run(WhatsAppBusinessAdapter().health_check())
+    monkeypatch.setenv("WHATSAPP_API_VERSION", "v99.0")
+    assert asyncio.run(WhatsAppBusinessAdapter().health_check())
