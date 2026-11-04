@@ -162,6 +162,10 @@ class WhatsAppWebhookVerifier:
                     if not isinstance(message, dict):
                         continue
                     sender = str(message.get("from", "")).strip()
+                    try:
+                        registry._recipient(sender)
+                    except ValueError:
+                        continue
                     stamp = message.get("timestamp")
                     try:
                         event_time = float(stamp)
@@ -174,7 +178,10 @@ class WhatsAppWebhookVerifier:
                         continue
                     registry.record_inbound("whatsapp", sender, timestamp=event_time)
                     accepted += 1
-                    text_body = str(message.get("text", {}).get("body", "")).strip().upper()
+                    text_value = message.get("text", {})
+                    text_body = str(
+                        text_value.get("body", "") if isinstance(text_value, dict) else ""
+                    ).strip().upper()
                     if text_body in {"START", "SUBSCRIBE", "YES"}:
                         registry.record_opt_in("whatsapp", sender, "verified_inbound_keyword:" + text_body)
                         opted_in += 1
