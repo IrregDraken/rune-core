@@ -160,7 +160,7 @@ def test_whatsapp_webhook_post_requires_valid_meta_signature(monkeypatch, tmp_pa
     server, thread = _server()
     try:
         raw = json.dumps({"entry": [{"changes": [{"value": {"messages": [
-            {"from": "2348000000000", "timestamp": str(time.time()), "text": {"body": "START"}}
+            {"from": "2348000000000", "id": "wamid.api-start", "timestamp": str(time.time()), "text": {"body": "START"}}
         ]}}]}]}).encode()
         request = Request(
             f"http://127.0.0.1:{server.server_port}/api/webhooks/whatsapp",
