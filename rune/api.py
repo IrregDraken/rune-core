@@ -132,6 +132,9 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                     self._send(401, {"error": "webhook_signature_invalid"})
                     return
                 payload = json.loads(raw_body or b"{}")
+                if not isinstance(payload, dict):
+                    self._send(400, {"error": "invalid_whatsapp_webhook_payload"})
+                    return
                 registry = MessagingConsentRegistry(os.environ.get("RUNE_CONSENT_DB"))
                 result = WhatsAppWebhookVerifier.ingest(payload, registry)
                 self._send(200, {"status": "accepted", **result})
@@ -310,10 +313,11 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                 self.shell.set_mode(ShellMode.AMBIENT)
                 self.shell.island_message = response[:120] if response else "ready"
             self._send(200, {"response": response})
-        except (TypeError, ValueError) as exc:
-            self._send(400, {"error": str(exc)})
-        except Exception as exc:
-            self._send(500, {"error": str(exc)})
+        except (TypeError, ValueError, json.JSONDecodeError):
+            self._send(400, {"error": "invalid_request"})
+        except Exception:
+            # Never reflect provider/client exception text; it may contain credentials or payload data.
+            self._send(500, {"error": "internal_server_error"})
 
 
 def serve(
