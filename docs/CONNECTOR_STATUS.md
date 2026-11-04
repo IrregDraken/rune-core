@@ -78,7 +78,7 @@ An attached adapter means a real provider-specific implementation exists in code
 
 ## Verification
 
-GitHub Actions run 41803269050 on commit 0bf3fdfa284c5bbcf5ed89104d093f60e6cc7f74 completed successfully: 140 passed, 1 skipped. Later schema-audit test commit c5b4515836c412369fe9ecb663099ecfc227d03b must receive its own CI result before it is considered validated.
+GitHub Actions run 41803603901 (CI run 352) on commit 783e239e1334074734b3e7511363fc044ce61761 completed successfully: 143 passed, 1 skipped. This run includes the strict schema-coverage and HTTP-level WhatsApp webhook verification tests. Later commits must receive their own CI result before they are considered validated.
 
 Offline mock tests cover representative provider routes, OAuth refresh flows, request payloads, auth headers, path validation, filesystem confinement, MCP transport configuration, approval policy and idempotency. Coverage is not yet exhaustive for every provider operation. No real provider credentials or external account calls have been used.
 
