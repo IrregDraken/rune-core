@@ -86,3 +86,20 @@ def test_duplicate_whatsapp_event_is_ignored(tmp_path):
     assert WhatsAppWebhookVerifier.ingest(payload, registry) == {
         "inbound_recorded": 0, "opted_in": 0, "revoked": 0
     }
+
+
+
+def test_whatsapp_webhook_ignores_invalid_sender_and_non_object_text(tmp_path):
+    from rune.core.messaging_consent import WhatsAppWebhookVerifier
+
+    registry = MessagingConsentRegistry(str(tmp_path / "consent.sqlite3"))
+    now = time.time()
+    payload = {"entry": [{"changes": [{"value": {"messages": [
+        {"from": "bad", "id": "wamid.invalid-sender", "timestamp": str(now),
+         "text": {"body": "START"}},
+        {"from": "2348000000000", "id": "wamid.non-object-text",
+         "timestamp": str(now), "text": "not-an-object"},
+    ]}}]}]}
+    result = WhatsAppWebhookVerifier.ingest(payload, registry)
+    assert result == {"inbound_recorded": 1, "opted_in": 0, "revoked": 0}
+    assert not registry.can_send("whatsapp", "2348000000000", "template")
