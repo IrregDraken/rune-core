@@ -27,6 +27,27 @@ class MessagingConsentRegistry:
                 )
             """)
 
+    def record_webhook_event(self, channel: str, event_id: str) -> bool:
+        """Atomically claim a provider event ID; duplicate webhook deliveries are ignored."""
+        import re
+        key = str(event_id).strip()
+        if not key or len(key) > 256 or not re.fullmatch(r"[A-Za-z0-9_.:-]+", key):
+            return False
+        with self._connect() as db:
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS processed_messaging_events (
+                    channel TEXT NOT NULL,
+                    event_id TEXT NOT NULL,
+                    processed_at REAL NOT NULL,
+                    PRIMARY KEY (channel, event_id)
+                )
+            """)
+            cursor = db.execute("""
+                INSERT OR IGNORE INTO processed_messaging_events
+                    (channel, event_id, processed_at) VALUES (?, ?, ?)
+            """, (channel.strip().lower(), key, time.time()))
+            return cursor.rowcount == 1
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=10)
         connection.execute("PRAGMA journal_mode=WAL")
@@ -147,6 +168,9 @@ class WhatsAppWebhookVerifier:
                     except (TypeError, ValueError):
                         continue
                     if event_time <= 0 or event_time > __import__("time").time() + 300:
+                        continue
+                    event_id = str(message.get("id", "")).strip()
+                    if not registry.record_webhook_event("whatsapp", event_id):
                         continue
                     registry.record_inbound("whatsapp", sender, timestamp=event_time)
                     accepted += 1
