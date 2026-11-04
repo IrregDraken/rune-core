@@ -1,6 +1,6 @@
 # R.U.N.E Connector Implementation Status
 
-Last reviewed: 2026-10-27  
+Last reviewed: 2026-11-04  
 Branch: feat/capability-blueprint  
 Pull request: #1 (draft, unmerged)
 
@@ -30,7 +30,7 @@ An attached adapter means a real provider-specific implementation exists in code
 | Linear | 2 | Implemented | Issue search/create |
 | Slack | 2 | Implemented | Search uses user token; message send uses bot token |
 | Discord | 1 | Implemented | Official bot API only |
-| WhatsApp Business | 1 | Implemented with consent gate | Official Cloud API; persistent opt-in and 24-hour customer-service window checks are enforced locally; verified webhook ingestion remains a release gate |
+| WhatsApp Business | 1 | Implemented with consent gate | Official Cloud API; outbound consent/window checks plus Meta GET challenge verification and HMAC-SHA256 signed POST webhook ingestion; START/STOP keywords update consent |
 | Instagram | 2 | Implemented | Eligible professional-account publishing and comments read |
 | Facebook | 1 | Implemented | Authorised Page publishing |
 | Threads | 1 | Implemented | Official Threads publishing flow |
@@ -62,7 +62,7 @@ An attached adapter means a real provider-specific implementation exists in code
 
 - Connector lifecycle states and health checks.
 - Authenticated API routes for connector health checks and governed tool execution. High-impact calls return awaiting_approval until an authorised client explicitly resubmits with approval.
-- Authenticated owner-managed messaging consent opt-in/revocation routes; inbound-window timestamps must be recorded only from a future verified provider webhook.
+- Authenticated owner-managed consent revocation and opt-in controls, plus public Meta webhook verification: GET challenge uses WHATSAPP_VERIFY_TOKEN; POST requires X-Hub-Signature-256 verified with WHATSAPP_APP_SECRET before any inbound timestamp or START/STOP consent event is recorded.
 - Tool schema validation before dispatch.
 - Explicit approval gates for external communication, financial, destructive and privileged actions.
 - Read-only tools receive bounded retries; side-effecting tools are not automatically retried.
@@ -73,12 +73,12 @@ An attached adapter means a real provider-specific implementation exists in code
 - MCP server definitions are administrator-owned configuration in RUNE_MCP_SERVERS_JSON. A model tool call cannot select arbitrary commands or endpoints.
 - MCP HTTP endpoints require HTTPS except loopback development endpoints. Stdio subprocesses receive only explicitly allowlisted environment variables.
 - Browser actions require RUNE_BROWSER_EGRESS_POLICY=enforced and reject private destinations at navigation/request time.
-- WhatsApp Business sends require a persisted opt-in record; free-form text additionally requires an inbound customer message within the 24-hour window. Templates still require provider approval. The durable consent registry exposes record_opt_in, revoke and record_inbound for a verified webhook/consent workflow.
+- WhatsApp Business sends require a persisted opt-in record; free-form text additionally requires an inbound customer message within the 24-hour window. Templates still require provider approval. The durable consent registry exposes record_opt_in, revoke and record_inbound. The webhook records inbound timestamps only after signature verification; START/SUBSCRIBE/YES opt in and STOP/UNSUBSCRIBE/CANCEL/END/QUIT revoke. Provider event timestamps are checked for parseability and excessive future skew.
 - The existing desktop UI has not been modified.
 
 ## Verification
 
-The latest confirmed successful GitHub Actions run is run 326, commit fc2f2cfc092e053a96e6b9f1aa652f1c098b25c2: 126 passed, 1 skipped. The test job completed successfully after dependency installation. Any later code commit must receive its own CI result before it is considered validated.
+GitHub Actions run 41803269050 on commit 0bf3fdfa284c5bbcf5ed89104d093f60e6cc7f74 completed successfully: 140 passed, 1 skipped. Later schema-audit test commit c5b4515836c412369fe9ecb663099ecfc227d03b must receive its own CI result before it is considered validated.
 
 Offline mock tests cover representative provider routes, OAuth refresh flows, request payloads, auth headers, path validation, filesystem confinement, MCP transport configuration, approval policy and idempotency. Coverage is not yet exhaustive for every provider operation. No real provider credentials or external account calls have been used.
 
@@ -86,7 +86,7 @@ Offline mock tests cover representative provider routes, OAuth refresh flows, re
 
 1. Finish provider-by-provider mock coverage for every exposed operation, including pagination, 429/5xx behaviour, auth failures and malformed provider responses.
 2. Confirm current API request/response contracts and required OAuth scopes for each provider. Where API access requires review, mark the capability restricted until approval is granted.
-3. Add durable consent/webhook state for messaging channels before enabling autonomous inbound-triggered or outbound workflows.
+3. Exercise the WhatsApp webhook through an HTTP-level test server, including GET challenge, bad signature, malformed JSON, duplicate delivery and real Meta payload fixtures; add provider retry/idempotency handling before enabling autonomous inbound workflows.
 4. Add robust outbound egress isolation for browser execution; keep browser disabled until the host confirms it.
 5. Add pagination helpers and consistent provider error classification where APIs paginate.
 6. Verify all tests on the latest PR head and keep the PR draft until the coverage report is complete.
