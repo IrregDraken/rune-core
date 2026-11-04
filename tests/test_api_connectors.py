@@ -126,3 +126,64 @@ def test_messaging_consent_api_requires_session_and_supports_revocation(monkeypa
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_whatsapp_webhook_get_challenge_verification(monkeypatch):
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+    monkeypatch.setenv("WHATSAPP_VERIFY_TOKEN", "verify-secret")
+    server, thread = _server()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=verify-secret&hub.challenge=challenge-123"
+        with urlopen(url, timeout=3) as response:
+            assert response.status == 200
+            assert response.read() == b"challenge-123"
+        bad = url.replace("verify-secret", "wrong-token")
+        try:
+            urlopen(bad, timeout=3)
+        except HTTPError as exc:
+            assert exc.code == 403
+        else:
+            raise AssertionError("invalid webhook verification token must be rejected")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_whatsapp_webhook_post_requires_valid_meta_signature(monkeypatch, tmp_path):
+    import hashlib
+    import hmac
+    import time
+    monkeypatch.setenv("WHATSAPP_APP_SECRET", "app-secret")
+    monkeypatch.setenv("RUNE_CONSENT_DB", str(tmp_path / "consent.sqlite3"))
+    server, thread = _server()
+    try:
+        raw = json.dumps({"entry": [{"changes": [{"value": {"messages": [
+            {"from": "2348000000000", "timestamp": str(time.time()), "text": {"body": "START"}}
+        ]}}]}]}).encode()
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/webhooks/whatsapp",
+            data=raw, headers={"Content-Type": "application/json",
+                "X-Hub-Signature-256": "sha256=invalid"}, method="POST")
+        try:
+            urlopen(request, timeout=3)
+        except HTTPError as exc:
+            assert exc.code == 401
+        else:
+            raise AssertionError("invalid webhook signature must be rejected")
+
+        signature = "sha256=" + hmac.new(b"app-secret", raw, hashlib.sha256).hexdigest()
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/webhooks/whatsapp",
+            data=raw, headers={"Content-Type": "application/json",
+                "X-Hub-Signature-256": signature}, method="POST")
+        with urlopen(request, timeout=3) as response:
+            result = json.loads(response.read())
+            assert response.status == 200
+            assert result == {"status": "accepted", "inbound_recorded": 1,
+                              "opted_in": 1, "revoked": 0}
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
