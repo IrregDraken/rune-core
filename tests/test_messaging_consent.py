@@ -38,7 +38,7 @@ def test_whatsapp_webhook_signature_and_inbound_window(tmp_path):
     registry = MessagingConsentRegistry(str(tmp_path / "consent.sqlite3"))
     now = time.time()
     payload = {"entry": [{"changes": [{"value": {"messages": [
-        {"from": "2348000000000", "timestamp": str(now), "text": {"body": "START"}}
+        {"from": "2348000000000", "id": "wamid.start1", "timestamp": str(now), "text": {"body": "START"}}
     ]}}]}]}
     raw = json.dumps(payload).encode()
     signature = "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
@@ -55,7 +55,7 @@ def test_whatsapp_verified_stop_revokes_consent(tmp_path):
     registry = MessagingConsentRegistry(str(tmp_path / "consent.sqlite3"))
     registry.record_opt_in("whatsapp", "2348000000000", "previous verified opt-in")
     payload = {"entry": [{"changes": [{"value": {"messages": [
-        {"from": "2348000000000", "timestamp": str(time.time()), "text": {"body": "STOP"}}
+        {"from": "2348000000000", "id": "wamid.stop1", "timestamp": str(time.time()), "text": {"body": "STOP"}}
     ]}}]}]}
     result = WhatsAppWebhookVerifier.ingest(payload, registry)
     assert result["revoked"] == 1
@@ -68,8 +68,21 @@ def test_whatsapp_webhook_ignores_invalid_timestamps_and_malformed_entries(tmp_p
     registry = MessagingConsentRegistry(str(tmp_path / "consent.sqlite3"))
     result = WhatsAppWebhookVerifier.ingest({"entry": [
         {"changes": [{"value": {"messages": [
-            {"from": "2348000000000", "timestamp": "not-a-time", "text": {"body": "START"}}
+            {"from": "2348000000000", "id": "wamid.bad1", "timestamp": "not-a-time", "text": {"body": "START"}}
         ]}}]},
         {"changes": "malformed"},
     ]}, registry)
     assert result == {"inbound_recorded": 0, "opted_in": 0, "revoked": 0}
+
+
+def test_duplicate_whatsapp_event_is_ignored(tmp_path):
+    from rune.core.messaging_consent import WhatsAppWebhookVerifier
+    registry = MessagingConsentRegistry(str(tmp_path / "consent.sqlite3"))
+    payload = {"entry": [{"changes": [{"value": {"messages": [
+        {"from": "2348000000000", "id": "wamid.duplicate",
+         "timestamp": str(time.time()), "text": {"body": "START"}}
+    ]}}]}]}
+    assert WhatsAppWebhookVerifier.ingest(payload, registry)["opted_in"] == 1
+    assert WhatsAppWebhookVerifier.ingest(payload, registry) == {
+        "inbound_recorded": 0, "opted_in": 0, "revoked": 0
+    }
