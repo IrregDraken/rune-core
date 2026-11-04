@@ -187,3 +187,32 @@ def test_whatsapp_webhook_post_requires_valid_meta_signature(monkeypatch, tmp_pa
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+
+def test_whatsapp_webhook_rejects_signed_non_object_json(monkeypatch):
+    import hashlib
+    import hmac
+    from urllib.error import HTTPError
+    from urllib.request import Request, urlopen
+
+    monkeypatch.setenv("WHATSAPP_APP_SECRET", "app-secret")
+    server, thread = _server()
+    try:
+        raw = b"[]"
+        signature = "sha256=" + hmac.new(b"app-secret", raw, hashlib.sha256).hexdigest()
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/webhooks/whatsapp",
+            data=raw, headers={"Content-Type": "application/json",
+                "X-Hub-Signature-256": signature}, method="POST")
+        try:
+            urlopen(request, timeout=3)
+        except HTTPError as exc:
+            assert exc.code == 400
+            assert json.loads(exc.read()) == {"error": "invalid_whatsapp_webhook_payload"}
+        else:
+            raise AssertionError("non-object webhook JSON must be rejected")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
