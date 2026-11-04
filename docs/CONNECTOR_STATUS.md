@@ -78,7 +78,7 @@ An attached adapter means a real provider-specific implementation exists in code
 
 ## Verification
 
-GitHub Actions run 41820542934 (CI run 361) on commit 490a8a1c195b963f676e0ba1e20e7d7e28dce369 completed successfully: 146 passed, 1 skipped. This run includes strict schema coverage, HTTP-level WhatsApp GET challenge and signed POST verification, duplicate event suppression, malformed sender/text handling, signed non-object JSON rejection, and API error-response redaction. No real Meta account or provider credentials were used.
+GitHub Actions run 41848532192 (CI run 365) on exact PR head dd69594f852143469cd1a94fd8ef465cc7f6db71 completed successfully: 148 passed, 1 skipped. This run includes strict schema coverage, HTTP-level WhatsApp GET challenge and signed POST verification, duplicate event suppression, malformed sender/text handling, signed non-object JSON rejection, and API error-response redaction. No real Meta account or provider credentials were used.
 
 Offline mock tests cover representative provider routes, OAuth refresh flows, request payloads, auth headers, path validation, filesystem confinement, MCP transport configuration, approval policy and idempotency. Coverage is not yet exhaustive for every provider operation. No real provider credentials or external account calls have been used.
 
@@ -86,10 +86,15 @@ Offline mock tests cover representative provider routes, OAuth refresh flows, re
 
 1. Finish provider-by-provider mock coverage for every exposed operation, including pagination, 429/5xx behaviour, auth failures and malformed provider responses.
 2. Confirm current API request/response contracts and required OAuth scopes for each provider. Where API access requires review, mark the capability restricted until approval is granted.
-3. Complete real Meta payload fixtures and provider retry semantics for the WhatsApp webhook. GET challenge, bad signature, duplicate delivery, malformed sender/text, and signed non-object JSON are covered by HTTP-level tests.
+3. Complete Meta's real-account webhook fixture/live smoke test and confirm provider retry semantics. Offline coverage includes GET challenge, bad signature, duplicate delivery, malformed sender/text, signed non-object JSON, outbound consent gating and the Cloud API message request.
 4. Add robust outbound egress isolation for browser execution; keep browser disabled until the host confirms it.
 5. Complete provider-by-provider pagination and consistent 429/5xx/auth/malformed-response classification. Dropbox cursor and Linear cursor handling have targeted tests; other providers still require operation-specific coverage.
-6. Verify all tests on the latest PR head and keep the PR draft until the coverage report is complete.
+6. Verify all tests on the latest PR head and keep the PR draft until the provider-operation coverage report and final security review are complete.
 7. Keep Snapchat public search unavailable unless a supported official API contract is established. Keep Android Companion in its planned device phase.
 
 Provider credentials are not a blocker for these implementation tasks. They are required later for OAuth consent, account-specific scope checks, app review, and live smoke tests.
+
+
+## WhatsApp connection checkpoint
+
+The repository is prepared for the configuration checkpoint, not yet connected to a live Meta account. Required backend configuration is documented in `docs/PROVIDER_AUTH.md` and `.env.example`: access token, Phone Number ID, Business Account ID, webhook verify token, Meta app secret, and Graph API version. The public callback is `/api/webhooks/whatsapp`. Configure these only in the deployed backend secret store after the API is reachable over HTTPS. The Business Account ID is used to subscribe the app to the WABA; the Phone Number ID is used by the outbound messages endpoint. A real inbound webhook and an explicitly opted-in controlled outbound test remain required before declaring WhatsApp healthy.
