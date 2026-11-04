@@ -78,7 +78,7 @@ An attached adapter means a real provider-specific implementation exists in code
 
 ## Verification
 
-GitHub Actions run 41803603901 (CI run 352) on commit 783e239e1334074734b3e7511363fc044ce61761 completed successfully: 143 passed, 1 skipped. This run includes the strict schema-coverage and HTTP-level WhatsApp webhook verification tests. Later commits must receive their own CI result before they are considered validated.
+GitHub Actions run 41804757514 (CI run 358) on commit 921cc7fe519606bf03b3a16cfd409f566156b278 completed successfully: 145 passed, 1 skipped. This run includes strict schema coverage, HTTP-level WhatsApp GET challenge and signed POST verification, duplicate event suppression, and malformed sender/text regression coverage. No real Meta account or provider credentials were used.
 
 Offline mock tests cover representative provider routes, OAuth refresh flows, request payloads, auth headers, path validation, filesystem confinement, MCP transport configuration, approval policy and idempotency. Coverage is not yet exhaustive for every provider operation. No real provider credentials or external account calls have been used.
 
@@ -86,7 +86,7 @@ Offline mock tests cover representative provider routes, OAuth refresh flows, re
 
 1. Finish provider-by-provider mock coverage for every exposed operation, including pagination, 429/5xx behaviour, auth failures and malformed provider responses.
 2. Confirm current API request/response contracts and required OAuth scopes for each provider. Where API access requires review, mark the capability restricted until approval is granted.
-3. Exercise the WhatsApp webhook through an HTTP-level test server, including GET challenge, bad signature, malformed JSON, duplicate delivery and real Meta payload fixtures; add provider retry/idempotency handling before enabling autonomous inbound workflows.
+3. Exercise the WhatsApp webhook through an HTTP-level test server, including GET challenge, bad signature, duplicate delivery, malformed sender/text and provider-shaped message fixtures. HTTP-level malformed-JSON behaviour is handled as a 400 by the API's ValueError path; real Meta payload fixtures and provider retry semantics still need final verification before enabling autonomous inbound workflows.
 4. Add robust outbound egress isolation for browser execution; keep browser disabled until the host confirms it.
 5. Add pagination helpers and consistent provider error classification where APIs paginate.
 6. Verify all tests on the latest PR head and keep the PR draft until the coverage report is complete.
