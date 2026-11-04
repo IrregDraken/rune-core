@@ -102,3 +102,59 @@ class MessagingConsentRegistry:
             current = now if now is not None else time.time()
             return bool(row[1] and 0 <= current - row[1] <= 24 * 60 * 60)
         return False
+
+
+class WhatsAppWebhookVerifier:
+    """Verify Meta webhook signatures and ingest only authenticated inbound events."""
+
+    @staticmethod
+    def verify_signature(raw_body: bytes, signature: str, app_secret: str) -> bool:
+        import hashlib
+        import hmac
+        if not app_secret or not signature.startswith("sha256="):
+            return False
+        expected = "sha256=" + hmac.new(
+            app_secret.encode("utf-8"), raw_body, hashlib.sha256
+        ).hexdigest()
+        return hmac.compare_digest(expected, signature)
+
+    @staticmethod
+    def ingest(payload: dict, registry: MessagingConsentRegistry) -> dict:
+        """Record verified inbound messages; START/STOP provide explicit consent signals."""
+        import datetime
+        accepted = 0
+        opted_in = 0
+        revoked = 0
+        entries = payload.get("entry", [])
+        if not isinstance(entries, list):
+            raise ValueError("invalid_whatsapp_webhook_payload")
+        for entry in entries:
+            changes = entry.get("changes", []) if isinstance(entry, dict) else []
+            if not isinstance(changes, list):
+                continue
+            for change in changes:
+                value = change.get("value", {}) if isinstance(change, dict) else {}
+                messages = value.get("messages", []) if isinstance(value, dict) else []
+                if not isinstance(messages, list):
+                    continue
+                for message in messages:
+                    if not isinstance(message, dict):
+                        continue
+                    sender = str(message.get("from", "")).strip()
+                    stamp = message.get("timestamp")
+                    try:
+                        event_time = float(stamp)
+                    except (TypeError, ValueError):
+                        continue
+                    if event_time <= 0 or event_time > __import__("time").time() + 300:
+                        continue
+                    registry.record_inbound("whatsapp", sender, timestamp=event_time)
+                    accepted += 1
+                    text_body = str(message.get("text", {}).get("body", "")).strip().upper()
+                    if text_body in {"START", "SUBSCRIBE", "YES"}:
+                        registry.record_opt_in("whatsapp", sender, "verified_inbound_keyword:" + text_body)
+                        opted_in += 1
+                    elif text_body in {"STOP", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"}:
+                        registry.revoke("whatsapp", sender, "verified_inbound_keyword:" + text_body)
+                        revoked += 1
+        return {"inbound_recorded": accepted, "opted_in": opted_in, "revoked": revoked}
