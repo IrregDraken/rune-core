@@ -1,6 +1,6 @@
 # R.U.N.E Connector Implementation Status
 
-Last reviewed: 2026-11-04  
+Last reviewed: 2026-11-05  
 Branch: feat/capability-blueprint  
 Pull request: #1 (draft, unmerged)
 
@@ -78,13 +78,13 @@ An attached adapter means a real provider-specific implementation exists in code
 
 ## Verification
 
-GitHub Actions run 41848532192 (CI run 365) on exact PR head dd69594f852143469cd1a94fd8ef465cc7f6db71 completed successfully: 148 passed, 1 skipped. This run includes strict schema coverage, HTTP-level WhatsApp GET challenge and signed POST verification, duplicate event suppression, malformed sender/text handling, signed non-object JSON rejection, and API error-response redaction. No real Meta account or provider credentials were used.
+GitHub Actions run 42018297571 on exact PR head f4c0ae37cded2c30b7b50e138f486c856ede235e completed successfully: 155 passed, 1 skipped. In addition to the earlier connector, approval, schema and WhatsApp webhook coverage, this run includes focused operation tests for Notion search, Tavily extraction, Google Contacts, Spotify playback, Threads publishing, Home Assistant service calls, and scoped filesystem write/delete. The audit also corrected the Gmail messages.send resource payload and Spotify track playback payload. No real Meta account or provider credentials were used.
 
 Offline mock tests cover representative provider routes, OAuth refresh flows, request payloads, auth headers, path validation, filesystem confinement, MCP transport configuration, approval policy and idempotency. Coverage is not yet exhaustive for every provider operation. No real provider credentials or external account calls have been used.
 
 ## Remaining connector exit gates
 
-1. Finish provider-by-provider mock coverage for every exposed operation, including pagination, 429/5xx behaviour, auth failures and malformed provider responses.
+1. Finish provider-by-provider mock coverage for every exposed operation. Current coverage is still representative, not exhaustive. Pagination is specifically tested for Dropbox and Linear, but not yet across every paginated provider. Add consistent tests for 429/5xx behaviour, auth failures and malformed provider responses.
 2. Confirm current API request/response contracts and required OAuth scopes for each provider. Where API access requires review, mark the capability restricted until approval is granted.
 3. Complete Meta's real-account webhook fixture/live smoke test and confirm provider retry semantics. Offline coverage includes GET challenge, bad signature, duplicate delivery, malformed sender/text, signed non-object JSON, outbound consent gating and the Cloud API message request.
 4. Add robust outbound egress isolation for browser execution; keep browser disabled until the host confirms it.
