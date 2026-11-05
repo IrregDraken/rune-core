@@ -7,6 +7,8 @@ from rune.core.connectors import (
 
 
 class MockAdapter:
+    health_check_is_live = True
+
     def __init__(self, outputs=None, fail=0):
         self.outputs = outputs or {"ok": True}
         self.fail = fail
