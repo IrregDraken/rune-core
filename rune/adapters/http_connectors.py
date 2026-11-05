@@ -253,9 +253,15 @@ class GoogleWorkspaceAdapter:
             message["To"], message["Subject"] = arguments["to"], arguments["subject"]
             message.set_content(arguments["body"])
             raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
-            body, method = {"message": {"raw": raw}}, "POST"
-            path = ("/gmail/v1/users/me/drafts" if tool_name == "gmail.draft"
-                    else "/gmail/v1/users/me/messages/send")
+            method = "POST"
+            if tool_name == "gmail.draft":
+                # Gmail drafts.create accepts a Draft resource containing message.raw.
+                body = {"message": {"raw": raw}}
+                path = "/gmail/v1/users/me/drafts"
+            else:
+                # Gmail messages.send accepts a Message resource with raw at the top level.
+                body = {"raw": raw}
+                path = "/gmail/v1/users/me/messages/send"
         elif tool_name == "calendar.search":
             path = "/calendar/v3/calendars/primary/events"
             query = {k: arguments[k] for k in ("timeMin", "timeMax", "q", "maxResults", "pageToken") if k in arguments}
