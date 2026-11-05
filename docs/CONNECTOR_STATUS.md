@@ -78,7 +78,7 @@ An attached adapter means a real provider-specific implementation exists in code
 
 ## Verification
 
-GitHub Actions run 42018297571 on exact PR head f4c0ae37cded2c30b7b50e138f486c856ede235e completed successfully: 155 passed, 1 skipped. In addition to the earlier connector, approval, schema and WhatsApp webhook coverage, this run includes focused operation tests for Notion search, Tavily extraction, Google Contacts, Spotify playback, Threads publishing, Home Assistant service calls, and scoped filesystem write/delete. The audit also corrected the Gmail messages.send resource payload and Spotify track playback payload. No real Meta account or provider credentials were used.
+GitHub Actions run 42018439035 on exact PR head 1e63f14afd028bb8cbe33d6ea3cecfc876a61ce7 completed successfully: 157 passed, 1 skipped. In addition to the earlier connector, approval, schema and WhatsApp webhook coverage, this run includes focused operation tests for Notion search, Tavily extraction, Google Contacts, Spotify playback, Threads publishing, Home Assistant service calls, scoped filesystem write/delete, and sanitised authentication/rate-limit/server-error handling. The audit also corrected the Gmail messages.send resource payload and Spotify track playback payload. No real Meta account or provider credentials were used.
 
 Offline mock tests cover representative provider routes, OAuth refresh flows, request payloads, auth headers, path validation, filesystem confinement, MCP transport configuration, approval policy and idempotency. Coverage is not yet exhaustive for every provider operation. No real provider credentials or external account calls have been used.
 
