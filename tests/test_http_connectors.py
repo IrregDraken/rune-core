@@ -1036,6 +1036,8 @@ def test_google_gmail_send_uses_messages_send_endpoint(monkeypatch):
     from rune.adapters import http_connectors as module
     from rune.adapters.http_connectors import GoogleWorkspaceAdapter
     import asyncio
+    import json
+    import base64
     captured = []
     class Response:
         def __enter__(self): return self
@@ -1056,6 +1058,11 @@ def test_google_gmail_send_uses_messages_send_endpoint(monkeypatch):
     assert result["id"] == "sent1"
     assert captured[0].full_url.endswith("/gmail/v1/users/me/messages/send")
     assert captured[0].get_method() == "POST"
+    sent_message = json.loads(captured[0].data)
+    assert set(sent_message) == {"raw"}
+    decoded = base64.urlsafe_b64decode(sent_message["raw"]).decode()
+    assert "To: person@example.com" in decoded
+    assert "Body" in decoded
 
 
 
