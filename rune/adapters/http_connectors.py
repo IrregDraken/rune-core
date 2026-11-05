@@ -655,7 +655,11 @@ class SpotifyAdapter:
         elif tool_name == "spotify.playback.start":
             query = {"device_id": arguments["device_id"]} if arguments.get("device_id") else {}
             path = "/me/player/play" + (("?" + urlencode(query)) if query else "")
-            method, body = "PUT", {"context_uri": arguments["uri"]} if arguments["uri"].startswith("spotify:") else {"uris": [arguments["uri"]]}
+            uri = str(arguments["uri"])
+            method = "PUT"
+            # Tracks are playable items; albums, artists and playlists are contexts.
+            body = ({"uris": [uri]} if uri.startswith("spotify:track:")
+                    else {"context_uri": uri})
         else: raise RuntimeError("tool_operation_not_implemented")
         request = Request("https://api.spotify.com/v1" + path,
             data=json.dumps(body).encode() if body is not None else None,
