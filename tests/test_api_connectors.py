@@ -14,6 +14,8 @@ from rune.core.connectors import (
 
 
 class FakeAdapter:
+    health_check_is_live = True
+
     async def health_check(self):
         return True
     async def invoke(self, tool_name, arguments):
