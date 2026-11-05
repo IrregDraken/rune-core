@@ -321,10 +321,17 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
 
 
 def serve(
-    host: str = "127.0.0.1",
-    port: int = 8765,
+    host: str | None = None,
+    port: int | None = None,
     runtime: RUNERuntime | None = None,
 ) -> None:
+    # Railway injects PORT and requires the process to bind to 0.0.0.0.
+    # Keep local development loopback-only unless explicitly overridden.
+    host = host or os.environ.get(
+        "RUNE_HOST",
+        "0.0.0.0" if os.environ.get("RAILWAY_ENVIRONMENT") else "127.0.0.1",
+    )
+    port = port if port is not None else int(os.environ.get("PORT", "8765"))
     active_runtime = runtime or RUNERuntime(
         DeterministicModel(),
         authority=Authority(os.environ.get("RUNE_SESSION_TOKEN")),
