@@ -21,6 +21,7 @@ class ConnectorStatus(str, Enum):
     DISABLED = "disabled"
     DISCONNECTED = "disconnected"
     NEEDS_AUTH = "needs_auth"
+    CONFIGURED = "configured"
     CONNECTING = "connecting"
     HEALTHY = "healthy"
     DEGRADED = "degraded"
@@ -158,11 +159,24 @@ class ConnectorManager:
             return record.status
         record.status = ConnectorStatus.CONNECTING
         try:
-            healthy = await asyncio.wait_for(adapter.health_check(), timeout=10)
-            record.status = ConnectorStatus.HEALTHY if healthy else ConnectorStatus.NEEDS_AUTH
-            record.last_error_code = None if healthy else "credentials_missing_or_health_check_failed"
+            configured = await asyncio.wait_for(adapter.health_check(), timeout=10)
+            if not configured:
+                record.status = ConnectorStatus.NEEDS_AUTH
+                record.last_error_code = "credentials_missing_or_configuration_invalid"
+            elif hasattr(adapter, "verify_connection"):
+                verified = await asyncio.wait_for(adapter.verify_connection(), timeout=10)
+                record.status = ConnectorStatus.HEALTHY if verified else ConnectorStatus.DEGRADED
+                record.last_error_code = None if verified else "live_verification_failed"
+            elif getattr(adapter, "health_check_is_live", False):
+                record.status = ConnectorStatus.HEALTHY
+                record.last_error_code = None
+            else:
+                # Credential presence is configuration, not proof that the
+                # remote provider accepts the credentials or is reachable.
+                record.status = ConnectorStatus.CONFIGURED
+                record.last_error_code = "live_verification_not_implemented"
         except Exception:
-            record.status = ConnectorStatus.ERROR
+            record.status = ConnectorStatus.DEGRADED
             record.last_error_code = "health_check_error"
         record.last_health_check = time.time()
         return record.status
