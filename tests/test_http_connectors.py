@@ -1172,3 +1172,38 @@ def test_whatsapp_health_check_requires_all_runtime_configuration(monkeypatch):
     assert not asyncio.run(WhatsAppBusinessAdapter().health_check())
     monkeypatch.setenv("WHATSAPP_API_VERSION", "v99.0")
     assert asyncio.run(WhatsAppBusinessAdapter().health_check())
+
+
+
+def test_whatsapp_live_verification_checks_meta_phone_number_resource(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import WhatsAppBusinessAdapter
+    import asyncio
+
+    captured = []
+
+    class Response:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"id":"123456789"}'
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args):
+        return fn()
+
+    monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "meta-secret")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "123456789")
+    monkeypatch.setenv("WHATSAPP_API_VERSION", "v99.0")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+
+    adapter = WhatsAppBusinessAdapter()
+    assert asyncio.run(adapter.verify_connection()) is True
+    assert captured[0].full_url == (
+        "https://graph.facebook.com/v99.0/123456789?fields=id"
+    )
+    assert captured[0].get_header("Authorization") == "Bearer meta-secret"
