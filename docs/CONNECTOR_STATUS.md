@@ -4,6 +4,12 @@ Last reviewed: 2026-11-05
 Branch: feat/capability-blueprint  
 Pull request: #1 (draft, unmerged)
 
+## Health-state semantics
+
+- `configured` means the required environment configuration is present. It does not mean the provider accepted the credentials or is reachable, and configured-only connectors cannot execute tools.
+- `healthy` requires a successful live verification. WhatsApp verifies the configured Phone Number ID against Meta; Home Assistant verifies its `/api/` endpoint; the scoped filesystem verifies its workspace directory.
+- Other provider adapters currently remain `configured` until their own live verification is implemented. Do not interpret credential presence as a connected or production-ready integration.
+
 ## Executive count
 
 - 37 integration manifests.
@@ -78,19 +84,20 @@ An attached adapter means a real provider-specific implementation exists in code
 
 ## Verification
 
-GitHub Actions run 42018439035 on exact PR head 1e63f14afd028bb8cbe33d6ea3cecfc876a61ce7 completed successfully: 157 passed, 1 skipped. In addition to the earlier connector, approval, schema and WhatsApp webhook coverage, this run includes focused operation tests for Notion search, Tavily extraction, Google Contacts, Spotify playback, Threads publishing, Home Assistant service calls, scoped filesystem write/delete, and sanitised authentication/rate-limit/server-error handling. The audit also corrected the Gmail messages.send resource payload and Spotify track playback payload. No real Meta account or provider credentials were used.
+GitHub Actions run 42018818923 on exact PR head a9c54eb12dd6cf07ca889531765e4eaa5fcebe91 completed successfully: 160 passed, 1 skipped. In addition to the earlier connector, approval, schema and WhatsApp webhook coverage, this run includes focused operation tests for Notion search, Tavily extraction, Google Contacts, Spotify playback, Threads publishing, Home Assistant service calls, scoped filesystem write/delete, sanitised 401/403/429/500/503 provider failures, and live-verification gating for WhatsApp and Home Assistant. The audit corrected the Gmail messages.send resource payload and Spotify track playback payload, and changed connector health semantics so configured-only providers cannot execute. No real Meta account or provider credentials were used.
 
 Offline mock tests cover representative provider routes, OAuth refresh flows, request payloads, auth headers, path validation, filesystem confinement, MCP transport configuration, approval policy and idempotency. Coverage is not yet exhaustive for every provider operation. No real provider credentials or external account calls have been used.
 
 ## Remaining connector exit gates
 
-1. Finish provider-by-provider mock coverage for every exposed operation. Current coverage is still representative, not exhaustive. Pagination is specifically tested for Dropbox and Linear, but not yet across every paginated provider. Add consistent tests for 429/5xx behaviour, auth failures and malformed provider responses.
-2. Confirm current API request/response contracts and required OAuth scopes for each provider. Where API access requires review, mark the capability restricted until approval is granted.
-3. Complete Meta's real-account webhook fixture/live smoke test and confirm provider retry semantics. Offline coverage includes GET challenge, bad signature, duplicate delivery, malformed sender/text, signed non-object JSON, outbound consent gating and the Cloud API message request.
-4. Add robust outbound egress isolation for browser execution; keep browser disabled until the host confirms it.
-5. Complete provider-by-provider pagination and consistent 429/5xx/auth/malformed-response classification. Dropbox cursor and Linear cursor handling have targeted tests; other providers still require operation-specific coverage.
-6. Verify all tests on the latest PR head and keep the PR draft until the provider-operation coverage report and final security review are complete.
-7. Keep Snapchat public search unavailable unless a supported official API contract is established. Keep Android Companion in its planned device phase.
+1. Finish provider-by-provider mock coverage for every exposed operation. Current coverage is still representative, not exhaustive. Pagination is specifically tested for Dropbox and Linear, but not yet across every paginated provider. Add provider-specific tests for malformed responses, pagination and retry semantics.
+2. Implement live connection verification for each provider before enabling its tools. At present, only WhatsApp and Home Assistant perform remote verification; other provider adapters remain `configured` and execution-blocked even when credentials are present.
+3. Confirm current API request/response contracts and required OAuth scopes for each provider. Where API access requires review, mark the capability restricted until approval is granted.
+4. Complete Meta's real-account webhook fixture/live smoke test and confirm provider retry semantics. Offline coverage includes GET challenge, bad signature, duplicate delivery, malformed sender/text, signed non-object JSON, outbound consent gating and the Cloud API message request.
+5. Add robust outbound egress isolation for browser execution; keep browser disabled until the host confirms it.
+6. Complete provider-by-provider pagination and consistent 429/5xx/auth/malformed-response classification. Dropbox cursor and Linear cursor handling have targeted tests; other providers still require operation-specific coverage.
+7. Verify all tests on the latest PR head and keep the PR draft until the provider-operation coverage report and final security review are complete.
+8. Keep Snapchat public search unavailable unless a supported official API contract is established. Keep Android Companion in its planned device phase.
 
 Provider credentials are not a blocker for these implementation tasks. They are required later for OAuth consent, account-specific scope checks, app review, and live smoke tests.
 
