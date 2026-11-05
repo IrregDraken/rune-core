@@ -201,3 +201,28 @@ def test_connector_snapshot_distinguishes_attached_and_deferred_adapters():
     assert tools["snapchat.public.search"]["adapter_attached"] is False
     assert tools["gmail.search"]["max_retries"] == 2
     assert tools["gmail.send"]["max_retries"] == 0
+
+
+
+def test_credentials_without_live_verification_are_configured_not_healthy():
+    class ConfigOnlyAdapter:
+        async def health_check(self):
+            return True
+        async def invoke(self, tool_name, arguments):
+            return {"should_not_run": True}
+
+    manager = ConnectorManager()
+    adapter = ConfigOnlyAdapter()
+    manager.register_connector(ConnectorRecord("provider", "direct_api"), adapter)
+    manager.register_tool(ToolDefinition(
+        "provider.read", "provider", "read", "Read provider data",
+        {"type": "object", "properties": {}, "additionalProperties": False},
+    ))
+
+    status = asyncio.run(manager.health_check("provider"))
+    assert status is ConnectorStatus.CONFIGURED
+    assert manager.records["provider"].last_error_code == "live_verification_not_implemented"
+
+    result = asyncio.run(manager.execute("provider.read", {}, execution_id="not-live"))
+    assert result.status is ExecutionStatus.UNAVAILABLE
+    assert result.error_code == "connector_not_healthy"
