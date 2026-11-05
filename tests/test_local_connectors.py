@@ -58,3 +58,34 @@ def test_home_assistant_rejects_invalid_entity_id():
     adapter = HomeAssistantAdapter()
     with pytest.raises(ValueError, match="invalid_entity_id"):
         asyncio.run(adapter.invoke("home_assistant.entity.read", {"entity_id": "../secret"}))
+
+
+
+def test_home_assistant_connection_requires_live_api_verification(monkeypatch):
+    from rune.adapters import local_connectors as module
+    from rune.adapters.local_connectors import HomeAssistantAdapter
+    import asyncio
+    import json
+
+    class Response:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"message":"API running."}'
+
+    captured = []
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    async def inline_thread(fn, *args):
+        return fn()
+
+    monkeypatch.setenv("HOME_ASSISTANT_URL", "http://homeassistant.local:8123")
+    monkeypatch.setenv("HOME_ASSISTANT_TOKEN", "ha-token")
+    monkeypatch.setattr(module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+
+    assert asyncio.run(HomeAssistantAdapter().verify_connection()) is True
+    assert captured[0].full_url == "http://homeassistant.local:8123/api/"
+    assert captured[0].get_header("Authorization") == "Bearer ha-token"
