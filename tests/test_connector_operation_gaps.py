@@ -235,3 +235,54 @@ def test_scoped_filesystem_write_and_delete_stay_inside_workspace(tmp_path):
     }))
     assert deleted == {"deleted": True, "path": "notes/rune.txt"}
     assert not target.exists()
+
+
+
+def test_http_adapter_sanitizes_auth_rate_limit_and_server_errors(monkeypatch):
+    from io import BytesIO
+    from urllib.error import HTTPError
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import BraveSearchAdapter
+
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "do-not-leak-this-token")
+
+    for status in (401, 403, 429, 500, 503):
+        def fail(request, timeout, status=status):
+            raise HTTPError(
+                request.full_url, status, "provider failure", {},
+                BytesIO(b"provider response contains private details"),
+            )
+
+        monkeypatch.setattr(module, "urlopen", fail)
+        try:
+            asyncio.run(BraveSearchAdapter().invoke("brave.search", {"q": "test"}))
+        except RuntimeError as exc:
+            assert str(exc) == f"provider_http_{status}"
+            assert "do-not-leak-this-token" not in str(exc)
+            assert "private details" not in str(exc)
+        else:
+            raise AssertionError(f"HTTP {status} must fail closed")
+
+
+def test_http_adapter_malformed_json_does_not_return_provider_body(monkeypatch):
+    from rune.adapters import http_connectors as module
+    from rune.adapters.http_connectors import BraveSearchAdapter
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b"not-json-private-provider-payload"
+
+    async def inline_thread(fn, *args):
+        return fn()
+
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "mock-token")
+    monkeypatch.setattr(module, "urlopen", lambda request, timeout: Response())
+    monkeypatch.setattr(module.asyncio, "to_thread", inline_thread)
+
+    try:
+        asyncio.run(BraveSearchAdapter().invoke("brave.search", {"q": "test"}))
+    except ValueError as exc:
+        assert "not-json-private-provider-payload" not in str(exc)
+    else:
+        raise AssertionError("malformed JSON must not be accepted")
