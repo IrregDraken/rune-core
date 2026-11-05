@@ -16,6 +16,8 @@ from urllib.request import Request, urlopen
 class ScopedFilesystemAdapter:
     """Read/write/delete only within a configured workspace root."""
 
+    health_check_is_live = True
+
     def __init__(self, root: str | None = None, max_bytes: int = 10 * 1024 * 1024) -> None:
         self.root = Path(root or os.environ.get("RUNE_WORKSPACE_DIR", "./workspace")).expanduser().resolve()
         self.max_bytes = max_bytes
@@ -82,6 +84,27 @@ class HomeAssistantAdapter:
     async def health_check(self) -> bool:
         return bool(os.environ.get("HOME_ASSISTANT_TOKEN", "").strip()
                     and os.environ.get("HOME_ASSISTANT_URL", "").strip())
+
+    async def verify_connection(self) -> bool:
+        if not await self.health_check():
+            return False
+        try:
+            request = Request(
+                self._base_url() + "/api/",
+                headers={"Authorization": f"Bearer {os.environ['HOME_ASSISTANT_TOKEN'].strip()}",
+                         "Accept": "application/json"},
+                method="GET",
+            )
+            def send() -> bool:
+                try:
+                    with urlopen(request, timeout=self.timeout) as response:
+                        payload = json.loads(response.read().decode("utf-8"))
+                        return response.status == 200 and payload.get("message") == "API running."
+                except (HTTPError, URLError, TimeoutError, ValueError):
+                    return False
+            return await asyncio.to_thread(send)
+        except (RuntimeError, ValueError):
+            return False
 
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if tool_name == "home_assistant.entity.read":
