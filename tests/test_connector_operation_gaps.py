@@ -149,7 +149,7 @@ def test_spotify_playback_start_uses_put_and_device_target(monkeypatch):
     )
     assert captured[0].get_method() == "PUT"
     assert captured[0].get_header("Authorization") == "Bearer spotify-access-token"
-    assert json.loads(captured[0].data) == {"context_uri": "spotify:track:abc123"}
+    assert json.loads(captured[0].data) == {"uris": ["spotify:track:abc123"]}
 
 
 def test_threads_publish_creates_container_then_publishes(monkeypatch):
