@@ -1089,6 +1089,28 @@ class WhatsAppBusinessAdapter(JsonHttpAdapter):
                     os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip().isdigit() and
                     os.environ.get("WHATSAPP_API_VERSION", "").strip().startswith("v"))
 
+    async def verify_connection(self) -> bool:
+        # A populated token is not a verified WhatsApp connection. Confirm
+        # Meta accepts it for the configured phone-number resource.
+        if not await self.health_check():
+            return False
+        version = os.environ["WHATSAPP_API_VERSION"].strip()
+        phone_id = os.environ["WHATSAPP_PHONE_NUMBER_ID"].strip()
+        request = Request(
+            f"https://graph.facebook.com/{version}/{phone_id}?fields=id",
+            headers={"Authorization": f"Bearer {self._credential()}",
+                     "Accept": "application/json"},
+            method="GET",
+        )
+        def send() -> bool:
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                    return response.status == 200 and str(payload.get("id", "")) == phone_id
+            except (HTTPError, URLError, TimeoutError, ValueError):
+                return False
+        return await asyncio.to_thread(send)
+
     async def invoke(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if tool_name != "whatsapp.message.send":
             raise RuntimeError("tool_operation_not_implemented")
