@@ -307,6 +307,29 @@ Acceptance:
 - Service degradation is detected and surfaced.
 - Production release has security, privacy, reliability and provider-verification sign-off.
 
+## GitHub epic mapping
+
+The epic sequence below is a planning sequence. The actual GitHub issue numbers are:
+
+| Epic | GitHub issue |
+|---|---:|
+| 00 Connector foundation | #2 |
+| 01 API security | #3 |
+| 02 Identity and devices | #4 |
+| 03 Shared persistence and sync | #5 |
+| 04 Approval engine | #6 |
+| 05 Durable execution | #7 |
+| 06 Model routing | #8 |
+| 07 Voice and telephony | #9 |
+| 08 Communication gateway | #10 |
+| 09 Mobile clients | #11 |
+| 10 Monitoring and notifications | #12 |
+| 11 Productivity and memory | #13 |
+| 12 Browser/desktop/developer operations | #14 |
+| 13 Finance/content/location/smart home | #15 |
+| 14 macOS/watchOS | #16 |
+| 15 Observability and release readiness | #17 |
+
 ## Recommended order
 
 1. Safely integrate connector foundation.
