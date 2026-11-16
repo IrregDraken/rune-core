@@ -328,7 +328,7 @@ The epic sequence below is a planning sequence. The actual GitHub issue numbers 
 | 12 Browser/desktop/developer operations | #14 |
 | 13 Finance/content/location/smart home | #15 |
 | 14 macOS/watchOS | #16 |
-| 15 Observability and release readiness | #19 |
+| 15 Observability and release readiness | #17 |
 
 ## Recommended order
 
