@@ -208,6 +208,12 @@ PostgreSQL remains the shared source of truth for synced state. Local SQLite is 
 
 ## 6. PostgreSQL database schema
 
+Enable the case-insensitive email type before applying the owner table migration:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS citext;
+```
+
 Use PostgreSQL with UUID primary keys, timestamptz and JSONB where structured provider payloads are necessary. The initial product is single-owner, not multi-tenant SaaS. Keep owner_id on owner-scoped records for integrity and future migration, but do not implement arbitrary tenant administration.
 
 ### 6.1 Identity and devices
