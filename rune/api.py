@@ -383,6 +383,8 @@ def serve(
     port: int = 8765,
     runtime: RUNERuntime | None = None,
 ) -> None:
+    host = os.environ.get("RUNE_API_HOST", host)
+    port = int(os.environ.get("PORT", os.environ.get("RUNE_API_PORT", str(port))))
     if runtime is not None:
         active_runtime = runtime
     else:
