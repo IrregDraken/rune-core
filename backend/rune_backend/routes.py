@@ -137,7 +137,8 @@ async def create_task(body: TaskCreate, owner: Owner = Depends(require_owner)):
         "owner_id":str(owner.id),"device_id":str(body.device_id),"capability":body.capability,
         "arguments":body.arguments,"status":"awaiting_approval",
         "requires_approval":True,"created_at":now.isoformat(),
-        "expires_at":(now+timedelta(seconds=body.expires_in_seconds)).isoformat(),
+        # Approval can take time; execution expiry begins only after approval.
+        "expires_at":(now+timedelta(hours=24)).isoformat(),
     },prefer="return=representation")
     task=rows[0]
     await _audit(owner.id,"task.created",task["status"],device_id=body.device_id,
@@ -172,7 +173,9 @@ async def approve_task(task_id: UUID, owner: Owner = Depends(require_owner)):
     rows=await store.request("PATCH","rune_tasks",params={
         **owner_filter(owner.id),"id":f"eq.{task_id}","status":"eq.awaiting_approval",
         "expires_at":f"gt.{now}","select":"*",
-    },body={"status":"queued","approval_at":now},prefer="return=representation")
+    },body={"status":"queued","approval_at":now,
+            "expires_at":(datetime.now(timezone.utc)+timedelta(seconds=60)).isoformat()},
+       prefer="return=representation")
     if not rows: raise HTTPException(409,"Task unavailable, expired or already decided")
     task=rows[0]
     await _audit(owner.id,"task.approved","success",device_id=UUID(task["device_id"]),task_id=task_id)
