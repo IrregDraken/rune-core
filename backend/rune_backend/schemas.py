@@ -24,15 +24,15 @@ class DeviceHeartbeat(BaseModel):
 class TaskCreate(BaseModel):
     device_id: UUID
     capability: str = Field(min_length=1, max_length=100)
-    arguments: dict[str, Any] = Field(default_factory=dict)
+    arguments: dict[str, Any] = Field(default_factory=dict, max_length=32)
     expires_in_seconds: int = Field(default=60, ge=5, le=3600)
     requires_approval: bool = True
 
 
 class TaskResultInput(BaseModel):
     status: Literal["completed", "failed", "blocked", "uncertain"]
-    output: dict[str, Any] = Field(default_factory=dict)
-    evidence: dict[str, Any] = Field(default_factory=dict)
+    output: dict[str, Any] = Field(default_factory=dict, max_length=64)
+    evidence: dict[str, Any] = Field(default_factory=dict, max_length=64)
     error_code: str | None = Field(default=None, max_length=100)
 
 
