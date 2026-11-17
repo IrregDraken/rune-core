@@ -54,7 +54,16 @@ class _AssistantPageState extends State<AssistantPage>{
  @override void initState(){super.initState();_loadConversation();_refreshHealth();}
  @override void dispose(){voiceTimer?.cancel();controller.dispose();scroll.dispose();super.dispose();}
 
- Future<void> _refreshHealth() async {\n  try {\n   final online=await widget.api.health();\n   if(mounted)setState(()=>coreOnline=online);\n  } catch (_) {\n   if(mounted)setState(()=>coreOnline=false);\n  }\n }\n\n Future<void> _loadConversation() async {
+ Future<void> _refreshHealth() async {
+  try {
+   final online=await widget.api.health();
+   if(mounted)setState(()=>coreOnline=online);
+  } catch (_) {
+   if(mounted)setState(()=>coreOnline=false);
+  }
+ }
+
+ Future<void> _loadConversation() async {
   try {
    final raw=await secureStorage.read(key:'rune.conversation.v1');
    if(raw!=null) {
