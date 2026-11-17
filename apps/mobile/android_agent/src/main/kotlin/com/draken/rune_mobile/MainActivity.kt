@@ -18,6 +18,7 @@ class MainActivity : FlutterActivity() {
     private var mediaRecorder: MediaRecorder? = null
     private var recordingFile: File? = null
     private var mediaPlayer: MediaPlayer? = null
+    private var playbackFile: File? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -104,8 +105,10 @@ class MainActivity : FlutterActivity() {
                         } else {
                             try {
                                 mediaPlayer?.release()
+                                playbackFile?.delete()
                                 val file = File(cacheDir, "rune-response-${System.currentTimeMillis()}.mp3")
                                 file.writeBytes(audio)
+                                playbackFile = file
                                 val player = MediaPlayer()
                                 mediaPlayer = player
                                 player.setDataSource(file.absolutePath)
@@ -113,11 +116,13 @@ class MainActivity : FlutterActivity() {
                                     it.release()
                                     if (mediaPlayer === it) mediaPlayer = null
                                     file.delete()
+                                    if (playbackFile == file) playbackFile = null
                                 }
                                 player.setOnErrorListener { mp, _, _ ->
                                     mp.release()
                                     if (mediaPlayer === mp) mediaPlayer = null
                                     file.delete()
+                                    if (playbackFile == file) playbackFile = null
                                     true
                                 }
                                 player.setOnPreparedListener { it.start() }
@@ -134,6 +139,8 @@ class MainActivity : FlutterActivity() {
                             it.release()
                         }
                         mediaPlayer = null
+                        playbackFile?.delete()
+                        playbackFile = null
                         result.success(true)
                     }
                     "requestNotificationPermission" -> {
@@ -202,6 +209,8 @@ class MainActivity : FlutterActivity() {
         mediaRecorder = null
         mediaPlayer?.release()
         mediaPlayer = null
+        playbackFile?.delete()
+        playbackFile = null
         super.onDestroy()
     }
 
