@@ -86,6 +86,7 @@ class _SecurityPageState extends State<SecurityPage> {
  final password=TextEditingController();
  Map<String,dynamic> capabilities={};
  List<Map<String,String>> apps=[];
+ List<dynamic> pending=[];
  RuneRemoteApi? remote;
  RuneTaskRunner? runner;
  String? error;
@@ -101,6 +102,19 @@ class _SecurityPageState extends State<SecurityPage> {
   } catch(e) {
    if(mounted)setState(()=>{loading=false,error:'Native Android agent unavailable: $e'});
   }
+ }
+ Future<void> refreshPending() async {
+  final api=remote;
+  if(api==null)return;
+  try {final items=await api.pendingTasks();if(mounted)setState(()=>pending=items);}
+  catch(e){if(mounted)setState(()=>error=e.toString());}
+ }
+ Future<void> approve(String taskId) async {
+  final api=remote;if(api==null)return;
+  setState(()=>busy=true);
+  try {await api.approveTask(taskId);await refreshPending();}
+  catch(e){if(mounted)setState(()=>error=e.toString());}
+  if(mounted)setState(()=>busy=false);
  }
  Future<void> enrollAndStart() async {
   if(backend.text.trim().isEmpty||supabase.text.trim().isEmpty||publishable.text.trim().isEmpty||email.text.trim().isEmpty||password.text.isEmpty)return;
@@ -118,6 +132,7 @@ class _SecurityPageState extends State<SecurityPage> {
    final device=await remoteApi.registerDevice(name:'RUNE Android Device',capabilities:caps,appVersion:'0.2.0');
    final taskRunner=RuneTaskRunner(remote:remoteApi,device:agent)..start();
    if(mounted)setState(()=>{remote=remoteApi,runner=taskRunner,status:'Enrolled: ${device['device_name']??'Android device'} · operator active',error=null});
+   await refreshPending();
   } catch(e) {
    if(mounted)setState(()=>error=e.toString());
   }
@@ -163,6 +178,23 @@ class _SecurityPageState extends State<SecurityPage> {
     const SizedBox(height:8),
     const Text('The password is sent only to Supabase Auth over HTTPS. Owner and device tokens are stored in Android secure storage. The device operator polls while this app remains active.',style:TextStyle(color:RuneColors.muted,fontSize:9,height:1.5)),
    ])),
+   if(remote!=null)...[
+    const SizedBox(height:20),
+    Row(children:[const _SectionTitle('PENDING DEVICE ACTIONS'),const Spacer(),TextButton(onPressed:refreshPending,child:const Text('REFRESH'))]),
+    if(pending.isEmpty)_Panel(child:const Text('No actions are waiting for your approval.',style:TextStyle(color:RuneColors.muted,fontSize:11)))
+    else ...pending.map((item){
+      final task=item as Map<String,dynamic>;
+      return _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+       Text(task['capability']?.toString()??'Device action',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:12)),
+       const SizedBox(height:5),
+       Text(task['arguments']?.toString()??'{}',style:const TextStyle(color:RuneColors.muted,fontSize:10)),
+       const SizedBox(height:8),
+       Row(children:[const Text('AWAITING APPROVAL',style:TextStyle(color:RuneColors.aurum,fontSize:8,letterSpacing:1)),const Spacer(),
+        FilledButton.tonal(onPressed:busy?null:()=>approve(task['id'].toString()),child:const Text('APPROVE'))
+       ])
+      ]));
+    })
+   ],
    const SizedBox(height:20),
    const _SectionTitle('VISIBLE APP CATALOG'),
    const SizedBox(height:8),
