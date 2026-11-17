@@ -147,7 +147,7 @@ class RemoteBackendClient:
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.base_url = (base_url or os.getenv("RUNE_REMOTE_BACKEND_URL", "")).rstrip("/")
-        self.access_token = access_token or os.getenv("RUNE_OWNER_ACCESS_TOKEN", "")
+        self.access_token = access_token or ""
         self.session = session
         self.timeout = timeout
         self.transport = transport
@@ -156,8 +156,11 @@ class RemoteBackendClient:
         parsed = urlparse(self.base_url)
         if parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1"}:
             raise ValueError("RUNE remote backend must use HTTPS outside localhost development")
-        if not self.access_token and self.session is None:
-            self.session = OwnerSession.from_env()
+        if self.session is None and access_token is None:
+            if os.getenv("RUNE_OWNER_REFRESH_TOKEN") or os.getenv("RUNE_OWNER_TOKEN_ENCRYPTION_KEY"):
+                self.session = OwnerSession.from_env()
+            else:
+                raise ValueError("Configure an encrypted Supabase owner refresh session for RUNE")
         if not self.access_token and self.session is None:
             raise ValueError("RUNE owner session is not configured")
 
