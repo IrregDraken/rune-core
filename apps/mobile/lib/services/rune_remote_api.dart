@@ -24,6 +24,25 @@ class RuneRemoteApi {
   String get _backend=>backendUrl.trim().replaceAll(RegExp(r'/+$'),'');
   String get _auth=>supabaseUrl.trim().replaceAll(RegExp(r'/+$'),'');
 
+  Future<List<dynamic>> _sendList(String method,String url,{Map<String,String>? headers}) async {
+    try {
+      final request=await _http.openUrl(method,Uri.parse(url)).timeout(const Duration(seconds:12));
+      request.headers.set(HttpHeaders.acceptHeader,'application/json');
+      headers?.forEach(request.headers.set);
+      final response=await request.close().timeout(const Duration(seconds:20));
+      final text=await response.transform(utf8.decoder).join();
+      final decoded=text.isEmpty?<dynamic>[]:jsonDecode(text);
+      if(response.statusCode<200||response.statusCode>=300){
+        final payload=decoded is Map?decoded:<String,dynamic>{};
+        throw RuneRemoteException((payload['detail']??payload['message']??'Remote service returned HTTP ${response.statusCode}.').toString(),statusCode:response.statusCode);
+      }
+      return decoded is List?decoded:<dynamic>[];
+    } on SocketException {throw const RuneRemoteException('Remote service is unreachable.');}
+      on TimeoutException {throw const RuneRemoteException('Remote service timed out.');}
+      on FormatException {throw const RuneRemoteException('Remote service returned invalid data.');}
+      on HandshakeException {throw const RuneRemoteException('Secure connection failed. Check HTTPS configuration.');}
+  }
+
   Future<Map<String,dynamic>> _send(String method,String url,{Map<String,String>? headers,Map<String,dynamic>? body}) async {
     try {
       final request=await _http.openUrl(method,Uri.parse(url)).timeout(const Duration(seconds:12));
@@ -137,10 +156,14 @@ class RuneRemoteApi {
       body:{'status':status,'output':output,'evidence':evidence,'error_code':errorCode});
   }
 
-  Future<List<dynamic>> devices() async {
-    final result=await _send('GET','$_backend/v1/devices',headers:await _ownerHeaders());
-    return result is List?result:<dynamic>[];
-  }
+  Future<List<dynamic>> devices() async =>
+      _sendList('GET','$_backend/v1/devices',headers:await _ownerHeaders());
+
+  Future<List<dynamic>> pendingTasks() async =>
+      _sendList('GET','$_backend/v1/tasks?status=awaiting_approval',headers:await _ownerHeaders());
+
+  Future<Map<String,dynamic>> approveTask(String taskId) async =>
+      _send('POST','$_backend/v1/tasks/$taskId/approve',headers:await _ownerHeaders(),body:{});
 
   Future<void> signOut() async {
     await _storage.delete(key:'rune.owner_access_token');
