@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../theme/rune_colors.dart';
 import '../screens/onboarding_page.dart';
 import '../screens/rune_pages.dart';
+import '../screens/rune_experience.dart';
 import '../services/rune_api.dart';
 
 class RuneApp extends StatefulWidget {
@@ -201,7 +202,7 @@ class _RuneAppState extends State<RuneApp> {
           ? const _Loading()
           : !onboarded
               ? OnboardingPage(onComplete: _complete)
-              : RuneShell(
+              : RuneExperienceShell(
                   owner: owner,
                   apiUrl: apiUrl,
                   sessionToken: sessionToken,
