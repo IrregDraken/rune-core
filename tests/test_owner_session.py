@@ -38,6 +38,7 @@ def test_owner_session_refreshes_and_encrypts_rotating_refresh_token(tmp_path):
     restored = OwnerSession(
         supabase_url="https://project.supabase.co",
         publishable_key="publishable",
+        refresh_token="initial-refresh-token",
         store_path=str(db),
         encryption_key=key,
         transport=httpx.MockTransport(handler),
