@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import math
 import sqlite3
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -118,7 +119,7 @@ class UsageLedger:
         self.monthly_limit_usd = monthly_limit_usd
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path, timeout=30.0, check_same_thread=False)
-        self._lock = __import__("threading").RLock()
+        self._lock = threading.RLock()
         self.db.execute("""create table if not exists provider_usage (
             month text not null, provider text not null, input_tokens integer not null,
             output_tokens integer not null, cost_usd real not null,
@@ -162,11 +163,12 @@ class UsageLedger:
         if (usage.input_tokens < 0 or usage.output_tokens < 0
                 or not math.isfinite(usage.cost_usd) or usage.cost_usd < 0):
             raise ValueError("provider usage values must be finite and non-negative")
-        self.db.execute(
-            "update provider_usage set input_tokens=?,output_tokens=?,cost_usd=? where rowid=?",
-            (usage.input_tokens, usage.output_tokens, usage.cost_usd, reservation_id),
-        )
-        self.db.commit()
+        with self._lock:
+            self.db.execute(
+                "update provider_usage set input_tokens=?,output_tokens=?,cost_usd=? where rowid=?",
+                (usage.input_tokens, usage.output_tokens, usage.cost_usd, reservation_id),
+            )
+            self.db.commit()
 
     def record(self, provider: str, usage: ProviderUsage) -> None:
         reservation = self.reserve(provider, usage.cost_usd)
@@ -186,6 +188,8 @@ class RoutedModelProvider(ModelProvider):
         self.last_provider: str | None = None
 
     def respond(self, prompt: str) -> ModelResponse:
+        if len(prompt.encode("utf-8")) > 128_000:
+            raise ValueError("prompt exceeds the 128 KB inference limit")
         failures: list[str] = []
         for provider in self.providers:
             estimated_input_tokens = max(1, len(prompt.encode("utf-8")))
