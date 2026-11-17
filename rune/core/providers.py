@@ -122,12 +122,39 @@ class UsageLedger:
                               (self.month_key(),)).fetchone()
         return float(row[0] or 0)
 
-    def record(self, provider: str, usage: ProviderUsage) -> None:
-        if self.spent() + usage.cost_usd > self.monthly_limit_usd:
-            raise BudgetExceeded("monthly model API budget would be exceeded")
-        self.db.execute("insert into provider_usage(month,provider,input_tokens,output_tokens,cost_usd) values(?,?,?,?,?)",
-                        (self.month_key(), provider, usage.input_tokens, usage.output_tokens, usage.cost_usd))
+    def reserve(self, provider: str, estimated_cost_usd: float) -> int:
+        if estimated_cost_usd < 0:
+            raise ValueError("estimated cost cannot be negative")
+        # BEGIN IMMEDIATE serializes competing workers so two requests cannot
+        # both spend the same remaining budget.
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            row = self.db.execute(
+                "select coalesce(sum(cost_usd),0) from provider_usage where month=?",
+                (self.month_key(),),
+            ).fetchone()
+            if float(row[0] or 0) + estimated_cost_usd > self.monthly_limit_usd:
+                raise BudgetExceeded("monthly model API budget reservation would exceed the limit")
+            cursor = self.db.execute(
+                "insert into provider_usage(month,provider,input_tokens,output_tokens,cost_usd) values(?,?,?,?,?)",
+                (self.month_key(), provider, 0, 0, estimated_cost_usd),
+            )
+            self.db.commit()
+            return int(cursor.lastrowid)
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def settle(self, reservation_id: int, usage: ProviderUsage) -> None:
+        self.db.execute(
+            "update provider_usage set input_tokens=?,output_tokens=?,cost_usd=? where rowid=?",
+            (usage.input_tokens, usage.output_tokens, usage.cost_usd, reservation_id),
+        )
         self.db.commit()
+
+    def record(self, provider: str, usage: ProviderUsage) -> None:
+        reservation = self.reserve(provider, usage.cost_usd)
+        self.settle(reservation, usage)
 
     def close(self) -> None:
         self.db.close()
@@ -145,14 +172,21 @@ class RoutedModelProvider(ModelProvider):
     def respond(self, prompt: str) -> ModelResponse:
         failures: list[str] = []
         for provider in self.providers:
+            estimated_input_tokens = max(1, (len(prompt) + 3) // 4)
+            estimated_cost = (
+                estimated_input_tokens * provider.config.input_usd_per_million
+                + provider.config.max_output_tokens * provider.config.output_usd_per_million
+            ) / 1_000_000
+            reservation = self.ledger.reserve(provider.config.name, estimated_cost)
             try:
                 text, usage = provider.generate(prompt)
-                self.ledger.record(provider.config.name, usage)
+                self.ledger.settle(reservation, usage)
                 self.last_provider = provider.config.name
                 return ModelResponse(content=text, confidence=0.85)
             except BudgetExceeded:
                 raise
             except ProviderUnavailable as exc:
+                self.ledger.settle(reservation, ProviderUsage(0, 0, 0.0))
                 failures.append(str(exc))
         raise ProviderUnavailable("; ".join(failures) or "no model provider available")
 
