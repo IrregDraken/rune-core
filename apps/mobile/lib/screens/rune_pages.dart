@@ -241,7 +241,7 @@ class _SecurityPageState extends State<SecurityPage> {
  Future<void> revokeDevice() async {
   final confirmed=await showDialog<bool>(context:context,builder:(context)=>AlertDialog(
    title:const Text('Revoke this device?'),
-   content:const Text('RUNE will stop accepting commands from this phone and delete its locally stored device credential. You will need to enroll it again.'),
+   content:const Text('RUNE will revoke this phone, cancel queued tasks and delete its locally stored device credential. An action already in progress may finish. You will need to enroll it again.'),
    actions:[
     TextButton(onPressed:()=>Navigator.pop(context,false),child:const Text('KEEP DEVICE')),
     FilledButton(onPressed:()=>Navigator.pop(context,true),child:const Text('REVOKE')),
