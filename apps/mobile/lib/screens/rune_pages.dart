@@ -496,8 +496,15 @@ class _SettingsPageState extends State<SettingsPage>{
      TextButton(onPressed:checking?null:()async{
       setState(()=>checking=true);
       try {
-       final ok=await RuneApi(baseUrl:url.text.trim(),sessionToken:token.text.trim()).health();
-       setState(()=>status=ok?'Core responded successfully.':'Core did not report online.');
+       final probe=RuneApi(baseUrl:url.text.trim(),sessionToken:token.text.trim());
+       final ok=await probe.health();
+       if(ok) {
+        await probe.state();
+        setState(()=>status='Core reachable and session accepted.');
+       } else {
+        setState(()=>status='Core did not report online.');
+       }
+       probe.close();
       } catch(e){setState(()=>status=e.toString());}
       setState(()=>checking=false);
      },child:const Text('TEST CONNECTION')),
