@@ -48,7 +48,7 @@ class _RuneShellState extends State<RuneShell>{
  @override void didUpdateWidget(covariant RuneShell old){super.didUpdateWidget(old);if(old.apiUrl!=widget.apiUrl){api.close();api=RuneApi(baseUrl:widget.apiUrl);}}
  @override void dispose(){api.close();super.dispose();}
  @override Widget build(BuildContext context){
-  final pages=[HomePage(owner:widget.owner,api:api,onNavigate:(i)=>setState(()=>index=i)),AssistantPage(api:api),WorkPage(api:api),ExplorePage(api:api)];
+  final pages=[HomePage(owner:widget.owner,api:api,apiUrl:widget.apiUrl,onApiChanged:widget.onApiChanged,onNavigate:(i)=>setState(()=>index=i)),AssistantPage(api:api),WorkPage(api:api),ExplorePage(api:api)];
   return Scaffold(body:SafeArea(child:IndexedStack(index:index,children:pages)),bottomNavigationBar:NavigationBar(height:70,backgroundColor:const Color(0xF20D120F),indicatorColor:RuneColors.emerald.withOpacity(.15),selectedIndex:index,onDestinationSelected:(v)=>setState(()=>index=v),destinations:const [NavigationDestination(icon:Icon(Icons.grid_view_rounded),selectedIcon:Icon(Icons.grid_view_rounded,color:RuneColors.brightEmerald),label:'Home'),NavigationDestination(icon:Icon(Icons.forum_outlined),selectedIcon:Icon(Icons.forum_rounded,color:RuneColors.brightEmerald),label:'Assistant'),NavigationDestination(icon:Icon(Icons.work_outline_rounded),selectedIcon:Icon(Icons.work_rounded,color:RuneColors.brightEmerald),label:'Work'),NavigationDestination(icon:Icon(Icons.hub_outlined),selectedIcon:Icon(Icons.hub_rounded,color:RuneColors.brightEmerald),label:'Explore')]));
  }
 }
