@@ -83,15 +83,16 @@ class _AssistantPageState extends State<AssistantPage>{
    final answer=response.isEmpty?'R.U.N.E. returned an empty response.':response;
    if(mounted)setState(()=>messages.add((user:false,text:answer)));
    if(speakResponse&&response.isNotEmpty) {
+    var interrupted=false;
     try {
      await widget.api.voiceSessionAction('speech_started');
      final audio=await widget.api.synthesizeSpeech(response);
-     await device.playAudio(audio);
+     interrupted=!(await device.playAudio(audio));
     } catch(e) {
      if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Voice output unavailable: $e')));
     } finally {
      try {await widget.api.voiceSessionAction('speech_finished');} catch (_) {}
-     scheduleVoiceInactivity();
+     if(!interrupted)scheduleVoiceInactivity();
     }
    }
   } catch(e) {
