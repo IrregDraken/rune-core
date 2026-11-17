@@ -73,6 +73,7 @@ class MainActivity : FlutterActivity() {
                                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                                 recorder.setAudioSamplingRate(16000)
                                 recorder.setAudioEncodingBitRate(64000)
+                                recorder.setMaxDuration(60000)
                                 recorder.setOutputFile(file.absolutePath)
                                 recorder.prepare()
                                 recorder.start()
@@ -142,6 +143,9 @@ class MainActivity : FlutterActivity() {
                                 player.setOnPreparedListener { it.start() }
                                 player.prepareAsync()
                             } catch (error: Exception) {
+                                pendingPlaybackResult = null
+                                playbackFile?.delete()
+                                playbackFile = null
                                 result.error("playback_failed", "Could not play RUNE audio", null)
                             }
                         }
