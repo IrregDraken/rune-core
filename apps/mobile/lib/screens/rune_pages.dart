@@ -214,7 +214,7 @@ class _AssistantPageState extends State<AssistantPage>{
  ]);
 }
 
-s StatefulWidget{const WorkPage({super.key,required this.api});final RuneApi api;@override State<WorkPage> createState()=>_WorkPageState();}
+class WorkPage extends StatefulWidget{const WorkPage({super.key,required this.api});final RuneApi api;@override State<WorkPage> createState()=>_WorkPageState();}
 class _WorkPageState extends State<WorkPage>{
  final goal=TextEditingController();final steps=TextEditingController();Map<String,dynamic>? state;List<dynamic> events=[];bool busy=false;String? note;
  @override void initState(){super.initState();load();}
