@@ -1,4 +1,4 @@
-name: rune_mobile
+name: rune
 description: R.U.N.E. personal intelligence companion.
 publish_to: 'none'
 version: 0.2.0+2
