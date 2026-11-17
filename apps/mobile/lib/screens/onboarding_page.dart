@@ -33,6 +33,38 @@ class _OnboardingPageState extends State<OnboardingPage> {
 }
 class _Mark extends StatelessWidget { const _Mark(); @override Widget build(BuildContext context)=>const SizedBox(width:28,height:28,child:CustomPaint(painter:_Glyph())); }
 class _WelcomeOrb extends StatelessWidget { const _WelcomeOrb(); @override Widget build(BuildContext context)=>Container(width:190,height:190,decoration:BoxDecoration(shape:BoxShape.circle,gradient:const RadialGradient(colors:[RuneColors.pine,RuneColors.obsidian]),border:Border.all(color:RuneColors.emerald.withOpacity(.35)),boxShadow:[BoxShadow(color:RuneColors.emerald.withOpacity(.10),blurRadius:55,spreadRadius:8)]),child:const Center(child:SizedBox(width:72,height:72,child:CustomPaint(painter:_Glyph())))); }
-class _Glyph extends CustomPainter { const _Glyph(); @override void paint(Canvas c,Size s){final p=Paint()..style=PaintingStyle.stroke..strokeWidth=s.width*.055..strokeCap=StrokeCap.round..strokeJoin=StrokeJoin.round..color=RuneColors.brightEmerald;final path=Path()..moveTo(s.width*.28125,s.height*.15625)..lineTo(s.width*.28125,s.height*.84375)..moveTo(s.width*.28125,s.height*.15625)..lineTo(s.width*.5625,s.height*.15625)..cubicTo(s.width*.671875,s.height*.15625,s.width*.75,s.height*.2421875,s.width*.75,s.height*.3515625)..cubicTo(s.width*.75,s.height*.4609375,s.width*.6640625,s.height*.546875,s.width*.5625,s.height*.546875)..lineTo(s.width*.28125,s.height*.546875)..moveTo(s.width*.4921875,s.height*.546875)..lineTo(s.width*.765625,s.height*.84375)..moveTo(s.width*.71875,s.height*.15625)..lineTo(s.width*.4375,s.height*.4375)..moveTo(s.width*.71875,s.height*.15625)..lineTo(s.width*.71875,s.height*.3671875)..cubicTo(s.width*.71875,s.height*.47265625,s.width*.6328125,s.height*.55859375,s.width*.52734375,s.height*.55859375)..lineTo(s.width*.484375,s.height*.55859375);c.drawPath(path,p);} @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false; }
+class _Glyph extends CustomPainter {
+ const _Glyph();
+ @override
+ void paint(Canvas canvas,Size size) {
+  final rect=Rect.fromLTWH(size.width*.17,size.height*.17,size.width*.66,size.height*.66);
+  final rounded=RRect.fromRectAndRadius(rect,Radius.circular(size.width*.19));
+  final glow=Paint()
+   ..style=PaintingStyle.stroke
+   ..strokeWidth=size.width*.07
+   ..color=RuneColors.emerald.withOpacity(.25)
+   ..maskFilter=const MaskFilter.blur(BlurStyle.normal,4);
+  final outline=Paint()
+   ..style=PaintingStyle.stroke
+   ..strokeWidth=size.width*.055
+   ..shader=const LinearGradient(
+    colors:[RuneColors.mint,RuneColors.brightEmerald,RuneColors.emerald],
+    begin:Alignment.topLeft,
+    end:Alignment.bottomRight,
+   ).createShader(rect);
+  canvas.drawRRect(rounded,glow);
+  canvas.drawRRect(rounded,outline);
+  canvas.save();
+  canvas.translate(size.width/2,size.height/2);
+  canvas.rotate(-.48);
+  canvas.drawOval(
+   Rect.fromCenter(center:Offset.zero,width:size.width*.98,height:size.height*.30),
+   Paint()..style=PaintingStyle.stroke..strokeWidth=size.width*.035..color=RuneColors.aurum,
+  );
+  canvas.restore();
+ }
+ @override
+ bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
+}
 class _Feature extends StatelessWidget { const _Feature(this.icon,this.text); final IconData icon;final String text; @override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.only(bottom:13),child:Row(children:[Icon(icon,size:17,color:RuneColors.brightEmerald),const SizedBox(width:12),Text(text,style:const TextStyle(fontSize:12))]));}
 class _Label extends StatelessWidget { const _Label(this.text);final String text;@override Widget build(BuildContext context)=>Text(text,style:const TextStyle(color:RuneColors.muted,fontSize:9,letterSpacing:1.5,fontWeight:FontWeight.w700));}
