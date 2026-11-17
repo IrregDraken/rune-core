@@ -128,8 +128,17 @@ async def revoke_device(device_id: UUID, owner: Owner = Depends(require_owner)):
     }, body={"status":"revoked","revoked_at":datetime.now(timezone.utc).isoformat()},
        prefer="return=representation")
     if not rows: raise HTTPException(404, "Device not found")
-    await _audit(owner.id, "device.revoked", "success", device_id=device_id)
-    return {"device_id":str(device_id),"status":"revoked"}
+    cancelled = await store.request("PATCH", "rune_tasks", params={
+        **owner_filter(owner.id),
+        "device_id": f"eq.{device_id}",
+        "status": "in.(awaiting_approval,queued,running)",
+        "select": "id",
+    }, body={"status": "cancelled", "finished_at": datetime.now(timezone.utc).isoformat()},
+       prefer="return=representation")
+    await _audit(owner.id, "device.revoked", "success", device_id=device_id,
+                 metadata={"tasks_cancelled": len(cancelled or [])})
+    return {"device_id":str(device_id),"status":"revoked",
+            "tasks_cancelled":len(cancelled or [])}
 
 @router.post("/devices/{device_id}/heartbeat")
 async def heartbeat(device_id: UUID, body: DeviceHeartbeat, x_rune_device_token: str = Header(default="")):
