@@ -565,27 +565,202 @@ class _PromptChip extends StatelessWidget {
  );
 }
 
-class WorkPage extends StatefulWidget{const WorkPage({super.key,required this.api});final RuneApi api;@override State<WorkPage> createState()=>_WorkPageState();}
-class _WorkPageState extends State<WorkPage>{
- final goal=TextEditingController();final steps=TextEditingController();Map<String,dynamic>? state;List<dynamic> events=[];bool busy=false;String? note;
- @override void initState(){super.initState();load();}
- @override void dispose(){goal.dispose();steps.dispose();super.dispose();}
- Future<void> load()async{try{final s=await widget.api.state();final e=await widget.api.activity();if(mounted)setState(() { state=s; events=e; });}catch(e){if(mounted)setState(()=>note=e.toString());}}
- Future<void> create()async{if(goal.text.trim().isEmpty)return;setState(()=>busy=true);try{await widget.api.setGoal(goal.text.trim());final list=steps.text.split('\n').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList();if(list.isNotEmpty)await widget.api.createPlan(goal.text.trim(),list);goal.clear();steps.clear();setState(()=>note='Goal submitted to the core.');await load();}catch(e){setState(()=>note=e.toString());}if(mounted)setState(()=>busy=false);}
- @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Work',eyebrow:'PLANS · TASKS · EXECUTION'),const SizedBox(height:20),_Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Set an objective',style:TextStyle(fontSize:15,fontWeight:FontWeight.w700)),const SizedBox(height:6),const Text('Create a goal in the R.U.N.E. core. Add optional plan steps, one per line.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.5)),const SizedBox(height:14),TextField(controller:goal,decoration:const InputDecoration(hintText:'What outcome do you want?')),const SizedBox(height:9),TextField(controller:steps,minLines:2,maxLines:5,decoration:const InputDecoration(hintText:'Plan steps (optional, one per line)')),const SizedBox(height:12),Align(alignment:Alignment.centerRight,child:FilledButton(onPressed:busy?null:create,child:Text(busy?'SENDING...':'CREATE PLAN')))])),
- if(note!=null)...[const SizedBox(height:10),_Notice(text:note!)],
- const SizedBox(height:24),const _SectionTitle('ACTIVE GOAL'),const SizedBox(height:10),_Panel(child:Text(state?['current_goal']?.toString()??'No active goal has been set.',style:const TextStyle(fontSize:13,height:1.5))),
- const SizedBox(height:24),const _SectionTitle('RECENT ACTIVITY'),const SizedBox(height:10),if(events.isEmpty)_Panel(child:const Text('No activity events returned by the core.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...events.take(12).map((e)=>_ActivityTile(event:e as Map<String,dynamic>))
- ]);
+class WorkPage extends StatefulWidget {
+ const WorkPage({super.key, required this.api});
+ final RuneApi api;
+ @override State<WorkPage> createState() => _WorkPageState();
 }
 
-class ExplorePage extends StatefulWidget{const ExplorePage({super.key,required this.api});final RuneApi api;@override State<ExplorePage> createState()=>_ExplorePageState();}
-class _ExplorePageState extends State<ExplorePage>{
- List<dynamic> tools=[];bool loading=true;String? error;
- @override void initState(){super.initState();load();}
- Future<void> load()async{try{final t=await widget.api.tools();if(mounted)setState(() { tools=t; loading=false; error=null; });}catch(e){if(mounted)setState(() { loading=false; error=e.toString(); });}}
- @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Explore',eyebrow:'CAPABILITIES · INTEGRATIONS'),const SizedBox(height:9),const Text('Discover what your connected runtime exposes. External int
-egrations appear only when they are actually configured.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),const SizedBox(height:22),const _SectionTitle('CORE CAPABILITIES'),const SizedBox(height:10),if(loading)const Center(child:CircularProgressIndicator())else if(error!=null)_Notice(text:error!,warning:true)else if(tools.isEmpty)_Panel(child:const Text('The core has not exposed any tools yet.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...tools.map((item){final t=item as Map<String,dynamic>;return _ToolTile(tool:t);}),const SizedBox(height:24),const _SectionTitle('INTEGRATION CHANNELS'),const SizedBox(height:10),const _Panel(child:Column(children:[_IntegrationRow('Google Workspace','Not connected',Icons.mail_outline),_IntegrationRow('WhatsApp','Not connected',Icons.chat_bubble_outline),_IntegrationRow('Discord','Not connected',Icons.forum_outlined),_IntegrationRow('GitHub','Not connected',Icons.code),_IntegrationRow('Notion','Not connected',Icons.article_outlined)])),const SizedBox(height:8),const Text('Connectors are shown as unavailable until credentials and permission scopes are configured in the core.',style:TextStyle(color:RuneColors.muted,fontSize:10,height:1.5))]);
+class _WorkPageState extends State<WorkPage> {
+ final goal = TextEditingController();
+ final steps = TextEditingController();
+ Map<String, dynamic>? state;
+ List<dynamic> events = [];
+ bool busy = false, loading = true;
+ String? note;
+ @override void initState() { super.initState(); load(); }
+ @override void dispose() { goal.dispose(); steps.dispose(); super.dispose(); }
+ Future<void> load() async {
+  try {
+   final s = await widget.api.state();
+   final e = await widget.api.activity();
+   if (mounted) setState(() { state = s; events = e; loading = false; note = null; });
+  } catch (e) {
+   if (mounted) setState(() { loading = false; note = e.toString(); });
+  }
+ }
+ Future<void> create() async {
+  if (goal.text.trim().isEmpty || busy) return;
+  setState(() => busy = true);
+  try {
+   await widget.api.setGoal(goal.text.trim());
+   final list = steps.text.split('\\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+   if (list.isNotEmpty) await widget.api.createPlan(goal.text.trim(), list);
+   goal.clear(); steps.clear();
+   if (mounted) setState(() => note = 'Objective submitted to the core.');
+   await load();
+  } catch (e) {
+   if (mounted) setState(() => note = e.toString());
+  }
+  if (mounted) setState(() => busy = false);
+ }
+ @override Widget build(BuildContext context) {
+  final activeGoal = state?['current_goal']?.toString() ?? 'No active objective yet';
+  return ListView(
+   physics: const BouncingScrollPhysics(),
+   padding: const EdgeInsets.fromLTRB(20, 20, 20, 34),
+   children: [
+    const _PageHeader(title: 'Work', eyebrow: 'THINK · PLAN · EXECUTE'),
+    const SizedBox(height: 7),
+    const Text('Turn intent into a sequence of deliberate actions.', style: TextStyle(color: RuneColors.muted, fontSize: 11, height: 1.55)),
+    const SizedBox(height: 20),
+    Container(
+     padding: const EdgeInsets.all(18),
+     decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(23),
+      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF153B29), Color(0xFF101813)]),
+      border: Border.all(color: RuneColors.emerald.withOpacity(.22)),
+     ),
+     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+       const Icon(Icons.flag_outlined, color: RuneColors.mint, size: 17),
+       const SizedBox(width: 8),
+       const Text('ACTIVE OBJECTIVE', style: TextStyle(fontSize: 8, color: RuneColors.mint, letterSpacing: 1.5, fontWeight: FontWeight.w700)),
+       const Spacer(),
+       Icon(loading ? Icons.sync_rounded : Icons.circle, size: 8, color: loading ? RuneColors.muted : RuneColors.brightEmerald),
+      ]),
+      const SizedBox(height: 13),
+      Text(activeGoal, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, height: 1.35)),
+      const SizedBox(height: 8),
+      const Text('The outcome currently held by your R.U.N.E. core.', style: TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.5)),
+     ]),
+    ),
+    const SizedBox(height: 24),
+    const _SectionTitle('CREATE AN OBJECTIVE'),
+    const SizedBox(height: 10),
+    _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+     const Text('What needs to happen?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+     const SizedBox(height: 6),
+     const Text('Define the outcome first. Add steps only when you already know the sequence.', style: TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.5)),
+     const SizedBox(height: 14),
+     TextField(controller: goal, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(prefixIcon: Icon(Icons.flag_outlined), hintText: 'Describe the result you want')),
+     const SizedBox(height: 10),
+     TextField(controller: steps, minLines: 2, maxLines: 5, decoration: const InputDecoration(prefixIcon: Icon(Icons.format_list_numbered_rounded), hintText: 'Optional steps, one per line')),
+     const SizedBox(height: 14),
+     SizedBox(width: double.infinity, child: FilledButton.icon(
+      onPressed: busy ? null : create,
+      icon: busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: RuneColors.obsidian)) : const Icon(Icons.add_rounded),
+      label: Text(busy ? 'SENDING TO CORE…' : 'CREATE OBJECTIVE'),
+     )),
+    ])),
+    if (note != null) ...[const SizedBox(height: 8), _Notice(text: note!, warning: note!.contains('Exception') || note!.contains('Socket'))],
+    const SizedBox(height: 24),
+    Row(children: [
+     const _SectionTitle('RECENT ACTIVITY'),
+     const Spacer(),
+     TextButton.icon(onPressed: load, icon: const Icon(Icons.refresh_rounded, size: 13), label: const Text('REFRESH', style: TextStyle(fontSize: 9))),
+    ]),
+    const SizedBox(height: 7),
+    if (loading)
+     const _Panel(child: Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))))
+    else if (events.isEmpty)
+     _Panel(child: Column(children: [
+      const Icon(Icons.hourglass_empty_rounded, size: 24, color: RuneColors.muted),
+      const SizedBox(height: 9),
+      const Text('No activity to show yet', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      const Text('When the core records work, it will appear here.', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: RuneColors.muted)),
+     ]))
+    else ...events.take(15).map((e) => _ActivityTile(event: e as Map<String, dynamic>)),
+   ],
+  );
+ }
+}
+
+class ExplorePage extends StatefulWidget {
+ const ExplorePage({super.key, required this.api});
+ final RuneApi api;
+ @override State<ExplorePage> createState() => _ExplorePageState();
+}
+
+class _ExplorePageState extends State<ExplorePage> {
+ List<dynamic> tools = [];
+ bool loading = true;
+ String? error;
+ @override void initState() { super.initState(); load(); }
+ Future<void> load() async {
+  try {
+   final t = await widget.api.tools();
+   if (mounted) setState(() { tools = t; loading = false; error = null; });
+  } catch (e) {
+   if (mounted) setState(() { loading = false; error = e.toString(); });
+  }
+ }
+ @override Widget build(BuildContext context) => RefreshIndicator(
+  onRefresh: load,
+  color: RuneColors.brightEmerald,
+  backgroundColor: RuneColors.carbon,
+  child: ListView(
+   physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+   padding: const EdgeInsets.fromLTRB(20, 20, 20, 34),
+   children: [
+    const _PageHeader(title: 'Explore', eyebrow: 'CAPABILITIES · CONNECTIONS'),
+    const SizedBox(height: 7),
+    const Text('A live view of what your connected R.U.N.E. runtime makes available.', style: TextStyle(color: RuneColors.muted, fontSize: 11, height: 1.55)),
+    const SizedBox(height: 20),
+    Container(
+     padding: const EdgeInsets.all(17),
+     decoration: BoxDecoration(
+      color: RuneColors.carbon,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: RuneColors.border),
+     ),
+     child: Row(children: [
+      Container(width: 42, height: 42, decoration: BoxDecoration(color: RuneColors.pine, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.hub_rounded, color: RuneColors.mint)),
+      const SizedBox(width: 13),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+       const Text('Your capability network', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+       const SizedBox(height: 3),
+       Text(loading ? 'Reading the core…' : error != null ? 'Core unavailable' : 'undefined capabilities reported by the core', style: const TextStyle(fontSize: 9, color: RuneColors.muted)),
+      ])),
+      IconButton(onPressed: loading ? null : load, icon: const Icon(Icons.refresh_rounded, color: RuneColors.mint)),
+     ]),
+    ),
+    const SizedBox(height: 23),
+    const _SectionTitle('AVAILABLE CAPABILITIES'),
+    const SizedBox(height: 10),
+    if (loading)
+     const Center(child: Padding(padding: EdgeInsets.all(25), child: CircularProgressIndicator(strokeWidth: 2)))
+    else if (error != null)
+     _Notice(text: error!, warning: true)
+    else if (tools.isEmpty)
+     _Panel(child: Column(children: [
+      const Icon(Icons.extension_off_outlined, size: 24, color: RuneColors.muted),
+      const SizedBox(height: 9),
+      const Text('No capabilities exposed yet', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      const Text('The core has not reported any tools. Connected capabilities will appear here when available.', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.5)),
+     ]))
+    else ...tools.map((item) => _ToolTile(tool: item as Map<String, dynamic>)),
+    const SizedBox(height: 23),
+    const _SectionTitle('INTEGRATION CHANNELS'),
+    const SizedBox(height: 10),
+    _Panel(child: Column(children: [
+     const _IntegrationRow('Google Workspace', 'Not connected', Icons.mail_outline),
+     const Divider(height: 1, color: RuneColors.border),
+     const _IntegrationRow('WhatsApp', 'Not connected', Icons.chat_bubble_outline),
+     const Divider(height: 1, color: RuneColors.border),
+     const _IntegrationRow('Discord', 'Not connected', Icons.forum_outlined),
+     const Divider(height: 1, color: RuneColors.border),
+     const _IntegrationRow('GitHub', 'Not connected', Icons.code_rounded),
+     const Divider(height: 1, color: RuneColors.border),
+     const _IntegrationRow('Notion', 'Not connected', Icons.article_outlined),
+    ])),
+    const SizedBox(height: 9),
+    const Text('Unavailable integrations are shown honestly. They will become active only after credentials and permission scopes are configured in the core.', style: TextStyle(color: RuneColors.muted, fontSize: 9, height: 1.55)),
+   ],
+  ),
+ );
 }
 
 class MemoryPage extends StatefulWidget {
