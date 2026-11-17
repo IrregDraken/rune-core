@@ -62,11 +62,18 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             self.headers.get("X-RUNE-Session")
         )
 
+    @staticmethod
+    def _auth_required() -> bool:
+        return os.environ.get("RUNE_API_AUTH_REQUIRED", "false").strip().lower() in {"1", "true", "yes"}
+
     def do_GET(self) -> None:
         if self.runtime is None:
             self._send(503, {"error": "RUNE runtime unavailable"})
             return
         path = urlparse(self.path).path
+        if path != "/api/health" and self._auth_required() and not self._authorized():
+            self._send(403, {"error": "privileged session required"})
+            return
         if path == "/api/health":
             self._send(200, {"status": "online"})
         elif path == "/api/state":
@@ -128,6 +135,9 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
+            return
+        if self._auth_required() and not self._authorized():
+            self._send(403, {"error": "privileged session required"})
             return
 
         try:
