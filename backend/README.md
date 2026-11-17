@@ -11,12 +11,12 @@ pytest backend/tests
 ```
 
 ## Configuration
-Set `RUNE_SUPABASE_URL`, `RUNE_SUPABASE_PUBLISHABLE_KEY` and `RUNE_SUPABASE_SECRET_KEY` in the backend environment. The secret key is server-only and must never be copied into clients or source control. Supabase Auth validates owner access tokens through `/auth/v1/user`. The service key is used only by this backend for locked-down RUNE tables.
+Set `RUNE_SUPABASE_URL`, `RUNE_SUPABASE_PUBLISHABLE_KEY` and `RUNE_SUPABASE_SECRET_KEY` in the backend environment. The secret key is server-only and must never be copied into clients or source control. Supabase Auth validates owner access tokens through `/auth/v1/user`. The service key is used only by this backend for locked-down RUNE tables. Set `RUNE_BACKEND_ENV=production` in the hosted environment to disable development API docs. Railway's `/ready` probe checks that Supabase Auth and the RUNE device schema are reachable.
 
 Apply the ordered migrations in `backend/migrations/` to the dedicated RUNE Supabase project. The current sequence creates the device/task/audit schema, denies direct client table access, hardens the public DDL event trigger, and installs atomic device-task claiming.
 
 ## API
-- `GET /health`, `GET /ready`, `GET /v1/me`
+- `GET /health` is a liveness check; `GET /ready` verifies Supabase Auth and the RUNE database schema; `GET /v1/me` validates the owner session
 - `POST /v1/devices/register` returns a device token once
 - `GET /v1/devices`, `DELETE /v1/devices/{device_id}`
 - `POST /v1/devices/{device_id}/heartbeat`
