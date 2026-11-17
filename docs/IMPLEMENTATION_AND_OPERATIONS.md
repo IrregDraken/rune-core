@@ -17,7 +17,7 @@ The default mode remains `RUNE_MODEL_MODE=development`, which uses the determini
 
 Provider model IDs and rates are intentionally blank in `.env.example`. Obtain the exact current model identifier and input/output USD-per-million rates from the provider's official documentation before configuring them. Do not infer rates from old notes or model names.
 
-The SQLite usage ledger estimates request cost from UTF-8 prompt bytes and configured maximum output tokens, then reserves that estimate transactionally before paid inference. Successful responses settle the reservation to provider-reported token usage. If a request may have reached the provider but its billing outcome is uncertain, the reservation is retained rather than released. Token estimation is still not an absolute guarantee against provider billing differences. This is a local budget guard, not a provider-side spending cap. Keep provider-side spending limits enabled as a second control.
+The SQLite usage ledger estimates request cost from UTF-8 prompt bytes and configured maximum output tokens, then reserves that estimate transactionally before paid inference. Successful responses record the greater of the reservation and provider-reported cost. If a request may have reached the provider but its billing outcome is uncertain, the reservation is retained rather than released. Token estimation is still not an absolute guarantee against provider billing differences. This is a local budget guard, not a provider-side spending cap. Keep provider-side spending limits enabled as a second control.
 
 ## Remote control plane configuration
 
