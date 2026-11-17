@@ -17,17 +17,24 @@ class _RuneAppState extends State<RuneApp> {
   final secureStorage=const FlutterSecureStorage();
   @override void initState(){super.initState();_load();}
   Future<void> _load() async {
-    final p=await SharedPreferences.getInstance();
-    owner=p.getString('rune.owner')??'Owner';
-    apiUrl=p.getString('rune.api')??apiUrl;
-    onboarded=p.getBool('rune.onboarded')??false;
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      owner = preferences.getString('rune.owner') ?? 'Owner';
+      apiUrl = preferences.getString('rune.api') ?? apiUrl;
+      onboarded = preferences.getBool('rune.onboarded') ?? false;
+    } catch (_) {
+      // Keep first-run defaults if local preferences are temporarily unavailable.
+    }
+    if (mounted) setState(() => ready = true);
+
+    // Secure storage is intentionally non-blocking: an unavailable platform
+    // keystore must not leave the entire app stuck on its loading screen.
     try {
       sessionToken = await secureStorage.read(key: 'rune.local_core_session') ?? '';
+      if (mounted) setState(() {});
     } catch (_) {
-      // Secure storage may be unavailable in widget tests or unsupported desktop previews.
       sessionToken = '';
     }
-    if(mounted)setState(()=>ready=true);
   }
   Future<void> _complete(String name,String url) async {
     final p=await SharedPreferences.getInstance();
