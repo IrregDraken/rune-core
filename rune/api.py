@@ -68,6 +68,14 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
     def _auth_required() -> bool:
         return os.environ.get("RUNE_API_AUTH_REQUIRED", "false").strip().lower() in {"1", "true", "yes"}
 
+    @staticmethod
+    def _requires_session(path: str) -> bool:
+        return path in {
+            "/api/memory", "/api/goal", "/api/plan", "/api/plan/verify",
+            "/api/remote/propose", "/api/remote/submit", "/api/remote/approve",
+            "/api/voice/synthesize", "/api/voice/transcribe", "/api/voice/session",
+        }
+
     def do_GET(self) -> None:
         if self.runtime is None:
             self._send(503, {"error": "RUNE runtime unavailable"})
@@ -138,12 +146,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
             return
-        privileged_paths = {
-            "/api/memory", "/api/goal", "/api/plan", "/api/plan/verify",
-            "/api/remote/propose", "/api/remote/submit", "/api/remote/approve",
-            "/api/voice/synthesize", "/api/voice/transcribe", "/api/voice/session",
-        }
-        if (self._auth_required() or request_path in privileged_paths) and not self._authorized():
+        if (self._auth_required() or self._requires_session(request_path)) and not self._authorized():
             self._send(403, {"error": "privileged session required"})
             return
 
