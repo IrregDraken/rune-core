@@ -145,6 +145,7 @@ async def create_task(body: TaskCreate, owner: Owner = Depends(require_owner)):
         "owner_id":str(owner.id),"device_id":str(body.device_id),"capability":body.capability,
         "arguments":body.arguments,"status":"awaiting_approval",
         "requires_approval":True,"created_at":now.isoformat(),
+        "execution_ttl_seconds":body.expires_in_seconds,
         # Approval can take time; execution expiry begins only after approval.
         "expires_at":(now+timedelta(hours=24)).isoformat(),
     },prefer="return=representation")
@@ -177,17 +178,36 @@ async def task_status(task_id: UUID, owner: Owner = Depends(require_owner)):
 
 @router.post("/tasks/{task_id}/approve")
 async def approve_task(task_id: UUID, owner: Owner = Depends(require_owner)):
-    now=datetime.now(timezone.utc).isoformat()
-    rows=await store.request("PATCH","rune_tasks",params={
-        **owner_filter(owner.id),"id":f"eq.{task_id}","status":"eq.awaiting_approval",
-        "expires_at":f"gt.{now}","select":"*",
-    },body={"status":"queued","approval_at":now,
-            "expires_at":(datetime.now(timezone.utc)+timedelta(seconds=60)).isoformat()},
-       prefer="return=representation")
-    if not rows: raise HTTPException(409,"Task unavailable, expired or already decided")
-    task=rows[0]
-    await _audit(owner.id,"task.approved","success",device_id=UUID(task["device_id"]),task_id=task_id)
-    return {"task":task}
+    now = datetime.now(timezone.utc)
+    pending = await store.request("GET", "rune_tasks", params={
+        **owner_filter(owner.id),
+        "id": f"eq.{task_id}",
+        "status": "eq.awaiting_approval",
+        "expires_at": f"gt.{now.isoformat()}",
+        "select": "id,device_id,execution_ttl_seconds",
+        "limit": "1",
+    })
+    if not pending:
+        raise HTTPException(409, "Task unavailable, expired or already decided")
+    task = pending[0]
+    execution_expiry = now + timedelta(seconds=int(task["execution_ttl_seconds"]))
+    rows = await store.request("PATCH", "rune_tasks", params={
+        **owner_filter(owner.id),
+        "id": f"eq.{task_id}",
+        "status": "eq.awaiting_approval",
+        "expires_at": f"gt.{now.isoformat()}",
+        "select": "*",
+    }, body={
+        "status": "queued",
+        "approval_at": now.isoformat(),
+        "expires_at": execution_expiry.isoformat(),
+    }, prefer="return=representation")
+    if not rows:
+        raise HTTPException(409, "Task was already decided")
+    approved = rows[0]
+    await _audit(owner.id, "task.approved", "success",
+                 device_id=UUID(approved["device_id"]), task_id=task_id)
+    return {"task": approved}
 
 @router.get("/devices/{device_id}/tasks/next")
 async def next_task(device_id: UUID, x_rune_device_token: str = Header(default="")):
