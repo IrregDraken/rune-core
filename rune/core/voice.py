@@ -3,6 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 import os
+import sqlite3
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 
@@ -86,6 +90,71 @@ class VoiceProviderUnavailable(RuntimeError):
     pass
 
 
+
+
+class VoiceBudgetExceeded(RuntimeError):
+    pass
+
+
+class VoiceUsageLedger:
+    """Conservative monthly character budget for billable TTS requests."""
+
+    def __init__(
+        self,
+        path: str = "data/rune-voice-usage.db",
+        monthly_limit: int = 10000,
+    ) -> None:
+        if monthly_limit < 1:
+            raise ValueError("voice monthly character limit must be positive")
+        self.monthly_limit = monthly_limit
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.db = sqlite3.connect(path, timeout=30.0, check_same_thread=False)
+        self.lock = threading.RLock()
+        self.db.execute(
+            "create table if not exists voice_usage (month text primary key, characters integer not null)"
+        )
+        self.db.commit()
+
+    @staticmethod
+    def month_key() -> str:
+        return datetime.now(timezone.utc).strftime("%Y-%m")
+
+    def reserve(self, characters: int) -> None:
+        if characters < 1:
+            raise ValueError("character reservation must be positive")
+        with self.lock:
+            self.db.execute("BEGIN IMMEDIATE")
+            try:
+                row = self.db.execute(
+                    "select characters from voice_usage where month=?",
+                    (self.month_key(),),
+                ).fetchone()
+                spent = int(row[0]) if row else 0
+                if spent + characters > self.monthly_limit:
+                    raise VoiceBudgetExceeded("monthly ElevenLabs character budget reached")
+                self.db.execute(
+                    "insert into voice_usage(month,characters) values(?,?) "
+                    "on conflict(month) do update set characters=excluded.characters",
+                    (self.month_key(), spent + characters),
+                )
+                self.db.commit()
+            except Exception:
+                self.db.rollback()
+                raise
+
+    def spent(self) -> int:
+        with self.lock:
+            row = self.db.execute(
+                "select characters from voice_usage where month=?",
+                (self.month_key(),),
+            ).fetchone()
+            return int(row[0]) if row else 0
+
+    def close(self) -> None:
+        with self.lock:
+            self.db.close()
+
+
 class OpenAISpeechToTextProvider:
     """OpenAI file transcription adapter for completed speech utterances."""
 
@@ -156,6 +225,7 @@ class ElevenLabsTextToSpeechProvider:
         output_format: str = "mp3_44100_128",
         timeout: float = 30.0,
         transport: httpx.BaseTransport | None = None,
+        usage_ledger: VoiceUsageLedger | None = None,
     ) -> None:
         self.api_key_env = api_key_env
         self.voice_id_env = voice_id_env
@@ -163,6 +233,11 @@ class ElevenLabsTextToSpeechProvider:
         self.output_format = output_format
         self.timeout = timeout
         self.transport = transport
+        monthly_limit = int(os.getenv("RUNE_ELEVENLABS_MONTHLY_CHAR_LIMIT", "10000"))
+        self.usage_ledger = usage_ledger or VoiceUsageLedger(
+            os.getenv("RUNE_VOICE_USAGE_DB", "data/rune-voice-usage.db"),
+            monthly_limit=monthly_limit,
+        )
 
     def synthesize(self, speech: Speech) -> bytes:
         text = speech.text.strip()
@@ -177,6 +252,7 @@ class ElevenLabsTextToSpeechProvider:
             raise VoiceProviderUnavailable("ElevenLabs API key is not configured")
         if not voice_id:
             raise VoiceProviderUnavailable("RUNE ElevenLabs voice ID is not configured")
+        self.usage_ledger.reserve(len(text))
         try:
             with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
                 response = client.post(
