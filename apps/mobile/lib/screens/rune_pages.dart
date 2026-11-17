@@ -9,9 +9,9 @@ class HomePage extends StatefulWidget {
  @override State<HomePage> createState()=>_HomePageState();
 }
 class _HomePageState extends State<HomePage>{
- Map<String,dynamic>? state;bool online=false,loading=true;String? error;
+ Map<String,dynamic>? state;bool online=false;String? error;
  @override void initState(){super.initState();refresh();}
- Future<void> refresh()async{try{final result=await widget.api.state();if(mounted)setState(()=>{state=result,online=true,loading=false,error=null});}catch(e){if(mounted)setState(()=>{online=false,loading=false,error=e.toString()});}}
+ Future<void> refresh()async{try{final result=await widget.api.state();if(mounted)setState(()=>{state=result,online=true,error=null});}catch(e){if(mounted)setState(()=>{online=false,error=e.toString()});}}
  @override Widget build(BuildContext context){
   final hour=DateTime.now().hour;final greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   return RefreshIndicator(onRefresh:refresh,color:RuneColors.brightEmerald,child:ListView(padding:const EdgeInsets.fromLTRB(21,18,21,30),children:[
