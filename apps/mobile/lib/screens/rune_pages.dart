@@ -17,7 +17,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>{
  Map<String,dynamic>? state;bool online=false;String? error;
  @override void initState(){super.initState();refresh();}
- Future<void> refresh()async{try{final result=await widget.api.state();if(mounted)setState(()=>{state=result,online=true,error=null});}catch(e){if(mounted)setState(()=>{online=false,error=e.toString()});}}
+ Future<void> refresh()async{try{final result=await widget.api.state();if(mounted)setState(() { state=result; online=true; error=null; });}catch(e){if(mounted)setState(() { online=false; error=e.toString(); });}}
  @override Widget build(BuildContext context){
   final hour=DateTime.now().hour;final greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   return RefreshIndicator(onRefresh:refresh,color:RuneColors.brightEmerald,child:ListView(padding:const EdgeInsets.fromLTRB(21,18,21,30),children:[
@@ -240,7 +240,7 @@ class _WorkPageState extends State<WorkPage>{
  final goal=TextEditingController();final steps=TextEditingController();Map<String,dynamic>? state;List<dynamic> events=[];bool busy=false;String? note;
  @override void initState(){super.initState();load();}
  @override void dispose(){goal.dispose();steps.dispose();super.dispose();}
- Future<void> load()async{try{final s=await widget.api.state();final e=await widget.api.activity();if(mounted)setState(()=>{state=s,events=e});}catch(e){if(mounted)setState(()=>note=e.toString());}}
+ Future<void> load()async{try{final s=await widget.api.state();final e=await widget.api.activity();if(mounted)setState(() { state=s; events=e; });}catch(e){if(mounted)setState(()=>note=e.toString());}}
  Future<void> create()async{if(goal.text.trim().isEmpty)return;setState(()=>busy=true);try{await widget.api.setGoal(goal.text.trim());final list=steps.text.split('\n').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList();if(list.isNotEmpty)await widget.api.createPlan(goal.text.trim(),list);goal.clear();steps.clear();setState(()=>note='Goal submitted to the core.');await load();}catch(e){setState(()=>note=e.toString());}if(mounted)setState(()=>busy=false);}
  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Work',eyebrow:'PLANS · TASKS · EXECUTION'),const SizedBox(height:20),_Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Set an objective',style:TextStyle(fontSize:15,fontWeight:FontWeight.w700)),const SizedBox(height:6),const Text('Create a goal in the R.U.N.E. core. Add optional plan steps, one per line.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.5)),const SizedBox(height:14),TextField(controller:goal,decoration:const InputDecoration(hintText:'What outcome do you want?')),const SizedBox(height:9),TextField(controller:steps,minLines:2,maxLines:5,decoration:const InputDecoration(hintText:'Plan steps (optional, one per line)')),const SizedBox(height:12),Align(alignment:Alignment.centerRight,child:FilledButton(onPressed:busy?null:create,child:Text(busy?'SENDING...':'CREATE PLAN')))])),
  if(note!=null)...[const SizedBox(height:10),_Notice(text:note!)],
@@ -253,7 +253,7 @@ class ExplorePage extends StatefulWidget{const ExplorePage({super.key,required t
 class _ExplorePageState extends State<ExplorePage>{
  List<dynamic> tools=[];bool loading=true;String? error;
  @override void initState(){super.initState();load();}
- Future<void> load()async{try{final t=await widget.api.tools();if(mounted)setState(()=>{tools=t,loading=false,error=null});}catch(e){if(mounted)setState(()=>{loading=false,error=e.toString()});}}
+ Future<void> load()async{try{final t=await widget.api.tools();if(mounted)setState(() { tools=t; loading=false; error=null; });}catch(e){if(mounted)setState(() { loading=false; error=e.toString(); });}}
  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Explore',eyebrow:'CAPABILITIES · INTEGRATIONS'),const SizedBox(height:9),const Text('Discover what your connected runtime exposes. External integrations appear only when they are actually configured.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),const SizedBox(height:22),const _SectionTitle('CORE CAPABILITIES'),const SizedBox(height:10),if(loading)const Center(child:CircularProgressIndicator())else if(error!=null)_Notice(text:error!,warning:true)else if(tools.isEmpty)_Panel(child:const Text('The core has not exposed any tools yet.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...tools.map((item){final t=item as Map<String,dynamic>;return _ToolTile(tool:t);}),const SizedBox(height:24),const _SectionTitle('INTEGRATION CHANNELS'),const SizedBox(height:10),const _Panel(child:Column(children:[_IntegrationRow('Google Workspace','Not connected',Icons.mail_outline),_IntegrationRow('WhatsApp','Not connected',Icons.chat_bubble_outline),_IntegrationRow('Discord','Not connected',Icons.forum_outlined),_IntegrationRow('GitHub','Not connected',Icons.code),_IntegrationRow('Notion','Not connected',Icons.article_outlined)])),const SizedBox(height:8),const Text('Connectors are shown as unavailable until credentials and permission scopes are configured in the core.',style:TextStyle(color:RuneColors.muted,fontSize:10,height:1.5))]);
 }
 
@@ -288,9 +288,9 @@ class _SecurityPageState extends State<SecurityPage> {
   try {
    final c=await agent.capabilities();
    final a=await agent.installedApps();
-   if(mounted)setState(()=>{capabilities=c,apps=a,loading=false,error=null});
+   if(mounted)setState(() { capabilities=c; apps=a; loading=false; error=null; });
   } catch(e) {
-   if(mounted)setState(()=>{loading=false,error:'Native Android agent unavailable: $e'});
+   if(mounted)setState(() { loading=false; error='Native Android agent unavailable: $e'; });
   }
  }
  Future<void> refreshPending() async {
@@ -319,7 +319,7 @@ class _SecurityPageState extends State<SecurityPage> {
    await agent.stopBackgroundOperator();
    runner?.stop();
    await api.revokeThisDevice();
-   if(mounted)setState(()=>{status='Device revoked',remote=null,runner=null,pending=[]});
+   if(mounted)setState(() { status='Device revoked'; remote=null; runner=null; pending=[]; });
   } catch(e){if(mounted)setState(()=>error=e.toString());}
   if(mounted)setState(()=>busy=false);
  }
@@ -385,10 +385,11 @@ class _SecurityPageState extends State<SecurityPage> {
    );
    RuneTaskRunner? taskRunner;
    if(!started)taskRunner=RuneTaskRunner(remote:remoteApi,device:agent)..start();
-   if(mounted)setState(()=>{
-    remote=remoteApi,runner=taskRunner,
-    status:'Enrolled: ${device?['device_name']??'Android device'} · ${started?'background operator requested':'foreground-only operator started'}',
-    error:null
+   if(mounted)setState(() {
+    remote=remoteApi;
+    runner=taskRunner;
+    status='Enrolled: ${device?['device_name']??'Android device'} · ${started?'background operator requested':'foreground-only operator started'}';
+    error=null;
    });
    await refreshPending();
   } catch(e) {
@@ -534,10 +535,10 @@ class _SettingsPageState extends State<SettingsPage>{
    const SizedBox(height:20),const _SectionTitle('ABOUT THIS BUILD'),
    const SizedBox(height:10),
    const _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    _InfoRow('App','R.U.N.E. Mobile','0.2.0'),
-    _InfoRow('Platform','Flutter','Android · iOS'),
-    _InfoRow('Typography','Manrope + system mono','Brand system'),
-    _InfoRow('Session token','Encrypted local storage','Privileged local API')
+    _InfoRow('App','R.U.N.E. Mobile',RuneColors.muted),
+    _InfoRow('Platform','Flutter',RuneColors.muted),
+    _InfoRow('Typography','Manrope + system mono',RuneColors.muted),
+    _InfoRow('Session token','Encrypted local storage',RuneColors.muted)
    ]))
   ])
  );
