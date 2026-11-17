@@ -328,6 +328,13 @@ class RuneRemoteApi {
         body: {},
       );
 
+  Future<Map<String, dynamic>> cancelTask(String taskId) async => _send(
+        'POST',
+        '$_backend/v1/tasks/$taskId/cancel',
+        headers: await _ownerHeaders(),
+        body: {},
+      );
+
   Future<void> signOut() async {
     await _storage.delete(key: 'rune.owner_access_token');
     await _storage.delete(key: 'rune.owner_refresh_token');
