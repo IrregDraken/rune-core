@@ -58,13 +58,24 @@ RUNE can run locally while still using the internet for fresh information. The l
 6. Unknown capability is never treated as completed capability.
 7. Feasibility and constraints are evaluated before execution.
 
+## Remote device and intelligence layers
+
+- `rune/core/providers.py`: configurable OpenAI-compatible and Anthropic adapters, provider fallback and a monthly SQLite usage ledger with pre-inference reservations.
+- `rune/core/orchestrator.py`: natural-language intent to validated device-action proposals. Proposals are not executed.
+- `rune/core/remote.py`: owner-authenticated client for device enrollment, task creation and approval.
+- `backend/`: Supabase Auth owner validation, trusted-device registration/revocation, capability-checked tasks, owner approval queue, device polling and append-only audit events.
+- `apps/mobile/android_agent/`: native Android app discovery, app launch, Accessibility Service UI observation/interactions and an encrypted-credential foreground operator service.
+- `apps/mobile/lib/services/`: Flutter bridges, secure session/device token storage and task execution.
+
+Every remote task is approval-gated by the backend. Android Accessibility must be explicitly enabled by the owner. Password fields are excluded from UI snapshots, and the agent does not bypass authentication or system security controls.
+
+See [Implementation and Operations](docs/IMPLEMENTATION_AND_OPERATIONS.md) for setup, configuration and known limitations.
+
 ## Status
 
-Milestone 0.4: persistent cognition + durable memory + verified planning + authenticated local agency + desktop command center.
+The project has moved beyond the original 0.4 milestone into the first remote-device vertical slice. The Supabase RUNE project contains the device, task and audit schema with RLS enabled and direct client access denied. The security advisor currently reports no findings for the RUNE project.
 
-The runtime now has explicit appraisal signals, durable episodic/semantic/preference memory, persistent goals, serializable plans, verified plan progression, authenticated memory/goal/plan writes, Windows window/process control, and sandboxed user-home file capabilities.
-
-Next major layers are richer computer perception/control, real voice providers, identity hardening with trusted-device/passkey/biometric boundaries, cross-device nodes, and only then external tool/API connectors.
+The Android operator and remote task pipeline have been added to source, but **a successful Android build and real-device end-to-end test have not yet been confirmed**. Live model credentials, verified provider pricing, remote backend deployment, owner-token refresh for the Python core and production security review remain outstanding.
 
 ## Brand system
 
