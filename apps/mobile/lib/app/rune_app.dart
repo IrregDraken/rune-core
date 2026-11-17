@@ -21,7 +21,12 @@ class _RuneAppState extends State<RuneApp> {
     owner=p.getString('rune.owner')??'Owner';
     apiUrl=p.getString('rune.api')??apiUrl;
     onboarded=p.getBool('rune.onboarded')??false;
-    sessionToken=await secureStorage.read(key:'rune.local_core_session')??'';
+    try {
+      sessionToken = await secureStorage.read(key: 'rune.local_core_session') ?? '';
+    } catch (_) {
+      // Secure storage may be unavailable in widget tests or unsupported desktop previews.
+      sessionToken = '';
+    }
     if(mounted)setState(()=>ready=true);
   }
   Future<void> _complete(String name,String url) async {
