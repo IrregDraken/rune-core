@@ -302,50 +302,71 @@ class _RuneShellState extends State<RuneShell> {
           child: IndexedStack(index: index, children: pages),
         ),
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: NavigationBar(
-            selectedIndex: index,
-            onDestinationSelected: (value) => setState(() => index = value),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.grid_view_rounded),
-                selectedIcon: Icon(
-                  Icons.grid_view_rounded,
-                  color: RuneColors.brightEmerald,
-                ),
-                label: 'Home',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.forum_outlined),
-                selectedIcon: Icon(
-                  Icons.forum_rounded,
-                  color: RuneColors.brightEmerald,
-                ),
-                label: 'Assistant',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.work_outline_rounded),
-                selectedIcon: Icon(
-                  Icons.work_rounded,
-                  color: RuneColors.brightEmerald,
-                ),
-                label: 'Work',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.hub_outlined),
-                selectedIcon: Icon(
-                  Icons.hub_rounded,
-                  color: RuneColors.brightEmerald,
-                ),
-                label: 'Explore',
-              ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: const Color(0xF20D130F),
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: RuneColors.emerald.withOpacity(.20)),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(.28), blurRadius: 24, offset: const Offset(0, 8)),
+              BoxShadow(color: RuneColors.emerald.withOpacity(.045), blurRadius: 22, spreadRadius: 1),
+            ],
+          ),
+          child: Row(
+            children: [
+              _RuneNavItem(icon: Icons.grid_view_rounded, label: 'Home', selected: index == 0, onTap: () => setState(() => index = 0)),
+              _RuneNavItem(icon: Icons.auto_awesome_rounded, label: 'Assistant', selected: index == 1, onTap: () => setState(() => index = 1)),
+              _RuneNavItem(icon: Icons.work_outline_rounded, label: 'Work', selected: index == 2, onTap: () => setState(() => index = 2)),
+              _RuneNavItem(icon: Icons.hub_outlined, label: 'Explore', selected: index == 3, onTap: () => setState(() => index = 3)),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _RuneNavItem extends StatelessWidget {
+  const _RuneNavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(19),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? RuneColors.emerald.withOpacity(.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(19),
+            border: Border.all(color: selected ? RuneColors.emerald.withOpacity(.22) : Colors.transparent),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 19, color: selected ? RuneColors.brightEmerald : RuneColors.muted),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(
+              fontSize: 9,
+              letterSpacing: .1,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? RuneColors.mint : RuneColors.muted,
+            )),
+          ]),
+        ),
+      ),
+    ),
+  );
 }
