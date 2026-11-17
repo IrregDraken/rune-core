@@ -12,6 +12,20 @@ router = APIRouter(prefix="/v1", tags=["RUNE remote operations"])
 def _hash(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
+def _reject_secret_fields(value, path: str = "arguments") -> None:
+    forbidden = {"password", "passwd", "pin", "passcode", "secret", "api_key",
+                 "access_token", "refresh_token", "session_cookie", "private_key",
+                 "authorization", "credential"}
+    if isinstance(value, dict):
+        for key, item in value.items():
+            normalized = str(key).lower().replace("-", "_")
+            if normalized in forbidden or normalized.endswith("_password") or normalized.endswith("_token"):
+                raise HTTPException(400, f"Sensitive field is not accepted in {path}")
+            _reject_secret_fields(item, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            _reject_secret_fields(item, f"{path}[{index}]")
+
 async def _audit(owner_id: UUID, event_type: str, outcome: str, *, device_id=None, task_id=None, metadata=None):
     await store.request("POST", "rune_audit_events", body={
         "owner_id": str(owner_id), "device_id": str(device_id) if device_id else None,
@@ -76,6 +90,7 @@ async def heartbeat(device_id: UUID, body: DeviceHeartbeat, x_rune_device_token:
 
 @router.post("/tasks", status_code=201)
 async def create_task(body: TaskCreate, owner: Owner = Depends(require_owner)):
+    _reject_secret_fields(body.arguments)
     devices = await store.request("GET","rune_devices",params={
         **owner_filter(owner.id),"id":f"eq.{body.device_id}","status":"not.eq.revoked",
         "select":"id,capabilities","limit":"1",
