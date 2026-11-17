@@ -351,6 +351,11 @@ class RuneRemoteApi {
     await _storage.delete(key: 'rune.device_token');
   }
 
+  Future<void> clearDeviceCredentials() async {
+    await _storage.delete(key: 'rune.device_id');
+    await _storage.delete(key: 'rune.device_token');
+  }
+
   Future<void> signOut() async {
     await _storage.delete(key: 'rune.owner_access_token');
     await _storage.delete(key: 'rune.owner_refresh_token');
