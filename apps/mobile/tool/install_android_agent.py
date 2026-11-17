@@ -36,6 +36,7 @@ def install() -> None:
         raise SystemExit("Generated Android manifest has no application element.")
 
     for permission in (
+        "android.permission.INTERNET",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
         "android.permission.POST_NOTIFICATIONS",
