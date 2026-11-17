@@ -9,6 +9,16 @@ security invoker
 set search_path = ''
 as $$
 begin
+  -- Serialize task claiming against device revocation.
+  perform 1
+    from public.rune_devices
+   where id = p_device_id
+     and status <> 'revoked'
+   for share;
+  if not found then
+    return;
+  end if;
+
   return query
   update public.rune_tasks as task
      set status = 'running',
