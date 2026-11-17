@@ -206,10 +206,12 @@ class RoutedModelProvider(ModelProvider):
             except BudgetExceeded:
                 raise
             except ProviderUnavailable as exc:
-                self.ledger.settle(reservation, ProviderUsage(0, 0, 0.0))
+                # Keep the full reservation when request delivery/charging is
+                # uncertain. Releasing it could permit overspend after a timeout.
                 failures.append(str(exc))
             except Exception:
-                self.ledger.settle(reservation, ProviderUsage(0, 0, 0.0))
+                # Unknown provider failures retain the reservation for the same
+                # conservative accounting reason.
                 raise
         raise ProviderUnavailable("; ".join(failures) or "no model provider available")
 
