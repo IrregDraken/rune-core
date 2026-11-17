@@ -7,5 +7,4 @@
     android:canRetrieveWindowContent="true"
     android:description="@string/rune_accessibility_description"
     android:notificationTimeout="100"
-    android:packageNames=""
     android:settingsActivity="com.draken.rune_mobile.MainActivity" />
