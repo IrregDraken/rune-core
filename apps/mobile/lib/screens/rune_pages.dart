@@ -140,7 +140,10 @@ class _AssistantPageState extends State<AssistantPage>{
   try {
    final response=await widget.api.chat(text);
    final answer=response.isEmpty?'R.U.N.E. returned an empty response.':response;
-   if(mounted)setState(()=>messages.add((user:false,text:answer)));
+   if(mounted)setState(() {
+    messages.add((user:false,text:answer));
+    sending=false;
+   });
    await _persistConversation();
    if(speakResponse&&response.isNotEmpty) {
     var interrupted=false;
@@ -156,10 +159,12 @@ class _AssistantPageState extends State<AssistantPage>{
     }
    }
   } catch(e) {
-   if(mounted)setState(()=>messages.add((user:false,text:'Connection error: $e')));
+   if(mounted)setState(() {
+    messages.add((user:false,text:'Connection error: $e'));
+    sending=false;
+   });
    await _persistConversation();
   }
-  if(mounted)setState(()=>sending=false);
   WidgetsBinding.instance.addPostFrameCallback((_){
    if(scroll.hasClients)scroll.animateTo(scroll.position.maxScrollExtent,
     duration:const Duration(milliseconds:250),curve:Curves.easeOut);
