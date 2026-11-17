@@ -399,7 +399,9 @@ class _SettingsPageState extends State<SettingsPage>{
    _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     const Text('Core API address',style:TextStyle(fontWeight:FontWeight.w700)),
     const SizedBox(height:8),
-    TextField(controller:url,keyboardType:TextInputType.url,decoration:const InputDecoration(hintText:'http://127.0.0.1:8765')),
+    TextField(controller:url,keyboardType:TextInputType.url,decoration:const InputDecoration(hintText:'https://your-rune-core.example.com')),
+    const SizedBox(height:6),
+    const Text('On a phone, localhost refers to the phone itself. Use the HTTPS address of your deployed core.',style:TextStyle(fontSize:9,color:RuneColors.muted,height:1.4)),
     const SizedBox(height:10),
     const Text('Local core session token',style:TextStyle(fontWeight:FontWeight.w700)),
     const SizedBox(height:8),
