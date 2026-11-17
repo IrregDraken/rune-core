@@ -964,7 +964,11 @@ class _SecurityPageState extends State<SecurityPage> {
  }
  @override Widget build(BuildContext context)=>Scaffold(
   appBar:AppBar(title:const Text('Device & security')),
-  body:ListView(padding:const EdgeInsets.all(18),children:[
+  body:ListView(padding:const EdgeInsets.fromLTRB(18,8,18,30),children:[
+   const _PageHeader(title:'Device & security',eyebrow:'TRUST · PERMISSIONS · CONTROL'),
+   const SizedBox(height:8),
+   const Text('Manage this phone’s access to your R.U.N.E. environment.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.5)),
+   const SizedBox(height:16),
    const _Notice(text:'RUNE uses Android Accessibility only after you explicitly enable it. It can inspect and interact with visible interfaces, not bypass app authentication or Android security.'),
    const SizedBox(height:16),
    const _SectionTitle('ANDROID DEVICE AGENT'),
@@ -1055,7 +1059,9 @@ class _SettingsPageState extends State<SettingsPage>{
  @override void dispose(){url.dispose();token.dispose();super.dispose();}
  @override Widget build(BuildContext context)=>Scaffold(
   appBar:AppBar(title:const Text('Settings')),
-  body:ListView(padding:const EdgeInsets.all(18),children:[
+  body:ListView(padding:const EdgeInsets.fromLTRB(18,8,18,30),children:[
+   const _PageHeader(title:'Settings',eyebrow:'PREFERENCES · CONNECTION'),
+   const SizedBox(height:18),
    const _SectionTitle('CONNECTION'),const SizedBox(height:10),
    _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     const Text('Core API address',style:TextStyle(fontWeight:FontWeight.w700)),
@@ -1102,7 +1108,7 @@ class _SettingsPageState extends State<SettingsPage>{
    const _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     _InfoRow('App','R.U.N.E. Mobile',RuneColors.muted),
     _InfoRow('Platform','Flutter',RuneColors.muted),
-    _InfoRow('Typography','Manrope + system mono',RuneColors.muted),
+    _InfoRow('Typography','Sora + Inter',RuneColors.muted),
     _InfoRow('Session token','Encrypted local storage',RuneColors.muted)
    ]))
   ])
