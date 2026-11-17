@@ -83,11 +83,13 @@ async def create_task(body: TaskCreate, owner: Owner = Depends(require_owner)):
     if not devices: raise HTTPException(404,"Registered device not found")
     if body.capability not in (devices[0].get("capabilities") or []):
         raise HTTPException(409,"Device has not advertised this capability")
+    # Until a server-owned risk/authority policy exists, never let a client
+    # downgrade an operation to unattended execution.
     now=datetime.now(timezone.utc)
     rows=await store.request("POST","rune_tasks",body={
         "owner_id":str(owner.id),"device_id":str(body.device_id),"capability":body.capability,
-        "arguments":body.arguments,"status":"awaiting_approval" if body.requires_approval else "queued",
-        "requires_approval":body.requires_approval,"created_at":now.isoformat(),
+        "arguments":body.arguments,"status":"awaiting_approval",
+        "requires_approval":True,"created_at":now.isoformat(),
         "expires_at":(now+timedelta(seconds=body.expires_in_seconds)).isoformat(),
     },prefer="return=representation")
     task=rows[0]
