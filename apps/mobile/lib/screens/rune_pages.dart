@@ -143,7 +143,7 @@ class _AssistantPageState extends State<AssistantPage>{
      }
      if(awaitingConfirmation) {
       final lower=spoken.toLowerCase();
-      final done=RegExp(r"\b(no|we're good|thats all|that's all|done|we are good)\b").hasMatch(lower);
+      final done=RegExp(r"^(no|we're good|thats all|that's all|done|we are good)[.! ]*$").hasMatch(lower);
       await widget.api.voiceSessionAction('confirmation',continueSession:!done);
       if(mounted)setState(()=>awaitingConfirmation=false);
       if(done) {
