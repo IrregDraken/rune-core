@@ -4,7 +4,7 @@ import '../services/rune_api.dart';
 import '../theme/rune_colors.dart';
 
 class HomePage extends StatefulWidget {
- const HomePage({super.key,required this.owner,required this.api,required this.onNavigate});
+ const HomePage({super.key,required this.owner,required this.api,required this.apiUrl,required this.onApiChanged,required this.onNavigate});
  final String owner;final RuneApi api;final String apiUrl;final ValueChanged<String> onApiChanged;final ValueChanged<int> onNavigate;
  @override State<HomePage> createState()=>_HomePageState();
 }
@@ -70,7 +70,7 @@ class _MemoryPageState extends State<MemoryPage>{Map<String,dynamic>? state;Stri
 }
 
 class SecurityPage extends StatefulWidget{const SecurityPage({super.key,required this.api});final RuneApi api;@override State<SecurityPage> createState()=>_SecurityPageState();}
-class _SecurityPageState extends State<SecurityPage>{List<dynamic> tools=[];@override void initState(){super.initState();widget.api.tools().then((v){if(mounted)setState(()=>tools=v);}).catchError((_){ });}
+class _SecurityPageState extends State<SecurityPage>{List<dynamic> tools=[];@override void initState(){super.initState();widget.api.tools().then((v){if(mounted)setState(()=>tools=v);}).catchError((Object _) => <dynamic>[]);}
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Security & access')),body:ListView(padding:const EdgeInsets.all(18),children:[const _Notice(text:'This app currently has no remote device enrollment, passkey recovery or revocable session workflow. Do not treat this screen as an access-control system.'),const SizedBox(height:16),const _SectionTitle('CURRENT BOUNDARIES'),const SizedBox(height:10),const _Panel(child:Column(children:[_InfoRow('Local profile','Device-only label',RuneColors.muted),_InfoRow('Privileged session','Not configured',RuneColors.aurum),_InfoRow('Biometric verification','Not implemented',RuneColors.muted),_InfoRow('Emergency access','Not implemented',RuneColors.muted),_InfoRow('Audit trail','Core activity endpoint',RuneColors.muted)])),const SizedBox(height:22),const _SectionTitle('EXPOSED TOOL PERMISSIONS'),const SizedBox(height:10),if(tools.isEmpty)const _Panel(child:Text('No tool permission metadata available.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...tools.map((t){final m=t as Map<String,dynamic>;return _Panel(child:_InfoRow(m['name']?.toString()??'Tool',m['requires_authority']==true?'Authority required':'No authority flag',m['requires_authority']==true?RuneColors.aurum:RuneColors.muted));})]));}
 }
 
