@@ -78,11 +78,43 @@ The Android agent advertises only the capabilities currently available. Its fore
 
 Every remote task currently requires owner approval. The backend intentionally ignores any client request to downgrade this requirement.
 
+## Deployment layout (prepared, not deployed)
+
+RUNE is split into two Railway services:
+
+1. **RUNE control plane**: build from `backend/Dockerfile` using `railway.json`. It owns Supabase Auth validation, device enrollment, task queue, approval and audit.
+2. **RUNE intelligence core**: build from `Dockerfile.core` using `railway.core.json`. It owns the model runtime, memory, remote orchestration and authenticated core API.
+
+For the intelligence service, attach a persistent Railway volume at `/app/data`. The SQLite event store, long-term memory, owner refresh session and usage ledgers must survive container restarts. Do not deploy the core without this volume.
+
+### Control-plane variables
+
+- `RUNE_BACKEND_ENV=production`
+- `RUNE_SUPABASE_URL`
+- `RUNE_SUPABASE_PUBLISHABLE_KEY`
+- `RUNE_SUPABASE_SECRET_KEY` (control-plane service only)
+
+### Intelligence-core variables
+
+- `RUNE_API_AUTH_REQUIRED=true`
+- `RUNE_SESSION_TOKEN` (strong random secret; share only with the RUNE mobile client through its secure settings field)
+- `RUNE_MODEL_MODE=live`
+- `RUNE_REMOTE_BACKEND_URL`
+- `RUNE_SUPABASE_URL`, `RUNE_SUPABASE_PUBLISHABLE_KEY`
+- `RUNE_OWNER_ACCESS_TOKEN`, `RUNE_OWNER_ACCESS_TOKEN_EXPIRES_AT`, `RUNE_OWNER_REFRESH_TOKEN`, `RUNE_OWNER_TOKEN_ENCRYPTION_KEY`
+- Primary/fallback provider model IDs, keys and verified prices
+- Optional `RUNE_OPENAI_STT_API_KEY`, `ELEVENLABS_API_KEY`, `RUNE_ELEVENLABS_VOICE_ID`
+
+The Supabase secret key is not required by the intelligence core and must not be added there. The mobile app uses the Supabase publishable key only for owner sign-in and stores resulting session/device tokens using platform secure storage.
+
+Deployment has not been approved or performed. Before deployment, run all CI suites, verify both Docker builds, configure secrets and the persistent volume, then obtain explicit approval.
+
 ## Known production blockers
 
 - No live provider credentials or verified model pricing configured.
-- No deployed backend or remote domain.
+- No deployed backend, intelligence core or remote domains.
 - Owner refresh manager source exists but still needs credential provisioning and live Supabase refresh testing.
+- Railway container definitions are prepared but Docker builds, persistent volume behavior and health probes are unverified.
 - Android foreground service source is implemented but has not been build-verified or tested on a physical phone.
 - Android device enrollment and real-device workflow not tested end-to-end.
 - No hardware-backed device attestation or signed command envelopes yet.
