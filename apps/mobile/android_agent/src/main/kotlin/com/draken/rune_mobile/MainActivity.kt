@@ -19,6 +19,7 @@ class MainActivity : FlutterActivity() {
     private var recordingFile: File? = null
     private var mediaPlayer: MediaPlayer? = null
     private var playbackFile: File? = null
+    private var pendingPlaybackResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -110,6 +111,8 @@ class MainActivity : FlutterActivity() {
                             result.error("invalid_audio", "Audio bytes are required", null)
                         } else {
                             try {
+                                pendingPlaybackResult?.success(false)
+                                pendingPlaybackResult = null
                                 mediaPlayer?.release()
                                 playbackFile?.delete()
                                 val file = File(cacheDir, "rune-response-${System.currentTimeMillis()}.mp3")
@@ -118,28 +121,34 @@ class MainActivity : FlutterActivity() {
                                 val player = MediaPlayer()
                                 mediaPlayer = player
                                 player.setDataSource(file.absolutePath)
+                                pendingPlaybackResult = result
                                 player.setOnCompletionListener {
                                     it.release()
                                     if (mediaPlayer === it) mediaPlayer = null
                                     file.delete()
                                     if (playbackFile == file) playbackFile = null
+                                    pendingPlaybackResult?.success(true)
+                                    pendingPlaybackResult = null
                                 }
                                 player.setOnErrorListener { mp, _, _ ->
                                     mp.release()
                                     if (mediaPlayer === mp) mediaPlayer = null
                                     file.delete()
                                     if (playbackFile == file) playbackFile = null
+                                    pendingPlaybackResult?.error("playback_failed", "RUNE audio playback failed", null)
+                                    pendingPlaybackResult = null
                                     true
                                 }
                                 player.setOnPreparedListener { it.start() }
                                 player.prepareAsync()
-                                result.success(true)
                             } catch (error: Exception) {
                                 result.error("playback_failed", "Could not play RUNE audio", null)
                             }
                         }
                     }
                     "stopAudio" -> {
+                        pendingPlaybackResult?.success(false)
+                        pendingPlaybackResult = null
                         mediaPlayer?.let {
                             runCatching { if (it.isPlaying) it.stop() }
                             it.release()
@@ -213,6 +222,8 @@ class MainActivity : FlutterActivity() {
         runCatching { mediaRecorder?.stop() }
         mediaRecorder?.release()
         mediaRecorder = null
+        pendingPlaybackResult?.error("activity_destroyed", "Audio playback interrupted", null)
+        pendingPlaybackResult = null
         mediaPlayer?.release()
         mediaPlayer = null
         playbackFile?.delete()
