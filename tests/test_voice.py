@@ -27,7 +27,7 @@ def test_voice_pipeline_requires_connected_provider() -> None:
 
 
 import httpx
-from rune.core.voice import ElevenLabsTextToSpeechProvider, VoiceProviderUnavailable
+from rune.core.voice import (ElevenLabsTextToSpeechProvider, OpenAISpeechToTextProvider, VoiceProviderUnavailable, VoiceInput)
 
 
 def test_elevenlabs_tts_uses_configured_voice_and_returns_audio(monkeypatch):
@@ -78,3 +78,46 @@ def test_configured_voice_pipeline_only_connects_tts_with_key_and_voice(monkeypa
         configured_voice_pipeline().text_to_speech,
         ElevenLabsTextToSpeechProvider,
     )
+
+
+
+def test_openai_transcription_uses_gpt_transcribe_and_multipart(monkeypatch):
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers["Authorization"]
+        seen["body"] = request.read()
+        return httpx.Response(200, json={"text": "  Hey RUNE.  "})
+
+    monkeypatch.setenv("RUNE_OPENAI_STT_API_KEY", "stt-secret")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("RUNE_OPENAI_STT_MODEL_ID", raising=False)
+    provider = OpenAISpeechToTextProvider(transport=httpx.MockTransport(handler))
+
+    transcript = provider.transcribe(VoiceInput(b"wav-bytes", 16000, audio_format="wav"))
+    assert transcript.text == "Hey RUNE."
+    assert seen["url"] == "https://api.openai.com/v1/audio/transcriptions"
+    assert seen["auth"] == "Bearer stt-secret"
+    assert b'name="model"\r\n\r\ngpt-transcribe' in seen["body"]
+    assert b'rune-utterance.wav' in seen["body"]
+
+
+def test_openai_transcription_rejects_oversized_and_unknown_audio(monkeypatch):
+    monkeypatch.setenv("RUNE_OPENAI_STT_API_KEY", "stt-secret")
+    provider = OpenAISpeechToTextProvider()
+    with pytest.raises(ValueError):
+        provider.transcribe(VoiceInput(b"x" * (25 * 1024 * 1024 + 1), 16000))
+    with pytest.raises(ValueError):
+        provider.transcribe(VoiceInput(b"audio", 16000, audio_format="exe"))
+
+
+def test_configured_voice_pipeline_connects_stt_separately_from_tts(monkeypatch):
+    from rune.core.voice import configured_voice_pipeline
+
+    monkeypatch.setenv("RUNE_OPENAI_STT_API_KEY", "stt-secret")
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    monkeypatch.delenv("RUNE_ELEVENLABS_VOICE_ID", raising=False)
+    pipeline = configured_voice_pipeline()
+    assert isinstance(pipeline.speech_to_text, OpenAISpeechToTextProvider)
+    assert pipeline.text_to_speech is None
