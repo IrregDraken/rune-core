@@ -35,7 +35,7 @@ class _HomePageState extends State<HomePage>{
  }
 }
 
-class AssistantPage extends StatefulWidget {
+class AssistantPage eclass AssistantPage extends StatefulWidget {
  const AssistantPage({super.key,required this.api});
  final RuneApi api;
  @override State<AssistantPage> createState()=>_AssistantPageState();
@@ -45,8 +45,28 @@ class _AssistantPageState extends State<AssistantPage>{
  final scroll=ScrollController();
  final device=RuneDeviceAgent();
  final messages=<({bool user,String text})>[];
- bool sending=false,recording=false,voiceBusy=false;
- @override void dispose(){controller.dispose();scroll.dispose();super.dispose();}
+ bool sending=false,recording=false,voiceBusy=false,awaitingConfirmation=false;
+ Timer? voiceTimer;
+ @override void dispose(){voiceTimer?.cancel();controller.dispose();scroll.dispose();super.dispose();}
+
+ void scheduleVoiceInactivity() {
+  voiceTimer?.cancel();
+  voiceTimer=Timer(const Duration(seconds:120),()async{
+   try {
+    final result=await widget.api.voiceSessionAction('tick');
+    final prompt=result['prompt']?.toString();
+    if(prompt!=null&&prompt.isNotEmpty) {
+     if(mounted)setState(()=>awaitingConfirmation=true);
+     final audio=await widget.api.synthesizeSpeech(prompt);
+     await device.playAudio(audio);
+     voiceTimer=Timer(const Duration(seconds:15),()async{
+      try {await widget.api.voiceSessionAction('tick');} catch (_) {}
+      if(mounted)setState(()=>awaitingConfirmation=false);
+     });
+    }
+   } catch (_) {}
+  });
+ }
 
  Future<void> send({bool speakResponse=false}) async {
   final text=controller.text.trim();
@@ -59,10 +79,14 @@ class _AssistantPageState extends State<AssistantPage>{
    if(mounted)setState(()=>messages.add((user:false,text:answer)));
    if(speakResponse&&response.isNotEmpty) {
     try {
+     await widget.api.voiceSessionAction('speech_started');
      final audio=await widget.api.synthesizeSpeech(response);
      await device.playAudio(audio);
     } catch(e) {
      if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Voice output unavailable: $e')));
+    } finally {
+     try {await widget.api.voiceSessionAction('speech_finished');} catch (_) {}
+     scheduleVoiceInactivity();
     }
    }
   } catch(e) {
@@ -87,7 +111,9 @@ class _AssistantPageState extends State<AssistantPage>{
       const SnackBar(content:Text('Allow microphone access, then tap the microphone again.')));
      return;
     }
+    voiceTimer?.cancel();
     await device.stopAudio();
+    if(!awaitingConfirmation)await widget.api.voiceSessionAction('wake');
     await device.startVoiceRecording();
     if(mounted)setState(()=>recording=true);
    } else {
@@ -100,8 +126,26 @@ class _AssistantPageState extends State<AssistantPage>{
     if(transcript.trim().isEmpty) {
      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content:Text('No speech was detected. Try again.')));
+     if(awaitingConfirmation)scheduleVoiceInactivity();
     } else {
-     controller.text=transcript.trim();
+     final spoken=transcript.trim();
+     if(awaitingConfirmation) {
+      final lower=spoken.toLowerCase();
+      final done=RegExp(r"\\b(no|we're good|thats all|that's all|done|we are good)\\b").hasMatch(lower);
+      await widget.api.voiceSessionAction('confirmation',continueSession:!done);
+      if(mounted)setState(()=>awaitingConfirmation=false);
+      if(done) {
+       voiceTimer?.cancel();
+       return;
+      }
+      if(RegExp(r"^(yes|yeah|yep|continue|i'm here|im here)[.! ]*$").hasMatch(lower)) {
+       scheduleVoiceInactivity();
+       return;
+      }
+     } else {
+      await widget.api.voiceSessionAction('processing');
+     }
+     controller.text=spoken;
      await send(speakResponse:true);
     }
    }
@@ -170,7 +214,7 @@ class _AssistantPageState extends State<AssistantPage>{
  ]);
 }
 
-class WorkPage extends StatefulWidget{const WorkPage({super.key,required this.api});final RuneApi api;@override State<WorkPage> createState()=>_WorkPageState();}
+s StatefulWidget{const WorkPage({super.key,required this.api});final RuneApi api;@override State<WorkPage> createState()=>_WorkPageState();}
 class _WorkPageState extends State<WorkPage>{
  final goal=TextEditingController();final steps=TextEditingController();Map<String,dynamic>? state;List<dynamic> events=[];bool busy=false;String? note;
  @override void initState(){super.initState();load();}
