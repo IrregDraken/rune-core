@@ -10,7 +10,7 @@ import '../theme/rune_colors.dart';
 
 class HomePage extends StatefulWidget {
  const HomePage({super.key,required this.owner,required this.api,required this.apiUrl,required this.onApiChanged,required this.onSessionTokenChanged,required this.onNavigate});
- final String owner;final RuneApi api;final String apiUrl;final ValueChanged<String> onApiChanged,onSessionTokenChanged;final ValueChanged<int> onNavigate;
+ final String owner;final RuneApi api;final String apiUrl;final Future<void> Function(String) onApiChanged,onSessionTokenChanged;final ValueChanged<int> onNavigate;
  @override State<HomePage> createState()=>_HomePageState();
 }
 class _HomePageState extends State<HomePage>{
@@ -381,7 +381,7 @@ class _SecurityPageState extends State<SecurityPage> {
 class SettingsPage extends StatefulWidget {
  const SettingsPage({super.key,required this.apiUrl,required this.onSave,required this.sessionToken,required this.onSessionTokenSave,required this.api});
  final String apiUrl,sessionToken;
- final ValueChanged<String> onSave,onSessionTokenSave;
+ final Future<void> Function(String) onSave,onSessionTokenSave;
  final RuneApi api;
  @override State<SettingsPage> createState()=>_SettingsPageState();
 }
@@ -419,9 +419,9 @@ class _SettingsPageState extends State<SettingsPage>{
      },child:const Text('TEST CONNECTION')),
      const Spacer(),
      FilledButton(onPressed:()async{
-      widget.onSave(url.text.trim());
-      widget.onSessionTokenSave(token.text.trim());
-      Navigator.pop(context);
+      await widget.onSave(url.text.trim());
+      await widget.onSessionTokenSave(token.text.trim());
+      if(mounted)Navigator.pop(context);
      },child:const Text('SAVE'))
     ])
    ])),
