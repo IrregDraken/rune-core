@@ -25,6 +25,6 @@ void main() {
     });
     await pumpApp(tester);
     expect(find.text('R.U.N.E.'), findsOneWidget);
-    expect(find.text('SYSTEM SNAPSHOT'), findsOneWidget);
+    expect(find.text('Your command center is ready.'), findsOneWidget);
   });
 }
