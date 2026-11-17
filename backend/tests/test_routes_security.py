@@ -18,6 +18,8 @@ def test_task_payload_rejects_passwords_and_tokens_recursively():
         {"nested": {"refresh_token": "never-send"}},
         {"items": [{"private_key": "never-send"}]},
         {"session-cookie": "never-send"},
+        {"apiKey": "never-send"},
+        {"refreshToken": "never-send"},
     ):
         try:
             _reject_secret_fields(payload)
