@@ -73,7 +73,6 @@ class MainActivity : FlutterActivity() {
                                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                                 recorder.setAudioSamplingRate(16000)
                                 recorder.setAudioEncodingBitRate(64000)
-                                recorder.setMaxDuration(60000)
                                 recorder.setOutputFile(file.absolutePath)
                                 recorder.prepare()
                                 recorder.start()
