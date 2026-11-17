@@ -4,10 +4,22 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Protocol
 
+
 class Capability(str, Enum):
     SYSTEM_LOCK = "system.lock"
     SYSTEM_REBOOT = "system.reboot"
     SYSTEM_SHUTDOWN = "system.shutdown"
+    DEVICE_STATUS = "device.status"
+    APP_LIST = "app.list"
+    APP_LAUNCH = "app.launch"
+    APP_STOP = "app.stop"
+    UI_OBSERVE = "ui.observe"
+    UI_INTERACT = "ui.interact"
+    NOTIFICATION_READ = "notification.read"
+    MEDIA_CONTROL = "media.control"
+    CLIPBOARD_READ = "clipboard.read"
+    CLIPBOARD_WRITE = "clipboard.write"
+    LOCATION_READ = "location.read"
     PROCESS_READ = "process.read"
     PROCESS_START = "process.start"
     PROCESS_STOP = "process.stop"
@@ -17,6 +29,7 @@ class Capability(str, Enum):
     FILE_WRITE = "file.write"
     SHELL_EXECUTE = "shell.execute"
 
+
 @dataclass(frozen=True)
 class NodeInfo:
     node_id: str
@@ -24,11 +37,13 @@ class NodeInfo:
     hostname: str
     capabilities: frozenset[Capability] = field(default_factory=frozenset)
 
+
 @dataclass(frozen=True)
 class NodeAction:
     capability: Capability
     arguments: dict[str, str] = field(default_factory=dict)
     authorized: bool = False
+
 
 class RUNEActionNode(Protocol):
     def info(self) -> NodeInfo: ...
@@ -36,6 +51,7 @@ class RUNEActionNode(Protocol):
     def execute(self, action: NodeAction) -> dict: ...
     def verify(self, action: NodeAction) -> dict: ...
     def observe(self) -> dict: ...
+
 
 class NullNode:
     def __init__(self, info: NodeInfo) -> None:
