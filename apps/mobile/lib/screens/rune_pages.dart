@@ -9,8 +9,8 @@ import '../services/rune_task_runner.dart';
 import '../theme/rune_colors.dart';
 
 class HomePage extends StatefulWidget {
- const HomePage({super.key,required this.owner,required this.api,required this.apiUrl,required this.onApiChanged,required this.onNavigate});
- final String owner;final RuneApi api;final String apiUrl;final ValueChanged<String> onApiChanged;final ValueChanged<int> onNavigate;
+ const HomePage({super.key,required this.owner,required this.api,required this.apiUrl,required this.onApiChanged,required this.onSessionTokenChanged,required this.onNavigate});
+ final String owner;final RuneApi api;final String apiUrl;final ValueChanged<String> onApiChanged,onSessionTokenChanged;final ValueChanged<int> onNavigate;
  @override State<HomePage> createState()=>_HomePageState();
 }
 class _HomePageState extends State<HomePage>{
@@ -20,7 +20,7 @@ class _HomePageState extends State<HomePage>{
  @override Widget build(BuildContext context){
   final hour=DateTime.now().hour;final greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   return RefreshIndicator(onRefresh:refresh,color:RuneColors.brightEmerald,child:ListView(padding:const EdgeInsets.fromLTRB(21,18,21,30),children:[
-   Row(children:[const _RuneMark(size:32),const SizedBox(width:10),const Text('R.U.N.E.',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,letterSpacing:2.7)),const Spacer(),_OnlineChip(online:online),const SizedBox(width:10),_IconButton(icon:Icons.shield_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SecurityPage(api:widget.api)))),_IconButton(icon:Icons.settings_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SettingsPage(apiUrl:widget.apiUrl,onSave:widget.onApiChanged,api:widget.api))))]),
+   Row(children:[const _RuneMark(size:32),const SizedBox(width:10),const Text('R.U.N.E.',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,letterSpacing:2.7)),const Spacer(),_OnlineChip(online:online),const SizedBox(width:10),_IconButton(icon:Icons.shield_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SecurityPage(api:widget.api)))),_IconButton(icon:Icons.settings_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SettingsPage(apiUrl:widget.apiUrl,onSave:widget.onApiChanged,sessionToken:widget.api.sessionToken,onSessionTokenSave:widget.onSessionTokenChanged,api:widget.api))))]),
    const SizedBox(height:27),Text(DateTime.now().toLocal().toString().substring(0,10).toUpperCase(),style:const TextStyle(fontSize:9,color:RuneColors.muted,letterSpacing:1.8)),const SizedBox(height:7),Text('$greeting, ${widget.owner}.',style:const TextStyle(fontSize:26,fontWeight:FontWeight.w700,letterSpacing:-.7)),const SizedBox(height:4),const Text('Your command center is ready.',style:TextStyle(color:RuneColors.muted,fontSize:12)),
    const SizedBox(height:12),Center(child:Column(children:[const _RuneOrb(),Text(online?'CORE REACHABLE':'CORE DISCONNECTED',style:TextStyle(fontSize:9,color:online?RuneColors.mint:RuneColors.aurum,letterSpacing:2,fontWeight:FontWeight.w700)),const SizedBox(height:5),Text(online?'Intelligence runtime responding':'Connect your core to activate intelligence',style:const TextStyle(fontSize:10,color:RuneColors.muted))])),
    const SizedBox(height:18),GestureDetector(onTap:()=>widget.onNavigate(1),child:Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:16),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.07))),child:const Row(children:[Icon(Icons.auto_awesome,color:RuneColors.brightEmerald,size:18),SizedBox(width:11),Expanded(child:Text('Ask R.U.N.E. anything...',style:TextStyle(color:RuneColors.muted,fontSize:12))),Icon(Icons.arrow_forward_rounded,color:RuneColors.muted,size:17)]))),
@@ -378,10 +378,63 @@ class _SecurityPageState extends State<SecurityPage> {
  );
 }
 
-class SettingsPage extends StatefulWidget{const SettingsPage({super.key,required this.apiUrl,required this.onSave,required this.api});final String apiUrl;final ValueChanged<String> onSave;final RuneApi api;@override State<SettingsPage> createState()=>_SettingsPageState();}
-class _SettingsPageState extends State<SettingsPage>{late TextEditingController url;bool checking=false;String? status;@override void initState(){super.initState();url=TextEditingController(text:widget.apiUrl.isEmpty?'http://127.0.0.1:8765':widget.apiUrl);}@override void dispose(){url.dispose();super.dispose();}
- @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Settings')),body:ListView(padding:const EdgeInsets.all(18),children:[const _SectionTitle('CONNECTION'),const SizedBox(height:10),_Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Core API address',style:TextStyle(fontWeight:FontWeight.w700)),const SizedBox(height:8),TextField(controller:url,keyboardType:TextInputType.url,decoration:const InputDecoration(hintText:'https://your-rune-api.example.com')),const SizedBox(height:10),if(status!=null)Text(status!,style:const TextStyle(fontSize:10,color:RuneColors.muted)),Row(children:[TextButton(onPressed:checking?null:()async{setState(()=>checking=true);try{final ok=await RuneApi(baseUrl:url.text.trim()).health();setState(()=>status=ok?'Core responded successfully.':'Core did not report online.');}catch(e){setState(()=>status=e.toString());}setState(()=>checking=false);},child:const Text('TEST CONNECTION')),const Spacer(),FilledButton(onPressed:(){widget.onSave(url.text.trim());Navigator.pop(context);},child:const Text('SAVE'))])])),const SizedBox(height:20),const _SectionTitle('ABOUT THIS BUILD'),const SizedBox(height:10),const _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_InfoRow('App','R.U.N.E. Mobile','0.2.0'),_InfoRow('Platform','Flutter','Android · iOS'),_InfoRow('Typography','Manrope + system mono','Brand system'),_InfoRow('Session token','Not persisted','Secure auth pending')]))]));
- }
+class SettingsPage extends StatefulWidget {
+ const SettingsPage({super.key,required this.apiUrl,required this.onSave,required this.sessionToken,required this.onSessionTokenSave,required this.api});
+ final String apiUrl,sessionToken;
+ final ValueChanged<String> onSave,onSessionTokenSave;
+ final RuneApi api;
+ @override State<SettingsPage> createState()=>_SettingsPageState();
+}
+class _SettingsPageState extends State<SettingsPage>{
+ late TextEditingController url;
+ late TextEditingController token;
+ bool checking=false;
+ String? status;
+ @override void initState(){super.initState();url=TextEditingController(text:widget.apiUrl);token=TextEditingController(text:widget.sessionToken);}
+ @override void dispose(){url.dispose();token.dispose();super.dispose();}
+ @override Widget build(BuildContext context)=>Scaffold(
+  appBar:AppBar(title:const Text('Settings')),
+  body:ListView(padding:const EdgeInsets.all(18),children:[
+   const _SectionTitle('CONNECTION'),const SizedBox(height:10),
+   _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    const Text('Core API address',style:TextStyle(fontWeight:FontWeight.w700)),
+    const SizedBox(height:8),
+    TextField(controller:url,keyboardType:TextInputType.url,decoration:const InputDecoration(hintText:'http://127.0.0.1:8765')),
+    const SizedBox(height:10),
+    const Text('Local core session token',style:TextStyle(fontWeight:FontWeight.w700)),
+    const SizedBox(height:8),
+    TextField(controller:token,obscureText:true,decoration:const InputDecoration(hintText:'RUNE_SESSION_TOKEN from core environment')),
+    const SizedBox(height:6),
+    const Text('Stored using Android secure storage. It must match RUNE_SESSION_TOKEN on the core host.',style:TextStyle(fontSize:9,color:RuneColors.muted,height:1.4)),
+    const SizedBox(height:10),
+    if(status!=null)Text(status!,style:const TextStyle(fontSize:10,color:RuneColors.muted)),
+    Row(children:[
+     TextButton(onPressed:checking?null:()async{
+      setState(()=>checking=true);
+      try {
+       final ok=await RuneApi(baseUrl:url.text.trim(),sessionToken:token.text.trim()).health();
+       setState(()=>status=ok?'Core responded successfully.':'Core did not report online.');
+      } catch(e){setState(()=>status=e.toString());}
+      setState(()=>checking=false);
+     },child:const Text('TEST CONNECTION')),
+     const Spacer(),
+     FilledButton(onPressed:()async{
+      widget.onSave(url.text.trim());
+      widget.onSessionTokenSave(token.text.trim());
+      Navigator.pop(context);
+     },child:const Text('SAVE'))
+    ])
+   ])),
+   const SizedBox(height:20),const _SectionTitle('ABOUT THIS BUILD'),
+   const SizedBox(height:10),
+   const _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    _InfoRow('App','R.U.N.E. Mobile','0.2.0'),
+    _InfoRow('Platform','Flutter','Android · iOS'),
+    _InfoRow('Typography','Manrope + system mono','Brand system'),
+    _InfoRow('Session token','Encrypted local storage','Privileged local API')
+   ]))
+  ])
+ );
 }
 
 class _PageHeader extends StatelessWidget{const _PageHeader({required this.title,required this.eyebrow});final String title,eyebrow;@override Widget build(BuildContext context)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow,style:const TextStyle(color:RuneColors.muted,fontSize:9,letterSpacing:1.5)),const SizedBox(height:6),Text(title,style:const TextStyle(fontSize:27,fontWeight:FontWeight.w700,letterSpacing:-.7))]);}
