@@ -1,46 +1,40 @@
 # RUNE Backend
 
-The remote backend/API boundary for R.U.N.E. lives here. It is intentionally separate from the local intelligence runtime in `rune/`.
-
-## Responsibilities
-
-- Authenticate the owner through the dedicated RUNE Supabase project.
-- Maintain RUNE-specific trusted-device and revocable-session records.
-- Enforce permissions and approval requirements before sensitive operations.
-- Expose authenticated APIs to mobile, web and future clients.
-- Persist cross-device records in RUNE's own Postgres database.
-- Emit an auditable record of security-relevant events.
-
-The Python intelligence runtime remains the reasoning and execution authority. This backend is the remote access, identity and policy boundary. Do not duplicate cognition or tool execution here.
+Secure remote identity, trusted-device, session and task boundary for R.U.N.E. The Python runtime in `rune/` remains the intelligence and execution authority.
 
 ## Local development
-
-From the repository root:
-
 ```bash
 python -m venv .venv
-# activate the virtual environment
-pip install -e ./backend
-uvicorn rune_backend.main:app --reload --host 127.0.0.1 --port 8787
+pip install -e "./backend[dev]"
+uvicorn rune_backend.main:app --app-dir backend --reload --host 127.0.0.1 --port 8787
+pytest backend/tests
 ```
 
-Health check: `GET /health`.
-
 ## Configuration
+Set `RUNE_SUPABASE_URL`, `RUNE_SUPABASE_PUBLISHABLE_KEY` and `RUNE_SUPABASE_SECRET_KEY` in the backend environment. The secret key is server-only and must never be copied into clients or source control. Supabase Auth validates owner access tokens through `/auth/v1/user`. The service key is used only by this backend for locked-down RUNE tables.
 
-Copy `.env.example` to `.env` and set the values for your own RUNE environment. Never commit secrets. The Supabase URL and publishable key are not sufficient to authorize privileged backend operations; the backend will use a server-side secret only after the separate RUNE project is provisioned.
+Apply `backend/migrations/20261117_01_device_and_task_foundation.sql` to the dedicated RUNE Supabase project before using remote endpoints.
 
-## Security rules
+## API
+- `GET /health`, `GET /ready`, `GET /v1/me`
+- `POST /v1/devices/register` returns a device token once
+- `GET /v1/devices`, `DELETE /v1/devices/{device_id}`
+- `POST /v1/devices/{device_id}/heartbeat`
+- `POST /v1/tasks` (approval required by default)
+- `POST /v1/tasks/{task_id}/approve`
+- `GET /v1/devices/{device_id}/tasks/next`
+- `POST /v1/devices/{device_id}/tasks/{task_id}/result`
 
+Only SHA-256 hashes of device tokens are persisted. Tasks are capability-checked against the target device. Task outcomes distinguish completed, failed, blocked and uncertain. A completed result is marked verified only when evidence is supplied.
+
+## Security boundaries
 - No wildcard CORS.
-- No anonymous access to private RUNE data.
-- Never place Supabase secret/service-role keys in Flutter, web, or desktop clients.
-- Verify JWT signatures and claims, not merely decode tokens.
-- Check the RUNE session/device registry for revocation on protected requests.
-- Require explicit approval for consequential actions.
-- Record security-sensitive decisions and actions in an append-only audit trail.
-- Do not expose the existing local API publicly.
+- Owner access tokens are validated by Supabase Auth, not decoded locally.
+- RUNE tables use RLS; direct `anon`/`authenticated` table privileges are revoked.
+- Device tokens are scoped to one device and can be revoked.
+- Consequential tasks default to awaiting owner approval.
+- Audit events are append-only through the Data API.
+- Never expose the local Python API publicly.
 
-## Current status
-
-This is the initial backend service scaffold. It currently provides configuration validation, request correlation, CORS allowlisting and a health endpoint only. Authentication, database schema, device enrollment, session revocation, authorization policies and deployment are not yet implemented.
+## Honest implementation status
+This is a first remote-control vertical slice, not production-complete infrastructure. It uses authenticated HTTP polling, not persistent WebSockets. Device public-key challenges, device attestation, multi-factor approval, rate limiting, encrypted argument envelopes and a secrets vault are not implemented. Configure Supabase and apply the migration before expecting `/ready` to return ready. Run tests and security review before deployment.
