@@ -134,8 +134,8 @@ class UsageLedger:
         return float(row[0] or 0)
 
     def reserve(self, provider: str, estimated_cost_usd: float) -> int:
-        if estimated_cost_usd < 0:
-            raise ValueError("estimated cost cannot be negative")
+        if not math.isfinite(estimated_cost_usd) or estimated_cost_usd < 0:
+            raise ValueError("estimated cost must be finite and non-negative")
         # BEGIN IMMEDIATE serializes competing workers so two requests cannot
         # both spend the same remaining budget.
         self.db.execute("BEGIN IMMEDIATE")
@@ -157,6 +157,9 @@ class UsageLedger:
             raise
 
     def settle(self, reservation_id: int, usage: ProviderUsage) -> None:
+        if (usage.input_tokens < 0 or usage.output_tokens < 0
+                or not math.isfinite(usage.cost_usd) or usage.cost_usd < 0):
+            raise ValueError("provider usage values must be finite and non-negative")
         self.db.execute(
             "update provider_usage set input_tokens=?,output_tokens=?,cost_usd=? where rowid=?",
             (usage.input_tokens, usage.output_tokens, usage.cost_usd, reservation_id),
