@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/rune_colors.dart';
 import '../screens/onboarding_page.dart';
@@ -32,7 +33,7 @@ class _RuneAppState extends State<RuneApp> {
     if(mounted)setState(()=>apiUrl=url);
   }
   @override Widget build(BuildContext context){
-    final theme=ThemeData(brightness:Brightness.dark,useMaterial3:true,scaffoldBackgroundColor:RuneColors.obsidian,colorScheme:const ColorScheme.dark(primary:RuneColors.brightEmerald,secondary:RuneColors.aurum,surface:RuneColors.carbon,onSurface:RuneColors.ivory),fontFamily:'Manrope',textTheme:ThemeData.dark().textTheme.apply(bodyColor:RuneColors.ivory,displayColor:RuneColors.ivory),inputDecorationTheme:InputDecorationTheme(filled:true,fillColor:RuneColors.carbon,hintStyle:const TextStyle(color:RuneColors.muted),contentPadding:const EdgeInsets.symmetric(horizontal:15,vertical:15),border:OutlineInputBorder(borderRadius:BorderRadius.circular(13),borderSide:BorderSide(color:Colors.white.withOpacity(.08))),enabledBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(13),borderSide:BorderSide(color:Colors.white.withOpacity(.08))),focusedBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(13),borderSide:const BorderSide(color:RuneColors.emerald))));
+    final theme=ThemeData(brightness:Brightness.dark,useMaterial3:true,scaffoldBackgroundColor:RuneColors.obsidian,colorScheme:const ColorScheme.dark(primary:RuneColors.brightEmerald,secondary:RuneColors.aurum,surface:RuneColors.carbon,onSurface:RuneColors.ivory),textTheme:GoogleFonts.manropeTextTheme(ThemeData.dark().textTheme).apply(bodyColor:RuneColors.ivory,displayColor:RuneColors.ivory),inputDecorationTheme:InputDecorationTheme(filled:true,fillColor:RuneColors.carbon,hintStyle:const TextStyle(color:RuneColors.muted),contentPadding:const EdgeInsets.symmetric(horizontal:15,vertical:15),border:OutlineInputBorder(borderRadius:BorderRadius.circular(13),borderSide:BorderSide(color:Colors.white.withOpacity(.08))),enabledBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(13),borderSide:BorderSide(color:Colors.white.withOpacity(.08))),focusedBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(13),borderSide:const BorderSide(color:RuneColors.emerald))));
     return MaterialApp(debugShowCheckedModeBanner:false,title:'R.U.N.E.',theme:theme,home:!ready?const _Loading():!onboarded?OnboardingPage(onComplete:_complete):RuneShell(owner:owner,apiUrl:apiUrl,onApiChanged:_updateApi));
   }
 }
