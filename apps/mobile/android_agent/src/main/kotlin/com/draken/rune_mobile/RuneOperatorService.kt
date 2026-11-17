@@ -58,6 +58,12 @@ class RuneOperatorService : Service() {
             backendUrl = intent.getStringExtra("backendUrl") ?: ""
             deviceId = intent.getStringExtra("deviceId") ?: ""
             deviceToken = intent.getStringExtra("deviceToken") ?: ""
+            val parsedBackend = runCatching { URL(backendUrl) }.getOrNull()
+            if (parsedBackend == null ||
+                (parsedBackend.protocol != "https" && parsedBackend.host !in setOf("localhost", "127.0.0.1"))) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
             if (backendUrl.isBlank() || deviceId.isBlank() || deviceToken.isBlank()) {
                 stopSelf()
                 return START_NOT_STICKY
@@ -124,8 +130,14 @@ class RuneOperatorService : Service() {
             try {
                 val now = System.currentTimeMillis()
                 if (now - lastHeartbeat > 20000L) {
+                    val capabilities = JSONArray().put("app.list").put("app.launch")
+                    if (RuneAccessibilityService.instance != null) {
+                        capabilities.put("ui.observe").put("ui.interact")
+                    }
                     post("/v1/devices/$deviceId/heartbeat",
-                        JSONObject().put("status", "online").put("app_version", "0.2.0"))
+                        JSONObject().put("status", "online")
+                            .put("app_version", "0.2.0")
+                            .put("capabilities", capabilities))
                     lastHeartbeat = now
                 }
                 val response = request("GET", "/v1/devices/$deviceId/tasks/next", null)
