@@ -49,6 +49,57 @@ class RuneApi {
     }
   }
 
+
+  Future<String> transcribeAudio(List<int> audio, {String contentType = 'audio/mp4'}) async {
+    if (audio.isEmpty || audio.length > 25 * 1024 * 1024) {
+      throw const RuneApiException('Voice recording must be between 1 byte and 25 MB.');
+    }
+    try {
+      final request = await _client.postUrl(_uri('/api/voice/transcribe')).timeout(const Duration(seconds: 12));
+      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      request.headers.contentType = ContentType.parse(contentType);
+      if (sessionToken.isNotEmpty) request.headers.set('X-RUNE-Session', sessionToken);
+      request.add(audio);
+      final response = await request.close().timeout(const Duration(seconds: 60));
+      final text = await response.transform(utf8.decoder).join();
+      final payload = text.isEmpty ? <String, dynamic>{} : jsonDecode(text);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final message = payload is Map ? payload['error'] : null;
+        throw RuneApiException(message?.toString() ?? 'Speech recognition failed (${response.statusCode}).',
+            statusCode: response.statusCode);
+      }
+      return payload is Map ? payload['text']?.toString() ?? '' : '';
+    } on SocketException {
+      throw const RuneApiException('Cannot reach the R.U.N.E. core for transcription.');
+    } on TimeoutException {
+      throw const RuneApiException('Speech recognition timed out.');
+    } on FormatException {
+      throw const RuneApiException('Speech recognition returned invalid data.');
+    }
+  }
+
+  Future<List<int>> synthesizeSpeech(String text) async {
+    try {
+      final request = await _client.postUrl(_uri('/api/voice/synthesize')).timeout(const Duration(seconds: 12));
+      request.headers.set(HttpHeaders.acceptHeader, 'audio/mpeg');
+      request.headers.contentType = ContentType.json;
+      if (sessionToken.isNotEmpty) request.headers.set('X-RUNE-Session', sessionToken);
+      request.write(jsonEncode({'text': text}));
+      final response = await request.close().timeout(const Duration(seconds: 60));
+      final bytes = await response.fold<List<int>>(<int>[], (buffer, chunk) => buffer..addAll(chunk));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final message = utf8.decode(bytes, allowMalformed: true);
+        throw RuneApiException(message.isEmpty ? 'Speech synthesis failed (${response.statusCode}).' : message,
+            statusCode: response.statusCode);
+      }
+      return bytes;
+    } on SocketException {
+      throw const RuneApiException('Cannot reach the R.U.N.E. core for speech synthesis.');
+    } on TimeoutException {
+      throw const RuneApiException('Speech synthesis timed out.');
+    }
+  }
+
   Future<bool> health() async {
     final result = await _request('/api/health');
     return result['status'] == 'online';
