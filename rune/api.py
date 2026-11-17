@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 from .core.authority import Authority
 from .core.model import DeterministicModel
 from .core.providers import configured_model_provider
+from .core.remote import RemoteBackendClient
+from .core.orchestrator import RUNEOrchestrator
 from .core.node import Capability
 from .runtime import RUNERuntime
 from .shell.state import ShellMode, ShellState
@@ -88,6 +90,9 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             "/api/goal",
             "/api/plan",
             "/api/plan/verify",
+            "/api/remote/propose",
+            "/api/remote/submit",
+            "/api/remote/approve",
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
@@ -97,8 +102,39 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
 
-            if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify"} and not self._authorized():
+            if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify",
+                                "/api/remote/propose", "/api/remote/submit", "/api/remote/approve"} and not self._authorized():
                 self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path == "/api/remote/propose":
+                request_text = str(payload.get("message", "")).strip()
+                if not request_text:
+                    self._send(400, {"error": "message is required"})
+                    return
+                remote = RemoteBackendClient()
+                proposal = RUNEOrchestrator(self.runtime.engine.model, remote).propose(request_text)
+                self._send(200, {"proposal": proposal})
+                return
+
+            if request_path == "/api/remote/submit":
+                proposal = payload.get("proposal")
+                if not isinstance(proposal, dict):
+                    self._send(400, {"error": "proposal object is required"})
+                    return
+                remote = RemoteBackendClient()
+                tasks = RUNEOrchestrator(self.runtime.engine.model, remote).submit_proposal(proposal)
+                self._send(202, {"tasks": tasks, "status": "awaiting_owner_approval"})
+                return
+
+            if request_path == "/api/remote/approve":
+                task_id = str(payload.get("task_id", "")).strip()
+                if not task_id:
+                    self._send(400, {"error": "task_id is required"})
+                    return
+                remote = RemoteBackendClient()
+                task = RUNEOrchestrator(self.runtime.engine.model, remote).approve(task_id)
+                self._send(200, {"task": task})
                 return
 
             if request_path == "/api/memory":
