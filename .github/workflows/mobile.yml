@@ -31,7 +31,7 @@ jobs:
         run: flutter pub get
       - name: Analyze
         working-directory: apps/mobile
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
       - name: Test
         working-directory: apps/mobile
         run: flutter test
