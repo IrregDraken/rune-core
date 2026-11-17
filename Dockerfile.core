@@ -1,0 +1,18 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    RUNE_API_HOST=0.0.0.0
+
+WORKDIR /app
+COPY pyproject.toml ./
+COPY rune ./rune
+RUN pip install --no-cache-dir . \
+    && mkdir -p /app/data \
+    && useradd --create-home --uid 10001 rune \
+    && chown -R rune:rune /app
+
+USER rune
+VOLUME ["/app/data"]
+CMD ["rune-api"]
