@@ -1,6 +1,7 @@
 package com.draken.rune_mobile
 
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import android.content.Context
@@ -35,6 +36,28 @@ class MainActivity : FlutterActivity() {
                     }
                     "openAccessibilitySettings" -> {
                         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        result.success(true)
+                    }
+                    "startBackgroundOperator" -> {
+                        val backendUrl = call.argument<String>("backendUrl")
+                        val deviceId = call.argument<String>("deviceId")
+                        val deviceToken = call.argument<String>("deviceToken")
+                        if (backendUrl.isNullOrBlank() || deviceId.isNullOrBlank() || deviceToken.isNullOrBlank()) {
+                            result.error("invalid_argument", "Backend URL and enrolled device credentials are required", null)
+                        } else {
+                            val service = Intent(this, RuneOperatorService::class.java).apply {
+                                action = RuneOperatorService.ACTION_START
+                                putExtra("backendUrl", backendUrl)
+                                putExtra("deviceId", deviceId)
+                                putExtra("deviceToken", deviceToken)
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service)
+                            else startService(service)
+                            result.success(true)
+                        }
+                    }
+                    "stopBackgroundOperator" -> {
+                        startService(Intent(this, RuneOperatorService::class.java).setAction(RuneOperatorService.ACTION_STOP))
                         result.success(true)
                     }
                     "observeUi" -> {
