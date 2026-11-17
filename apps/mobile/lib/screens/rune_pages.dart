@@ -594,7 +594,7 @@ class _WorkPageState extends State<WorkPage> {
   setState(() => busy = true);
   try {
    await widget.api.setGoal(goal.text.trim());
-   final list = steps.text.split('\\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+   final list = steps.text.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
    if (list.isNotEmpty) await widget.api.createPlan(goal.text.trim(), list);
    goal.clear(); steps.clear();
    if (mounted) setState(() => note = 'Objective submitted to the core.');
