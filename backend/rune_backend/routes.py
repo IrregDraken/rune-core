@@ -112,6 +112,17 @@ async def create_task(body: TaskCreate, owner: Owner = Depends(require_owner)):
                  task_id=UUID(task["id"]),metadata={"capability":body.capability})
     return {"task":task}
 
+
+@router.get("/tasks/{task_id}")
+async def task_status(task_id: UUID, owner: Owner = Depends(require_owner)):
+    rows = await store.request("GET", "rune_tasks", params={
+        **owner_filter(owner.id), "id": f"eq.{task_id}", "select": "*", "limit": "1",
+    })
+    if not rows:
+        raise HTTPException(404, "Task not found")
+    task = rows[0]
+    return {"task": task, "evidence_present": bool(task.get("evidence"))}
+
 @router.post("/tasks/{task_id}/approve")
 async def approve_task(task_id: UUID, owner: Owner = Depends(require_owner)):
     now=datetime.now(timezone.utc).isoformat()
@@ -158,4 +169,4 @@ async def task_result(device_id: UUID, task_id: UUID, body: TaskResultInput,
     await _audit(UUID(device["owner_id"]),"task.result",body.status,device_id=device_id,
                  task_id=task_id,metadata={"has_evidence":bool(body.evidence),"error_code":body.error_code})
     return {"task_id":str(task_id),"status":body.status,
-            "verified":body.status=="completed" and bool(body.evidence)}
+            "evidence_present":bool(body.evidence)}
