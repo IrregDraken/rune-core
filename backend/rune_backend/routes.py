@@ -209,6 +209,24 @@ async def approve_task(task_id: UUID, owner: Owner = Depends(require_owner)):
                  device_id=UUID(approved["device_id"]), task_id=task_id)
     return {"task": approved}
 
+@router.post("/tasks/{task_id}/cancel")
+async def cancel_task(task_id: UUID, owner: Owner = Depends(require_owner)):
+    now = datetime.now(timezone.utc).isoformat()
+    rows = await store.request("PATCH", "rune_tasks", params={
+        **owner_filter(owner.id),
+        "id": f"eq.{task_id}",
+        "status": "eq.awaiting_approval",
+        "select": "id,device_id",
+    }, body={"status": "cancelled", "finished_at": now},
+       prefer="return=representation")
+    if not rows:
+        raise HTTPException(409, "Only a task awaiting approval can be cancelled here")
+    task = rows[0]
+    await _audit(owner.id, "task.cancelled", "success",
+                 device_id=UUID(task["device_id"]), task_id=task_id)
+    return {"task_id": str(task_id), "status": "cancelled"}
+
+
 @router.get("/devices/{device_id}/tasks/next")
 async def next_task(device_id: UUID, x_rune_device_token: str = Header(default="")):
     device = await _device(device_id, x_rune_device_token)
