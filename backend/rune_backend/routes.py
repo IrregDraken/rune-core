@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, secrets
+import hashlib, secrets, re
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -22,7 +22,7 @@ def _reject_secret_fields(value, path: str = "arguments", depth: int = 0) -> Non
         if len(value) > 32:
             raise HTTPException(400, "Too many task argument fields")
         for key, item in value.items():
-            normalized = str(key).lower().replace("-", "_")
+            normalized = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", str(key)).lower().replace("-", "_")
             if normalized in forbidden or normalized.endswith(("_password", "_token", "_secret", "_api_key")):
                 raise HTTPException(400, f"Sensitive field is not accepted in {path}")
             _reject_secret_fields(item, f"{path}.{key}", depth + 1)
