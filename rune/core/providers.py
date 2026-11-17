@@ -155,3 +155,50 @@ class RoutedModelProvider(ModelProvider):
             except ProviderUnavailable as exc:
                 failures.append(str(exc))
         raise ProviderUnavailable("; ".join(failures) or "no model provider available")
+
+
+def configured_model_provider(ledger_path: str = "data/rune-usage.db") -> RoutedModelProvider:
+    """Build the provider chain exclusively from explicit environment settings.
+
+    Provider model IDs and per-million prices are deliberately not guessed.
+    Set RUNE_PRIMARY_* and optionally RUNE_FALLBACK_* values after checking
+    current vendor model IDs and pricing.
+    """
+    monthly_limit = float(os.getenv("RUNE_MONTHLY_MODEL_BUDGET_USD", "33"))
+    ledger = UsageLedger(
+        ledger_path,
+        monthly_limit_usd=monthly_limit,
+    )
+    providers: list[TextProvider] = []
+
+    def add_provider(prefix: str, kind: str) -> None:
+        name = os.getenv(f"{prefix}_NAME", prefix.lower())
+        model = os.getenv(f"{prefix}_MODEL", "").strip()
+        key_env = os.getenv(f"{prefix}_API_KEY_ENV", f"{prefix}_API_KEY")
+        input_rate = os.getenv(f"{prefix}_INPUT_USD_PER_MILLION")
+        output_rate = os.getenv(f"{prefix}_OUTPUT_USD_PER_MILLION")
+        if not model or not input_rate or not output_rate:
+            return
+        config = ProviderConfig(
+            name=name,
+            model=model,
+            api_key_env=key_env,
+            input_usd_per_million=float(input_rate),
+            output_usd_per_million=float(output_rate),
+            base_url=os.getenv(f"{prefix}_BASE_URL") or None,
+            max_output_tokens=int(os.getenv(f"{prefix}_MAX_OUTPUT_TOKENS", "800")),
+        )
+        adapter = AnthropicMessagesProvider if kind == "anthropic" else OpenAIChatProvider
+        providers.append(adapter(config))
+
+    primary_kind = os.getenv("RUNE_PRIMARY_KIND", "openai").lower()
+    fallback_kind = os.getenv("RUNE_FALLBACK_KIND", "anthropic").lower()
+    add_provider("RUNE_PRIMARY", primary_kind)
+    add_provider("RUNE_FALLBACK", fallback_kind)
+    if not providers:
+        ledger.close()
+        raise ProviderUnavailable(
+            "No model provider configured. Set provider kind, model ID, API-key environment "
+            "variable and verified input/output prices."
+        )
+    return RoutedModelProvider(providers, ledger)
