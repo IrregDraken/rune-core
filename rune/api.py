@@ -12,6 +12,7 @@ from .core.remote import RemoteBackendClient
 from .core.orchestrator import RUNEOrchestrator
 from .core.node import Capability
 from .runtime import RUNERuntime
+from .core.voice import Speech
 from .shell.state import ShellMode, ShellState
 
 
@@ -43,6 +44,14 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         if status != 204:
             self.wfile.write(body)
+
+    def _send_audio(self, status: int, audio: bytes, content_type: str = "audio/mpeg") -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(audio)))
+        self._cors_headers()
+        self.end_headers()
+        self.wfile.write(audio)
 
     def do_OPTIONS(self) -> None:
         self._send(204, {})
@@ -108,6 +117,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             "/api/remote/propose",
             "/api/remote/submit",
             "/api/remote/approve",
+            "/api/voice/synthesize",
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
@@ -118,8 +128,25 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
 
             if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify",
-                                "/api/remote/propose", "/api/remote/submit", "/api/remote/approve"} and not self._authorized():
+                                "/api/remote/propose", "/api/remote/submit", "/api/remote/approve",
+                                "/api/voice/synthesize"} and not self._authorized():
                 self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path == "/api/voice/synthesize":
+                text = str(payload.get("text", "")).strip()
+                if not text:
+                    self._send(400, {"error": "text is required"})
+                    return
+                try:
+                    audio = self.runtime.voice.synthesize(Speech(text))
+                except ValueError as exc:
+                    self._send(400, {"error": str(exc)})
+                    return
+                except Exception:
+                    self._send(503, {"error": "voice provider unavailable"})
+                    return
+                self._send_audio(200, audio)
                 return
 
             if request_path == "/api/remote/propose":
