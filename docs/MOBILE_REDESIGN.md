@@ -13,6 +13,15 @@ The mobile product follows the supplied R.U.N.E. dark emerald app showcase and c
 - Surfaces: restrained glass, fine green-tinted borders, layered gradients and soft emerald bloom. Avoid generic flat Material cards, loud gradients, and excessive glow.
 - Motion: purposeful, quiet transitions. The intelligence/orb visual should feel alive without competing with content.
 
+## Assistant-first experience and intelligence orb
+
+- The Assistant is the first destination after authentication. Home remains available as a separate command-centre destination.
+- The empty Assistant state is centered on the R.U.N.E. intelligence orb, followed by a concise invitation to start a conversation and a small set of prompt shortcuts.
+- The orb reuses the supplied Flutter sphere renderer's Fibonacci-distributed 20,000-particle geometry and perspective projection.
+- The supplied touch-ripple and particle-displacement interaction has been removed. The orb uses slow autonomous rotation, depth separation, emerald bloom, a restrained aurum/emerald light ribbon and a moving glint.
+- Particle buffers are retained by the painter and updated through its repaint listenable rather than allocating a new particle field on every animation frame.
+- The microphone remains a real capture control. The UI must not imply that voice is active unless recording/session state confirms it.
+
 ## Product entry and identity
 
 - Owner identity is created once for the R.U.N.E. account, not once per installation.
