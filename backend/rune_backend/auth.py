@@ -43,7 +43,10 @@ async def require_owner(
 
     if response.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid or expired access token")
-    payload = response.json()
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail="Identity provider returned an invalid response") from exc
     try:
         owner_id = UUID(payload["id"])
     except (KeyError, ValueError, TypeError) as exc:
