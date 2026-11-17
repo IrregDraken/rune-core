@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart';
 
 class RuneDeviceAgent {
@@ -55,7 +57,7 @@ class RuneDeviceAgent {
       _channel.invokeMethod<String>('stopVoiceRecording');
 
   Future<bool> playAudio(List<int> audio) async =>
-      await _channel.invokeMethod<bool>('playAudio', {'audio': audio}) ?? false;
+      await _channel.invokeMethod<bool>('playAudio', {'audio': Uint8List.fromList(audio)}) ?? false;
 
   Future<void> stopAudio() async {
     await _channel.invokeMethod<bool>('stopAudio');
