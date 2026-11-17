@@ -1,24 +1,26 @@
 # R.U.N.E. Device Operator Specification
 
-Status: Locked product direction, implementation in progress
+Status: Product direction locked; implementation in progress
 Date: 2026-11-17
 
 ## Product direction
 
-R.U.N.E. is one persistent personal AI operator that can work across registered devices, applications, browsers and connected services. It is not limited to chat, suggestions or a single application. The intelligence runtime plans and coordinates; device nodes and service connectors perform operations and return evidence.
+R.U.N.E. is one persistent personal AI operator that can work across registered devices, applications, browsers and connected services. It is not limited to chat, suggestions or a predetermined list of integrations. The intelligence runtime plans and coordinates; device nodes and service connectors perform operations and return evidence.
 
-Android is the first fully implemented device platform. iOS follows through supported Apple frameworks and app integrations.
+Android is the first device platform. iOS follows through supported Apple frameworks and app integrations.
 
-## Model configuration
+**No predetermined app-specific integration list exists.** Any named application is an optional acceptance-test target or an example of the breadth of access requested, not a committed integration, product boundary or backlog item. Prefer generic platform capabilities; add a service-specific connector only when it is technically necessary or materially better.
 
-- GPT-6 Luna: primary model.
-- Claude Haiku: secondary model.
-- Gemini: free-tier fallback, subject to provider limits and data-handling restrictions.
-- DeepSeek: removed from the initial provider set.
-- Combined monthly API spending ceiling for Luna and Haiku: USD 33.
-- Provider selection is centralized behind the existing provider-neutral model boundary. Do not create separate agents for each provider.
-- Enforce usage accounting, configurable per-provider budgets, and a hard stop/fallback when the monthly ceiling is reached.
-- Never send passwords, PINs, private keys, session cookies, biometric templates or raw vault secrets to an LLM. Send only the minimum task result needed for reasoning.
+## Model and intelligence strategy
+
+- One persistent RUNE identity, personality, policy and memory across model providers.
+- Provider adapters are interchangeable inference engines, not separate agents.
+- Model identifiers and provider selection must be configuration-driven and verified against provider availability. Do not hardcode unverified model names.
+- Gemini may be used as a constrained fallback subject to provider limits and data-handling restrictions.
+- Enforce a configurable monthly API budget, per-provider usage accounting and hard budget stops/fallbacks.
+- Never send passwords, PINs, private keys, session cookies, biometric templates or raw vault secrets to an LLM.
+- Prefer event-driven monitoring; do not continuously invoke paid inference while idle.
+- Keep task lifecycle independent from active voice-session timeout.
 
 ## Voice settings
 
@@ -36,27 +38,19 @@ Android is the first fully implemented device platform. iOS follows through supp
 
 ## Device operator capabilities
 
-The product goal is broad, user-authorized operational control across installed applications and device functions. The implementation must use the strongest supported platform mechanisms available, combining:
+The product goal is broad, user-authorized operational control across installed applications and device functions. Use the strongest supported platform mechanisms available, combining:
 
 1. Native platform APIs for supported system operations.
 2. Android Accessibility Service for permitted UI inspection and interaction.
-3. Device-owner / managed-device APIs where the owner deliberately provisions a dedicated device and the platform supports the requested operation.
+3. Device-owner / managed-device APIs where the owner deliberately provisions a device and the platform supports the requested operation.
 4. Browser automation for web workflows.
 5. Direct service APIs and OAuth integrations where available.
-6. App-specific UI automation where APIs are unavailable.
+6. UI automation when a supported API is unavailable.
 7. A secure remote device bridge for commands from RUNE Core to enrolled devices.
 
 The capability registry must describe what each device can actually do. Unsupported, unavailable, denied or failed actions must be reported as such, never simulated as success.
 
 Platform security boundaries remain in force. Do not collect biometric templates, extract OS PINs, bypass lock-screen authentication, or defeat an application's authentication controls. Use supported device enrollment, app sessions, OAuth, Android Keystore, platform authentication and delegated authorization. If an app requires fresh user authentication, surface that requirement accurately.
-
-## Example workflows
-
-- "Lock my phone": invoke a supported Android lock operation and verify the device result.
-- "Open Spotify and play my playlist": launch Spotify, navigate through its UI or use an authorized integration, start playback and verify observable playback state.
-- "Check my OPay balance": use an authorized supported API if available; otherwise operate the installed OPay app through the device node, observe the displayed balance and return the amount with retrieval time. Do not assume a personal-wallet API exists merely because merchant APIs exist.
-- "Transfer money to my account": use a supported payment integration or authorized app workflow. Apply user-configured beneficiary and transaction limits. Respect provider-required authentication and transaction confirmation. Never infer that a transfer succeeded without provider/device evidence.
-- "Download this video": use browser automation and permitted download methods; respect applicable platform restrictions and rights.
 
 ## Remote device architecture
 
@@ -78,20 +72,20 @@ Platform security boundaries remain in force. Do not collect biometric templates
 - Never put Supabase service-role/secret keys in client applications.
 - Financial integrations must use least privilege and return only the required account data.
 - Distinguish read-only operations from transfers, payments and other value-moving operations.
-- User-configured delegated limits may permit unattended operations only where the financial provider supports the required authorization model.
+- User-configured delegated limits may permit unattended operations only where the provider supports the required authorization model.
 - Record auditable security events without logging secrets.
 
-## First implementation sequence
+## Implementation sequence
 
-1. Audit and preserve the existing Python intelligence runtime, tool registry, node interface, Flutter companion and remote backend scaffold.
+1. Preserve and extend the existing Python intelligence runtime, tool registry, node interface and Flutter companion.
 2. Define a versioned device-node protocol and capability/result contract.
-3. Implement authenticated device enrollment, session issuance/revocation and remote command delivery.
+3. Implement authenticated owner identity, trusted-device enrollment, session issuance/revocation and remote command delivery.
 4. Build the Android Device Agent with native modules and Accessibility Service.
-5. Implement generic app launch, UI observation, tap, scroll, text entry and supported system actions.
+5. Implement generic app discovery/launch, UI observation, tap, scroll, text entry and supported system actions.
 6. Add a secure local vault/session integration.
 7. Add voice wake/STT/TTS and command routing.
-8. Add Spotify and OPay workflows, verifying real outcomes.
-9. Add financial transfer workflows only after provider authorization and limits are implemented.
+8. Add optional app/service-specific connectors only where needed to unlock or improve a generic workflow.
+9. Add financial operations only after provider authorization, confirmation and limits are implemented.
 10. Add iOS integrations through supported Apple APIs.
 
 ## Acceptance principles
