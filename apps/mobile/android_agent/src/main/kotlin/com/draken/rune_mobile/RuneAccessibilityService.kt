@@ -29,12 +29,18 @@ class RuneAccessibilityService : AccessibilityService() {
 
     fun observeUi(): Map<String, Any?> {
         val root = rootInActiveWindow ?: return mapOf("available" to false, "reason" to "no_active_window")
+        val packageName = root.packageName?.toString()
+        val windowCount = windows?.size ?: 0
         val nodes = mutableListOf<Map<String, Any?>>()
-        collect(root, nodes, 0)
+        try {
+            collect(root, nodes, 0)
+        } finally {
+            root.recycle()
+        }
         return mapOf(
             "available" to true,
-            "packageName" to root.packageName?.toString(),
-            "windowCount" to windows?.size ?: 0,
+            "packageName" to packageName,
+            "windowCount" to windowCount,
             "nodes" to nodes.take(250)
         )
     }
@@ -78,12 +84,10 @@ class RuneAccessibilityService : AccessibilityService() {
 
     fun scroll(direction: String): Boolean {
         val root = rootInActiveWindow ?: return false
-        val target = findScrollable(root) ?: return false
+        val target = try { findScrollable(root) } finally { root.recycle() } ?: return false
         val action = if (direction == "up") AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
                      else AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
-        val result = target.performAction(action)
-        target.recycle()
-        return result
+        return try { target.performAction(action) } finally { target.recycle() }
     }
 
     private fun findScrollable(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
@@ -100,13 +104,12 @@ class RuneAccessibilityService : AccessibilityService() {
     fun typeText(value: String): Boolean {
         if (value.length > 4000) return false
         val root = rootInActiveWindow ?: return false
-        val target = findFocusedEditable(root) ?: return false
+        val target = try { findFocusedEditable(root) } finally { root.recycle() } ?: return false
         val args = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
         }
-        val success = target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-        target.recycle()
-        return success
+        return try { target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args) }
+               finally { target.recycle() }
     }
 
     private fun findFocusedEditable(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
