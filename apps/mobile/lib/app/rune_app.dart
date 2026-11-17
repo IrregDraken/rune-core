@@ -244,7 +244,8 @@ class RuneShell extends StatefulWidget {
 }
 
 class _RuneShellState extends State<RuneShell> {
-  int index = 0;
+  // Assistant is the first screen after authentication; Home remains available.
+  int index = 1;
   late RuneApi api;
 
   @override
