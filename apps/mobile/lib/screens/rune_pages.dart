@@ -721,7 +721,7 @@ class _ExplorePageState extends State<ExplorePage> {
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
        const Text('Your capability network', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
        const SizedBox(height: 3),
-       Text(loading ? 'Reading the core…' : error != null ? 'Core unavailable' : 'undefined capabilities reported by the core', style: const TextStyle(fontSize: 9, color: RuneColors.muted)),
+       Text(loading ? 'Reading the core…' : error != null ? 'Core unavailable' : '\${tools.length} capabilities reported by the core', style: const TextStyle(fontSize: 9, color: RuneColors.muted)),
       ])),
       IconButton(onPressed: loading ? null : load, icon: const Icon(Icons.refresh_rounded, color: RuneColors.mint)),
      ]),
