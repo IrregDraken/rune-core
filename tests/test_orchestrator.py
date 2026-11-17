@@ -43,6 +43,8 @@ def test_unknown_device_or_capability_is_rejected():
 def test_sensitive_arguments_are_rejected():
     with pytest.raises(OrchestrationError):
         propose({"device_id":"phone-1","capability":"app.launch","arguments":{"api_key":"secret"}})
+    with pytest.raises(OrchestrationError):
+        propose({"device_id":"phone-1","capability":"app.launch","arguments":{"refreshToken":"secret"}})
 
 
 def test_ui_interaction_schema_is_enforced():
