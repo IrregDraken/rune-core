@@ -9,7 +9,7 @@
 - `backend/` authenticates the owner with Supabase Auth, enrolls devices, queues approval-gated tasks and records audit events.
 - `apps/mobile/` is the Flutter companion.
 - `apps/mobile/android_agent/` contains native Android app discovery, launch and Accessibility Service implementation.
-- The Android app's task runner polls only while the Flutter app process is active. A persistent Android foreground operator service is still required for reliable background execution.
+- The Android app can run a native foreground operator service with a persistent notification. Android still controls its lifetime and may impose battery and foreground-service limits.
 
 ## Model configuration
 
@@ -17,7 +17,7 @@ The default mode remains `RUNE_MODEL_MODE=development`, which uses the determini
 
 Provider model IDs and rates are intentionally blank in `.env.example`. Obtain the exact current model identifier and input/output USD-per-million rates from the provider's official documentation before configuring them. Do not infer rates from old notes or model names.
 
-The SQLite usage ledger estimates request cost from prompt length and configured maximum output tokens, then reserves that estimate transactionally before paid inference. After a response, it settles the reservation to provider-reported token usage. Failed requests release the reservation. Token estimation is not an absolute guarantee against tokenizer variance or provider-side billing differences. This is a local process budget guard, not a provider-side spending cap. Keep provider-side spending limits enabled as a second control.
+The SQLite usage ledger estimates request cost from UTF-8 prompt bytes and configured maximum output tokens, then reserves that estimate transactionally before paid inference. Successful responses settle the reservation to provider-reported token usage. If a request may have reached the provider but its billing outcome is uncertain, the reservation is retained rather than released. Token estimation is still not an absolute guarantee against provider billing differences. This is a local budget guard, not a provider-side spending cap. Keep provider-side spending limits enabled as a second control.
 
 ## Remote control plane configuration
 
@@ -56,7 +56,7 @@ The native operator:
 - Requires the owner to enable RUNE Accessibility in Android Settings.
 - Does not bypass app login, device lock, MFA or system permission dialogs.
 
-The Android agent advertises only the capabilities currently available. Its foreground service polls the remote queue; the operating system may still stop or limit it.
+The Android agent advertises only the capabilities currently available. Its foreground service polls the remote queue and refreshes its capability list on heartbeat; the operating system may still stop or limit it.
 
 ## Remote task lifecycle
 
