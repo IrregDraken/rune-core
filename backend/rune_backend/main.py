@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 import httpx
 from rune_backend.config import get_settings
 from rune_backend.routes import router
-from rune_backend.store import StoreError
+from rune_backend.store import StoreError, store
 
 settings=get_settings()
 app=FastAPI(title="RUNE Backend",description="Identity, trusted-device and remote task boundary for RUNE.",
