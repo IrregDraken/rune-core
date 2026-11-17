@@ -138,7 +138,12 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
             return
-        if self._auth_required() and not self._authorized():
+        privileged_paths = {
+            "/api/memory", "/api/goal", "/api/plan", "/api/plan/verify",
+            "/api/remote/propose", "/api/remote/submit", "/api/remote/approve",
+            "/api/voice/synthesize", "/api/voice/transcribe", "/api/voice/session",
+        }
+        if (self._auth_required() or request_path in privileged_paths) and not self._authorized():
             self._send(403, {"error": "privileged session required"})
             return
 
@@ -176,13 +181,6 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                 self._send(413, {"error": "JSON request body exceeds the 1 MB limit"})
                 return
             payload = json.loads(self.rfile.read(length) or b"{}")
-
-            if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify",
-                                "/api/remote/propose", "/api/remote/submit", "/api/remote/approve",
-                                "/api/voice/synthesize", "/api/voice/transcribe",
-                                "/api/voice/session"} and not self._authorized():
-                self._send(403, {"error": "privileged session required"})
-                return
 
             if request_path == "/api/voice/session":
                 controller = self.runtime.voice_session
