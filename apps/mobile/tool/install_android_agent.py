@@ -20,7 +20,7 @@ def install() -> None:
     source = AGENT / "src/main/kotlin/com/draken/rune_mobile"
     target = ANDROID / "app/src/main/kotlin/com/draken/rune_mobile"
     target.mkdir(parents=True, exist_ok=True)
-    for name in ("MainActivity.kt", "RuneAccessibilityService.kt"):
+    for name in ("MainActivity.kt", "RuneAccessibilityService.kt", "RuneOperatorService.kt"):
         shutil.copy2(source / name, target / name)
 
     xml_source = AGENT / "src/main/res/xml/rune_accessibility_service.xml"
@@ -34,6 +34,14 @@ def install() -> None:
     application = root.find("application")
     if application is None:
         raise SystemExit("Generated Android manifest has no application element.")
+
+    for permission in (
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+        "android.permission.POST_NOTIFICATIONS",
+    ):
+        if not any(item.get(android_attr("name")) == permission for item in root.findall("uses-permission")):
+            ET.SubElement(root, "uses-permission", {android_attr("name"): permission})
 
     queries = root.find("queries")
     if queries is None:
@@ -58,6 +66,15 @@ def install() -> None:
         ET.SubElement(service, "meta-data", {
             android_attr("name"): "android.accessibilityservice",
             android_attr("resource"): "@xml/rune_accessibility_service",
+        })
+
+    operator = next((item for item in application.findall("service")
+                     if item.get(android_attr("name")) == ".RuneOperatorService"), None)
+    if operator is None:
+        ET.SubElement(application, "service", {
+            android_attr("name"): ".RuneOperatorService",
+            android_attr("exported"): "false",
+            android_attr("foregroundServiceType"): "dataSync",
         })
 
     strings = ANDROID / "app/src/main/res/values/strings.xml"
