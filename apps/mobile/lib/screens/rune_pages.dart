@@ -623,7 +623,7 @@ class _SettingsPageState extends State<SettingsPage>{
     const SizedBox(height:8),
     TextField(controller:token,obscureText:true,decoration:const InputDecoration(hintText:'RUNE_SESSION_TOKEN from core environment')),
     const SizedBox(height:6),
-    const Text('Stored using Android secure storage. It must match RUNE_SESSION_TOKEN on the core host.',style:TextStyle(fontSize:9,color:RuneColors.muted,height:1.4)),
+    const Text('Stored using platform secure storage. It must match RUNE_SESSION_TOKEN on the core host.',style:TextStyle(fontSize:9,color:RuneColors.muted,height:1.4)),
     const SizedBox(height:10),
     if(status!=null)Text(status!,style:const TextStyle(fontSize:10,color:RuneColors.muted)),
     Row(children:[
