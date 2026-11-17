@@ -60,9 +60,13 @@ class MainActivity : FlutterActivity() {
                         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                             result.error("microphone_permission", "Microphone permission is required", null)
                         } else {
+                            var pendingRecorder: MediaRecorder? = null
+                            var pendingFile: File? = null
                             try {
                                 val file = File(cacheDir, "rune-utterance-${System.currentTimeMillis()}.m4a")
+                                pendingFile = file
                                 val recorder = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(this) else MediaRecorder()
+                                pendingRecorder = recorder
                                 recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
                                 recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
@@ -75,8 +79,10 @@ class MainActivity : FlutterActivity() {
                                 recordingFile = file
                                 result.success(true)
                             } catch (error: Exception) {
-                                mediaRecorder?.release()
+                                pendingRecorder?.release()
+                                pendingFile?.delete()
                                 mediaRecorder = null
+                                recordingFile = null
                                 result.error("recording_start_failed", "Could not start voice recording", null)
                             }
                         }
