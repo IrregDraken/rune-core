@@ -132,7 +132,7 @@ class _AssistantPageState extends State<AssistantPage>{
     if(transcript.trim().isEmpty) {
      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content:Text('No speech was detected. Try again.')));
-     if(awaitingConfirmation)scheduleVoiceInactivity();
+     scheduleVoiceInactivity();
     } else {
      final spoken=transcript.trim();
      final lowerSpoken=spoken.toLowerCase().replaceAll(RegExp(r"[.!?]"),"").trim();
@@ -167,6 +167,7 @@ class _AssistantPageState extends State<AssistantPage>{
     setState(()=>recording=false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Voice input failed: $e')));
    }
+   scheduleVoiceInactivity();
   } finally {
    if(temporaryRecording!=null) {
     await File(temporaryRecording).delete().catchError((_)=>File(temporaryRecording!));
