@@ -49,12 +49,12 @@ class _AssistantPageState extends State<AssistantPage>{
  final device=RuneDeviceAgent();
  final messages=<({bool user,String text})>[];
  final secureStorage=const FlutterSecureStorage();
- bool sending=false,recording=false,voiceBusy=false,awaitingConfirmation=false,historyLoaded=false;
+ bool sending=false,recording=false,voiceBusy=false,awaitingConfirmation=false,historyLoaded=false,coreOnline=false;
  Timer? voiceTimer;
- @override void initState(){super.initState();_loadConversation();}
+ @override void initState(){super.initState();_loadConversation();_refreshHealth();}
  @override void dispose(){voiceTimer?.cancel();controller.dispose();scroll.dispose();super.dispose();}
 
- Future<void> _loadConversation() async {
+ Future<void> _refreshHealth() async {\n  try {\n   final online=await widget.api.health();\n   if(mounted)setState(()=>coreOnline=online);\n  } catch (_) {\n   if(mounted)setState(()=>coreOnline=false);\n  }\n }\n\n Future<void> _loadConversation() async {
   try {
    final raw=await secureStorage.read(key:'rune.conversation.v1');
    if(raw!=null) {
@@ -251,7 +251,7 @@ class _AssistantPageState extends State<AssistantPage>{
     Text('Assistant',style:TextStyle(fontSize:18,fontWeight:FontWeight.w700)),
     Text('CORE CONVERSATION',style:TextStyle(fontSize:8,color:RuneColors.muted,letterSpacing:1.3))
    ]),
-   const Spacer(),_OnlineChip(online:true),
+   const Spacer(),_OnlineChip(online:coreOnline),
    if(messages.isNotEmpty)IconButton(
     tooltip:'Clear saved conversation',
     onPressed:sending?null:_clearConversation,
