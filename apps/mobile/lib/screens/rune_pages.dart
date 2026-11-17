@@ -35,7 +35,7 @@ class _HomePageState extends State<HomePage>{
  }
 }
 
-class AssistantPage eclass AssistantPage extends StatefulWidget {
+class AssistantPage extends StatefulWidget {
  const AssistantPage({super.key,required this.api});
  final RuneApi api;
  @override State<AssistantPage> createState()=>_AssistantPageState();
@@ -131,7 +131,7 @@ class _AssistantPageState extends State<AssistantPage>{
      final spoken=transcript.trim();
      if(awaitingConfirmation) {
       final lower=spoken.toLowerCase();
-      final done=RegExp(r"\\b(no|we're good|thats all|that's all|done|we are good)\\b").hasMatch(lower);
+      final done=RegExp(r"\b(no|we're good|thats all|that's all|done|we are good)\b").hasMatch(lower);
       await widget.api.voiceSessionAction('confirmation',continueSession:!done);
       if(mounted)setState(()=>awaitingConfirmation=false);
       if(done) {
