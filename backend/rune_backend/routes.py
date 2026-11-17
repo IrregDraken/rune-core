@@ -113,6 +113,17 @@ async def create_task(body: TaskCreate, owner: Owner = Depends(require_owner)):
     return {"task":task}
 
 
+
+@router.get("/tasks")
+async def list_tasks(status: str = "awaiting_approval", owner: Owner = Depends(require_owner)):
+    allowed = {"awaiting_approval", "queued", "running", "completed", "failed", "blocked", "uncertain", "expired", "cancelled"}
+    if status not in allowed:
+        raise HTTPException(400, "Unsupported task status")
+    return await store.request("GET", "rune_tasks", params={
+        **owner_filter(owner.id), "status": f"eq.{status}", "select": "*",
+        "order": "created_at.desc", "limit": "100",
+    })
+
 @router.get("/tasks/{task_id}")
 async def task_status(task_id: UUID, owner: Owner = Depends(require_owner)):
     rows = await store.request("GET", "rune_tasks", params={
