@@ -937,6 +937,30 @@ class _SettingsPageState extends State<SettingsPage>{
 class _PageHeader extends StatelessWidget{const _PageHeader({required this.title,required this.eyebrow});final String title,eyebrow;@override Widget build(BuildContext context)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow,style:const TextStyle(color:RuneColors.muted,fontSize:9,letterSpacing:1.5)),const SizedBox(height:6),Text(title,style:const TextStyle(fontSize:27,fontWeight:FontWeight.w700,letterSpacing:-.7))]);}
 class _SectionTitle extends StatelessWidget{const _SectionTitle(this.text);final String text;@override Widget build(BuildContext context)=>Text(text,style:const TextStyle(fontSize:9,fontWeight:FontWeight.w800,letterSpacing:1.5,color:RuneColors.muted));}
 class _Panel extends StatelessWidget{const _Panel({required this.child});final Widget child;@override Widget build(BuildContext context)=>Container(width:double.infinity,margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.06))),child:child);}
+class _MetricCard extends StatelessWidget {
+ const _MetricCard({required this.icon, required this.label, required this.value, required this.caption});
+ final IconData icon;
+ final String label, value, caption;
+ @override
+ Widget build(BuildContext context) => Container(
+  padding: const EdgeInsets.all(15),
+  decoration: BoxDecoration(
+   color: RuneColors.carbon,
+   borderRadius: BorderRadius.circular(18),
+   border: Border.all(color: RuneColors.border),
+  ),
+  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+   Icon(icon, size: 18, color: RuneColors.mint),
+   const SizedBox(height: 13),
+   Text(label, style: const TextStyle(fontSize: 8, color: RuneColors.muted, letterSpacing: 1.3, fontWeight: FontWeight.w700)),
+   const SizedBox(height: 5),
+   Text(value, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -.5)),
+   const SizedBox(height: 3),
+   Text(caption, style: const TextStyle(fontSize: 9, color: RuneColors.muted)),
+  ]),
+ );
+}
+
 class _InfoRow extends StatelessWidget{const _InfoRow(this.label,this.value,this.color);final String label,value;final Color color;@override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Row(children:[Expanded(child:Text(label,style:const TextStyle(color:RuneColors.muted,fontSize:11))),Flexible(child:Text(value,textAlign:TextAlign.right,style:TextStyle(color:color,fontSize:10,fontWeight:FontWeight.w600)))]));}
 class _Notice extends StatelessWidget{const _Notice({required this.text,this.warning=false});final String text;final bool warning;@override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(13),decoration:BoxDecoration(color:warning?const Color(0xFF302417):RuneColors.pine.withOpacity(.35),borderRadius:BorderRadius.circular(12),border:Border.all(color:warning?RuneColors.aurum.withOpacity(.2):RuneColors.emerald.withOpacity(.2))),child:Text(text,style:TextStyle(color:warning?const Color(0xFFE6C995):RuneColors.mint,fontSize:10,height:1.5)));}
 class _OnlineChip extends StatelessWidget{const _OnlineChip({required this.online});final bool online;@override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:7),decoration:BoxDecoration(color:RuneColors.pine.withOpacity(.5),borderRadius:BorderRadius.circular(30),border:Border.all(color:RuneColors.emerald.withOpacity(.2))),child:Row(children:[Icon(Icons.circle,size:6,color:online?RuneColors.brightEmerald:RuneColors.aurum),const SizedBox(width:6),Text(online?'CORE ONLINE':'CORE OFFLINE',style:const TextStyle(fontSize:8,letterSpacing:.8,color:RuneColors.muted))]));}
