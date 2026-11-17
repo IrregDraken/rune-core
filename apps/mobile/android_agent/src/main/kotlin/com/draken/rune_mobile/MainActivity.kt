@@ -17,6 +17,7 @@ class MainActivity : FlutterActivity() {
     private val channelName = "rune/device"
     private var mediaRecorder: MediaRecorder? = null
     private var recordingFile: File? = null
+    @Volatile private var recordingAutoStopped = false
     private var mediaPlayer: MediaPlayer? = null
     private var playbackFile: File? = null
     private var pendingPlaybackResult: MethodChannel.Result? = null
@@ -73,11 +74,18 @@ class MainActivity : FlutterActivity() {
                                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                                 recorder.setAudioSamplingRate(16000)
                                 recorder.setAudioEncodingBitRate(64000)
+                                recorder.setMaxDuration(120000)
+                                recorder.setOnInfoListener { _, what, _ ->
+                                    if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
+                                        recordingAutoStopped = true
+                                    }
+                                }
                                 recorder.setOutputFile(file.absolutePath)
                                 recorder.prepare()
                                 recorder.start()
                                 mediaRecorder = recorder
                                 recordingFile = file
+                                recordingAutoStopped = false
                                 result.success(true)
                             } catch (error: Exception) {
                                 pendingRecorder?.release()
@@ -91,8 +99,9 @@ class MainActivity : FlutterActivity() {
                     "stopVoiceRecording" -> {
                         try {
                             val recorder = mediaRecorder ?: throw IllegalStateException("No recording is active")
-                            recorder.stop()
+                            if (!recordingAutoStopped) recorder.stop()
                             recorder.release()
+                            recordingAutoStopped = false
                             mediaRecorder = null
                             val file = recordingFile ?: throw IllegalStateException("Recording file unavailable")
                             recordingFile = null
@@ -100,6 +109,7 @@ class MainActivity : FlutterActivity() {
                         } catch (error: Exception) {
                             mediaRecorder?.release()
                             mediaRecorder = null
+                            recordingAutoStopped = false
                             recordingFile?.delete()
                             recordingFile = null
                             result.error("recording_stop_failed", "Recording was too short or could not be finalized", null)
