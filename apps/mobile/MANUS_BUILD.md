@@ -12,10 +12,11 @@ Build and verify the existing R.U.N.E. Flutter mobile client. Do not replace its
 2. Inspect this brief and apps/mobile/README.md.
 3. From apps/mobile, generate Android and iOS platform scaffolding only if absent: flutter create --platforms=android,ios .
 4. Run flutter pub get, flutter analyze and flutter test.
-5. Fix every compile error, analyzer error and failing test in the branch. Preserve the Obsidian/emerald visual system and canonical geometric RUNE glyph.
-6. Build Android release APK and App Bundle.
-7. If running on macOS with Xcode, build an iOS IPA. Otherwise report that iOS build was not run.
-8. Upload build artifacts and report exact artifact paths, commit SHA, command output, warnings and unresolved blockers.
+5. Add the Android INTERNET permission to the main release manifest. Keep cleartext traffic disabled for production; use HTTPS for remote APIs. Do not add broad cleartext exceptions merely to make a development URL work.
+6. Fix every compile error, analyzer error and failing test in the branch. Preserve the canonical RUNE glyph, Manrope typography and dark/green visual system.
+7. Build Android release APK and App Bundle.
+8. If running on macOS with Xcode, build an iOS IPA. Otherwise report that iOS build was not run.
+9. Commit the generated native platform scaffolding and verified fixes to the same feature branch. Upload build artifacts and report exact artifact paths, commit SHA, command output, warnings and unresolved blockers.
 
 ## Product boundaries
 - Flutter is a presentation/client layer. Python rune/ remains the intelligence authority.
