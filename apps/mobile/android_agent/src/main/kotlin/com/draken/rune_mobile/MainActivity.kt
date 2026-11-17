@@ -235,6 +235,8 @@ class MainActivity : FlutterActivity() {
         runCatching { mediaRecorder?.stop() }
         mediaRecorder?.release()
         mediaRecorder = null
+        recordingFile?.delete()
+        recordingFile = null
         pendingPlaybackResult?.error("activity_destroyed", "Audio playback interrupted", null)
         pendingPlaybackResult = null
         mediaPlayer?.release()
