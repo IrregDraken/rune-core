@@ -109,6 +109,7 @@ class _SecurityPageState extends State<SecurityPage> {
    final c=await agent.capabilities();
    final remoteApi=RuneRemoteApi(backendUrl:backend.text.trim(),supabaseUrl:supabase.text.trim(),publishableKey:publishable.text.trim());
    await remoteApi.signIn(email.text.trim(),password.text);
+   password.clear();
    final caps=<String>[];
    if(c['appDiscovery']==true)caps.add('app.list');
    if(c['appLaunch']==true)caps.add('app.launch');
