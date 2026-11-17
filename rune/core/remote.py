@@ -48,7 +48,8 @@ class OwnerSession:
             "create table if not exists owner_session (id integer primary key check(id=1), nonce blob not null, ciphertext blob not null)"
         )
         self._db.commit()
-        if refresh_token:
+        stored = self._db.execute("select 1 from owner_session where id=1").fetchone()
+        if refresh_token and not stored:
             self._save_refresh_token(refresh_token)
         self.refresh_token = self._load_refresh_token()
 
