@@ -353,6 +353,10 @@ class VoiceSessionController:
                 self.close()
         return None
 
+    def confirmation_prompted(self, now: float) -> None:
+        if self.state == VoiceSessionState.WAITING_CONFIRMATION:
+            self.confirmation_deadline = now + self.confirmation_seconds
+
     def answer_confirmation(self, continue_session: bool, now: float) -> None:
         if self.state != VoiceSessionState.WAITING_CONFIRMATION:
             return
