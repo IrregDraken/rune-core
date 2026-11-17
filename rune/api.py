@@ -186,7 +186,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                 elif action in {"stop", "interrupt"}:
                     controller.interrupt(now)
                 elif action == "confirmation":
-                    controller.answer_confirmation(bool(payload.get("continue", False)), now)
+                    controller.answer_confirmation(payload.get("continue") is True, now)
                 elif action == "tick":
                     prompt = controller.tick(now)
                     self._send(200, {"state": controller.state.value, "prompt": prompt})
