@@ -131,9 +131,12 @@ class UsageLedger:
         return datetime.now(timezone.utc).strftime("%Y-%m")
 
     def spent(self) -> float:
-        row = self.db.execute("select coalesce(sum(cost_usd),0) from provider_usage where month=?",
-                              (self.month_key(),)).fetchone()
-        return float(row[0] or 0)
+        with self._lock:
+            row = self.db.execute(
+                "select coalesce(sum(cost_usd),0) from provider_usage where month=?",
+                (self.month_key(),),
+            ).fetchone()
+            return float(row[0] or 0)
 
     def reserve(self, provider: str, estimated_cost_usd: float) -> int:
         if not math.isfinite(estimated_cost_usd) or estimated_cost_usd < 0:
@@ -165,7 +168,7 @@ class UsageLedger:
             raise ValueError("provider usage values must be finite and non-negative")
         with self._lock:
             self.db.execute(
-                "update provider_usage set input_tokens=?,output_tokens=?,cost_usd=? where rowid=?",
+                "update provider_usage set input_tokens=?,output_tokens=?,cost_usd=max(cost_usd,?) where rowid=?",
                 (usage.input_tokens, usage.output_tokens, usage.cost_usd, reservation_id),
             )
             self.db.commit()
@@ -175,7 +178,8 @@ class UsageLedger:
         self.settle(reservation, usage)
 
     def close(self) -> None:
-        self.db.close()
+        with self._lock:
+            self.db.close()
 
 
 class RoutedModelProvider(ModelProvider):
