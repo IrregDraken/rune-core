@@ -58,12 +58,16 @@ class _AssistantPageState extends State<AssistantPage>{
     final prompt=result['prompt']?.toString();
     if(prompt!=null&&prompt.isNotEmpty) {
      if(mounted)setState(()=>awaitingConfirmation=true);
-     voiceTimer=Timer(const Duration(seconds:15),()async{
-      try {await widget.api.voiceSessionAction('tick');} catch (_) {}
-      if(mounted)setState(()=>awaitingConfirmation=false);
-     });
-     final audio=await widget.api.synthesizeSpeech(prompt);
-     await device.playAudio(audio);
+     try {
+      final audio=await widget.api.synthesizeSpeech(prompt);
+      await device.playAudio(audio);
+     } finally {
+      await widget.api.voiceSessionAction('confirmation_prompted');
+      voiceTimer=Timer(const Duration(seconds:15),()async{
+       try {await widget.api.voiceSessionAction('tick');} catch (_) {}
+       if(mounted)setState(()=>awaitingConfirmation=false);
+      });
+     }
     }
    } catch (_) {}
   });
