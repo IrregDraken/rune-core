@@ -59,7 +59,7 @@ class RUNEOrchestrator:
             {"id": d.get("id"), "name": d.get("device_name"),
              "platform": d.get("platform"), "status": d.get("status"),
              "capabilities": d.get("capabilities", [])}
-            for d in devices if d.get("status") != "revoked"
+            for d in devices if d.get("status") in {"online", "idle"}
         ]
         prompt = (
             f"{IDENTITY_POLICY}\n\n"
