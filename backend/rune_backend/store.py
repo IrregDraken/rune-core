@@ -27,7 +27,6 @@ class SupabaseStore:
         base_url, secret = self._config()
         headers = {
             "apikey": secret,
-            "Authorization": f"Bearer {secret}",
             "Content-Type": "application/json",
         }
         try:
