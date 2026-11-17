@@ -50,7 +50,14 @@ def install() -> None:
     if queries is None:
         queries = ET.Element("queries")
         root.insert(list(root).index(application), queries)
-    if not any(q.find("intent") is not None for q in queries.findall("intent")):
+    has_launcher_query = any(
+        intent.find("action") is not None
+        and intent.find("action").get(android_attr("name")) == "android.intent.action.MAIN"
+        and any(category.get(android_attr("name")) == "android.intent.category.LAUNCHER"
+                for category in intent.findall("category"))
+        for intent in queries.findall("intent")
+    )
+    if not has_launcher_query:
         intent = ET.SubElement(queries, "intent")
         ET.SubElement(intent, "action", {android_attr("name"): "android.intent.action.MAIN"})
         ET.SubElement(intent, "category", {android_attr("name"): "android.intent.category.LAUNCHER"})
