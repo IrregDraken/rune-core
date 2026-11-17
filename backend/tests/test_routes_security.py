@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from rune_backend.main import app
-from rune_backend.routes import _reject_secret_fields
+from rune_backend.routes import _reject_secret_fields, _validate_capability_arguments
 from fastapi import HTTPException
 
 client = TestClient(app)
@@ -33,3 +33,26 @@ def test_task_payload_allows_non_secret_ui_arguments():
         "coordinates": {"x": 100, "y": 250},
         "target": "visible_button",
     })
+
+
+
+def test_backend_rejects_unimplemented_device_capabilities():
+    try:
+        _validate_capability_arguments("shell.execute", {})
+    except HTTPException as exc:
+        assert exc.status_code == 400
+    else:
+        raise AssertionError("unimplemented capability should be rejected")
+
+
+def test_backend_validates_tap_coordinates():
+    try:
+        _validate_capability_arguments("ui.interact", {"action": "tap", "x": -1, "y": 20})
+    except HTTPException as exc:
+        assert exc.status_code == 400
+    else:
+        raise AssertionError("out-of-range tap should be rejected")
+
+
+def test_backend_accepts_supported_app_launch():
+    _validate_capability_arguments("app.launch", {"packageName": "com.example.app"})
