@@ -13,13 +13,13 @@ def _hash(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 def _reject_secret_fields(value, path: str = "arguments") -> None:
-    forbidden = {"password", "passwd", "pin", "passcode", "secret", "api_key",
-                 "access_token", "refresh_token", "session_cookie", "private_key",
-                 "authorization", "credential"}
+    forbidden = {"password", "passwd", "pin", "passcode", "secret", "secret_key",
+                 "api_key", "access_token", "refresh_token", "session_cookie",
+                 "private_key", "authorization", "credential"}
     if isinstance(value, dict):
         for key, item in value.items():
             normalized = str(key).lower().replace("-", "_")
-            if normalized in forbidden or normalized.endswith("_password") or normalized.endswith("_token"):
+            if normalized in forbidden or normalized.endswith(("_password", "_token", "_secret", "_api_key")):
                 raise HTTPException(400, f"Sensitive field is not accepted in {path}")
             _reject_secret_fields(item, f"{path}.{key}")
     elif isinstance(value, list):
