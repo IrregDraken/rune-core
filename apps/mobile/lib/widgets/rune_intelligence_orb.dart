@@ -22,10 +22,26 @@ class RuneIntelligenceOrb extends StatefulWidget {
 
 class _RuneIntelligenceOrbState extends State<RuneIntelligenceOrb>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _animation = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 38),
-  )..repeat();
+  late final AnimationController _animation;
+  late _RuneOrbPainter _painter;
+
+  @override
+  void initState() {
+    super.initState();
+    _animation = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 38),
+    )..repeat();
+    _painter = _RuneOrbPainter(animation: _animation, intensity: widget.intensity);
+  }
+
+  @override
+  void didUpdateWidget(covariant RuneIntelligenceOrb oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.intensity != widget.intensity) {
+      _painter = _RuneOrbPainter(animation: _animation, intensity: widget.intensity);
+    }
+  }
 
   @override
   void dispose() {
@@ -35,23 +51,18 @@ class _RuneIntelligenceOrbState extends State<RuneIntelligenceOrb>
 
   @override
   Widget build(BuildContext context) => RepaintBoundary(
-        child: AnimatedBuilder(
-          animation: _animation,
-          builder: (context, _) => SizedBox.square(
-            dimension: widget.size,
-            child: CustomPaint(
-              painter: _RuneOrbPainter(
-                progress: _animation.value,
-                intensity: widget.intensity,
-              ),
-            ),
-          ),
+        child: SizedBox.square(
+          dimension: widget.size,
+          child: CustomPaint(painter: _painter),
         ),
       );
 }
 
 class _RuneOrbPainter extends CustomPainter {
-  _RuneOrbPainter({required this.progress, required this.intensity});
+  _RuneOrbPainter({required this.animation, required this.intensity})
+      : super(repaint: animation);
+
+  final Animation<double> animation;
 
   static const int _count = 20000;
   static const double _radius = 1;
@@ -61,7 +72,6 @@ class _RuneOrbPainter extends CustomPainter {
   static final Float32List _y = _createAxis(1);
   static final Float32List _z = _createAxis(2);
 
-  final double progress;
   final double intensity;
   final Float32List _front = Float32List(_count * 2);
   final Float32List _back = Float32List(_count * 2);
@@ -100,7 +110,7 @@ class _RuneOrbPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final elapsed = progress * math.pi * 2;
+    final elapsed = animation.value * math.pi * 2;
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.shortestSide * .335;
     final pulse = 1 + math.sin(elapsed * .5) * .018;
@@ -172,7 +182,7 @@ class _RuneOrbPainter extends CustomPainter {
       ribbon,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = math.max(1, size.width * .006)
+        ..strokeWidth = math.max(1.0, size.width * .006)
         ..shader = const LinearGradient(
           colors: [
             Color(0x00A7FFD2),
@@ -207,6 +217,6 @@ class _RuneOrbPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RuneOrbPainter oldDelegate) =>
-      oldDelegate.progress != progress ||
+      oldDelegate.animation != animation ||
       oldDelegate.intensity != intensity;
 }
