@@ -158,10 +158,14 @@ class RemoteBackendClient:
         if parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1"}:
             raise ValueError("RUNE remote backend must use HTTPS outside localhost development")
         if self.session is None and access_token is None:
-            if os.getenv("RUNE_OWNER_REFRESH_TOKEN") or os.getenv("RUNE_OWNER_TOKEN_ENCRYPTION_KEY"):
+            if any(os.getenv(name) for name in (
+                "RUNE_OWNER_ACCESS_TOKEN",
+                "RUNE_OWNER_REFRESH_TOKEN",
+                "RUNE_OWNER_TOKEN_ENCRYPTION_KEY",
+            )):
                 self.session = OwnerSession.from_env()
             else:
-                raise ValueError("Configure an encrypted Supabase owner refresh session for RUNE")
+                raise ValueError("Configure a Supabase owner access token or encrypted refresh session for RUNE")
         if not self.access_token and self.session is None:
             raise ValueError("RUNE owner session is not configured")
 
