@@ -129,7 +129,7 @@ class RuneOperatorService : Service() {
         while (running) {
             try {
                 val now = System.currentTimeMillis()
-                if (now - lastHeartbeat > 20000L) {
+                if (now - lastHeartbeat > 30000L) {
                     val capabilities = JSONArray().put("app.list").put("app.launch")
                     if (RuneAccessibilityService.instance != null) {
                         capabilities.put("ui.observe").put("ui.interact")
@@ -146,7 +146,7 @@ class RuneOperatorService : Service() {
             } catch (_: Exception) {
                 // Retry after a short delay. A network error never marks a task successful.
             }
-            try { Thread.sleep(3500L) } catch (_: InterruptedException) { break }
+            try { Thread.sleep(10000L) } catch (_: InterruptedException) { break }
         }
     }
 
