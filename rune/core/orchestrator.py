@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 from uuid import UUID
@@ -129,7 +130,7 @@ def _reject_sensitive(value: Any, path: str = "arguments") -> None:
     }
     if isinstance(value, dict):
         for key, child in value.items():
-            normalized = str(key).lower().replace("-", "_")
+            normalized = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", str(key)).lower().replace("-", "_")
             if normalized in forbidden or normalized.endswith(("_password", "_token", "_secret", "_api_key")):
                 raise OrchestrationError(f"sensitive field rejected at {path}.{key}")
             _reject_sensitive(child, f"{path}.{key}")
