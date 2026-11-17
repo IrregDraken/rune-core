@@ -6,8 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
-COPY rune_backend ./rune_backend
+COPY backend/pyproject.toml ./
+COPY backend/rune_backend ./rune_backend
 RUN pip install --no-cache-dir .
 
 RUN useradd --create-home --uid 10001 rune
