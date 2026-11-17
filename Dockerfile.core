@@ -8,11 +8,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 COPY pyproject.toml ./
 COPY rune ./rune
-RUN pip install --no-cache-dir . \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir . \
     && mkdir -p /app/data \
-    && useradd --create-home --uid 10001 rune \
-    && chown -R rune:rune /app
+    && useradd --create-home --uid 10001 rune
 
-USER rune
+COPY docker/core-entrypoint.sh /usr/local/bin/rune-entrypoint
+RUN chmod 0755 /usr/local/bin/rune-entrypoint
+
+USER root
 VOLUME ["/app/data"]
+ENTRYPOINT ["/usr/local/bin/rune-entrypoint"]
 CMD ["rune-api"]
