@@ -211,23 +211,25 @@ async def approve_task(task_id: UUID, owner: Owner = Depends(require_owner)):
 
 @router.get("/devices/{device_id}/tasks/next")
 async def next_task(device_id: UUID, x_rune_device_token: str = Header(default="")):
-    device=await _device(device_id,x_rune_device_token)
-    now=datetime.now(timezone.utc).isoformat()
-    await store.request("PATCH","rune_tasks",params={
-        "device_id":f"eq.{device_id}","status":"in.(queued,approved)","expires_at":f"lte.{now}",
-    },body={"status":"expired","finished_at":now})
-    rows=await store.request("GET","rune_tasks",params={
-        "device_id":f"eq.{device_id}","status":"eq.queued","expires_at":f"gt.{now}",
-        "select":"*","order":"created_at.asc","limit":"1",
-    })
-    if not rows: return {"task":None}
-    task=rows[0]
-    claimed=await store.request("PATCH","rune_tasks",params={
-        "id":f"eq.{task['id']}","status":"eq.queued","select":"*",
-    },body={"status":"running","started_at":now},prefer="return=representation")
-    if not claimed: return {"task":None}
-    await _audit(UUID(device["owner_id"]),"task.claimed","running",device_id=device_id,task_id=UUID(task["id"]))
-    return {"task":claimed[0]}
+    device = await _device(device_id, x_rune_device_token)
+    now = datetime.now(timezone.utc).isoformat()
+    await store.request("PATCH", "rune_tasks", params={
+        "device_id": f"eq.{device_id}",
+        "status": "eq.queued",
+        "expires_at": f"lte.{now}",
+    }, body={"status": "expired", "finished_at": now})
+    # A single Postgres UPDATE ... FOR UPDATE SKIP LOCKED claim prevents two
+    # pollers from receiving the same queued task.
+    claimed = await store.rpc("claim_next_rune_task", body={"p_device_id": str(device_id)})
+    if not claimed:
+        return {"task": None}
+    task = claimed[0]
+    await _audit(
+        UUID(device["owner_id"]), "task.claimed", "running",
+        device_id=device_id, task_id=UUID(task["id"]),
+    )
+    return {"task": task}
+
 
 @router.post("/devices/{device_id}/tasks/{task_id}/result")
 async def task_result(device_id: UUID, task_id: UUID, body: TaskResultInput,
