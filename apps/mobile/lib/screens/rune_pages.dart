@@ -254,61 +254,187 @@ class _AssistantPageState extends State<AssistantPage>{
   }
  }
 
- @override Widget build(BuildContext context)=>Column(children:[
-  Padding(padding:const EdgeInsets.fromLTRB(20,18,20,16),child:Row(children:[
-   const _RuneMark(size:28),const SizedBox(width:10),
-   const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    Text('Assistant',style:TextStyle(fontSize:18,fontWeight:FontWeight.w700)),
-    Text('CORE CONVERSATION',style:TextStyle(fontSize:8,color:RuneColors.muted,letterSpacing:1.3))
-   ]),
-   const Spacer(),_OnlineChip(online:coreOnline),
-   if(messages.isNotEmpty)IconButton(
-    tooltip:'Clear saved conversation',
-    onPressed:sending?null:_clearConversation,
-    icon:const Icon(Icons.delete_outline,color:RuneColors.muted,size:19),
-   )
-  ])),
-  Expanded(child:messages.isEmpty?Center(child:Padding(padding:const EdgeInsets.all(30),child:Column(
-   mainAxisAlignment:MainAxisAlignment.center,children:[
-    const RuneIntelligenceOrb(size:150),const SizedBox(height:23),
-    const Text('What are we working on?',style:TextStyle(fontSize:20,fontWeight:FontWeight.w700)),
-    const SizedBox(height:8),
-    const Text('Send a message or use push-to-talk with the connected R.U.N.E. runtime.\nConversation history is encrypted and saved on this device.',
-     textAlign:TextAlign.center,style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),
-    const SizedBox(height:20),
-    Wrap(spacing:8,runSpacing:8,alignment:WrapAlignment.center,
-     children:['Help me plan today','Summarize my current state','What can you do?'].map((s)=>
-      ActionChip(label:Text(s,style:const TextStyle(fontSize:10)),onPressed:(){controller.text=s;send();})).toList())
-   ]))):ListView.builder(controller:scroll,padding:const EdgeInsets.all(18),
-    itemCount:messages.length+(sending?1:0),itemBuilder:(context,i){
-     if(i>=messages.length)return const _Typing();
-     final m=messages[i];
-     return Align(alignment:m.user?Alignment.centerRight:Alignment.centerLeft,
-      child:Container(constraints:const BoxConstraints(maxWidth:310),
-       margin:const EdgeInsets.only(bottom:13),padding:const EdgeInsets.all(14),
-       decoration:BoxDecoration(color:m.user?RuneColors.pine:RuneColors.carbon,
-        borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.06))),
-       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text(m.user?'YOU':'R.U.N.E.',style:const TextStyle(fontSize:8,color:RuneColors.brightEmerald,letterSpacing:1.4,fontWeight:FontWeight.w700)),
-        const SizedBox(height:7),Text(m.text,style:const TextStyle(fontSize:12,height:1.55))
-       ])));
-    })),
-  SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(14,10,14,12),child:Row(children:[
-   Expanded(child:TextField(controller:controller,minLines:1,maxLines:5,onSubmitted:(_)=>send(),
-    decoration:const InputDecoration(hintText:'Message R.U.N.E.',prefixIcon:Icon(Icons.edit_outlined,size:18)))),
-   const SizedBox(width:5),
-   IconButton(onPressed:voiceBusy?null:toggleVoice,
-    tooltip:recording?'Stop recording':'Push to talk',
-    style:IconButton.styleFrom(
-     backgroundColor:recording?Colors.redAccent.withOpacity(.15):RuneColors.carbon,
-     foregroundColor:recording?Colors.redAccent:RuneColors.brightEmerald),
-    icon:Icon(recording?Icons.stop_circle_outlined:Icons.mic_none_rounded)),
-   const SizedBox(width:4),
-   IconButton.filled(onPressed:sending?null:()=>send(),
-    style:IconButton.styleFrom(backgroundColor:RuneColors.brightEmerald,foregroundColor:RuneColors.obsidian),
-    icon:const Icon(Icons.arrow_upward_rounded))
-  ])))
- ]);
+ @override
+ Widget build(BuildContext context) => Column(
+  children: [
+   Padding(
+    padding: const EdgeInsets.fromLTRB(20, 17, 18, 13),
+    child: Row(
+     children: [
+      const _RuneMark(size: 30),
+      const SizedBox(width: 11),
+      const Expanded(child: Column(
+       crossAxisAlignment: CrossAxisAlignment.start,
+       children: [
+        Text('R.U.N.E.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 2.1)),
+        SizedBox(height: 3),
+        Text('PERSONAL AI EXECUTIVE', style: TextStyle(fontSize: 8, color: RuneColors.muted, letterSpacing: 1.45)),
+       ],
+      )),
+      Container(
+       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+       decoration: BoxDecoration(
+        color: RuneColors.carbon.withOpacity(.82),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: (coreOnline ? RuneColors.emerald : RuneColors.aurum).withOpacity(.28)),
+       ),
+       child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 6, height: 6, decoration: BoxDecoration(
+         color: coreOnline ? RuneColors.brightEmerald : RuneColors.aurum,
+         shape: BoxShape.circle,
+         boxShadow: [BoxShadow(color: (coreOnline ? RuneColors.brightEmerald : RuneColors.aurum).withOpacity(.45), blurRadius: 7)],
+        )),
+        const SizedBox(width: 7),
+        Text(coreOnline ? 'CONNECTED' : 'OFFLINE', style: const TextStyle(fontSize: 8, letterSpacing: .9, color: RuneColors.muted, fontWeight: FontWeight.w700)),
+       ]),
+      ),
+      if (messages.isNotEmpty)
+       IconButton(
+        tooltip: 'Clear saved conversation',
+        onPressed: sending ? null : _clearConversation,
+        icon: const Icon(Icons.more_horiz_rounded, color: RuneColors.muted),
+       ),
+     ],
+    ),
+   ),
+   Expanded(
+    child: messages.isEmpty
+     ? LayoutBuilder(builder: (context, constraints) => SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: ConstrainedBox(
+         constraints: BoxConstraints(minHeight: constraints.maxHeight),
+         child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
+          child: Column(
+           mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+            const SizedBox(height: 5),
+            RuneIntelligenceOrb(size: math.min(250, constraints.maxWidth * .72), intensity: coreOnline ? 1.25 : .72),
+            const SizedBox(height: 8),
+            Text(coreOnline ? 'YOUR INTELLIGENCE IS READY' : 'YOUR INTELLIGENCE CORE',
+             style: const TextStyle(fontSize: 8, color: RuneColors.mint, letterSpacing: 2.0, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 14),
+            const Text('What’s on your mind?',
+             textAlign: TextAlign.center,
+             style: TextStyle(fontSize: 25, height: 1.15, fontWeight: FontWeight.w700, letterSpacing: -.8)),
+            const SizedBox(height: 9),
+            Text(
+             coreOnline
+              ? 'Think out loud. Make a plan. Put R.U.N.E. to work.'
+              : 'Your assistant interface is ready. Connect the R.U.N.E. core to start a live conversation.',
+             textAlign: TextAlign.center,
+             style: const TextStyle(color: RuneColors.muted, fontSize: 11, height: 1.6),
+            ),
+            const SizedBox(height: 24),
+            Align(alignment: Alignment.centerLeft, child: Text('START WITH', style: const TextStyle(fontSize: 8, color: RuneColors.muted, letterSpacing: 1.6, fontWeight: FontWeight.w700))),
+            const SizedBox(height: 10),
+            Wrap(
+             spacing: 8,
+             runSpacing: 8,
+             alignment: WrapAlignment.center,
+             children: [
+              _PromptChip('Plan my day', Icons.calendar_today_outlined, () { controller.text = 'Help me plan my day.'; send(); }),
+              _PromptChip('Think through an idea', Icons.lightbulb_outline_rounded, () { controller.text = 'Help me think through an idea.'; send(); }),
+              _PromptChip('Review my work', Icons.layers_outlined, () { controller.text = 'Help me review my current work.'; send(); }),
+             ],
+            ),
+           ],
+          ),
+         ),
+        ),
+       ))
+     : ListView.builder(
+        controller: scroll,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+        itemCount: messages.length + (sending ? 1 : 0),
+        itemBuilder: (context, i) {
+         if (i >= messages.length) return const _Typing();
+         final message = messages[i];
+         return Align(
+          alignment: message.user ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+           constraints: const BoxConstraints(maxWidth: 320),
+           margin: const EdgeInsets.only(bottom: 13),
+           padding: const EdgeInsets.fromLTRB(15, 12, 15, 13),
+           decoration: BoxDecoration(
+            color: message.user ? RuneColors.pine.withOpacity(.82) : RuneColors.carbon.withOpacity(.94),
+            borderRadius: BorderRadius.only(
+             topLeft: const Radius.circular(18),
+             topRight: const Radius.circular(18),
+             bottomLeft: Radius.circular(message.user ? 18 : 5),
+             bottomRight: Radius.circular(message.user ? 5 : 18),
+            ),
+            border: Border.all(color: message.user ? RuneColors.emerald.withOpacity(.22) : Colors.white.withOpacity(.065)),
+           ),
+           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(message.user ? 'YOU' : 'R.U.N.E.',
+             style: const TextStyle(fontSize: 8, color: RuneColors.mint, letterSpacing: 1.4, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 7),
+            Text(message.text, style: const TextStyle(fontSize: 12, height: 1.6)),
+           ]),
+          ),
+         );
+        },
+       ),
+   ),
+   SafeArea(
+    top: false,
+    child: Padding(
+     padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+     child: Container(
+      padding: const EdgeInsets.fromLTRB(7, 5, 7, 5),
+      decoration: BoxDecoration(
+       color: const Color(0xE6101813),
+       borderRadius: BorderRadius.circular(27),
+       border: Border.all(color: RuneColors.mint.withOpacity(.24)),
+       boxShadow: [BoxShadow(color: RuneColors.emerald.withOpacity(.07), blurRadius: 24, spreadRadius: 1)],
+      ),
+      child: Row(children: [
+       IconButton(
+        onPressed: null,
+        tooltip: 'Attachments coming with the connected core',
+        icon: const Icon(Icons.add_rounded, color: RuneColors.muted, size: 20),
+       ),
+       Expanded(child: TextField(
+        controller: controller,
+        minLines: 1,
+        maxLines: 5,
+        onSubmitted: (_) => send(),
+        textInputAction: TextInputAction.send,
+        decoration: const InputDecoration(
+         filled: false,
+         border: InputBorder.none,
+         enabledBorder: InputBorder.none,
+         focusedBorder: InputBorder.none,
+         contentPadding: EdgeInsets.symmetric(vertical: 11),
+         hintText: 'Message R.U.N.E...',
+        ),
+       )),
+       IconButton(
+        onPressed: voiceBusy ? null : toggleVoice,
+        tooltip: recording ? 'Stop recording' : 'Push to talk',
+        style: IconButton.styleFrom(
+         backgroundColor: recording ? Colors.redAccent.withOpacity(.16) : RuneColors.pine,
+         foregroundColor: recording ? Colors.redAccent : RuneColors.mint,
+        ),
+        icon: Icon(recording ? Icons.stop_rounded : Icons.mic_none_rounded, size: 19),
+       ),
+       const SizedBox(width: 3),
+       IconButton.filled(
+        onPressed: sending ? null : () => send(),
+        style: IconButton.styleFrom(
+         backgroundColor: RuneColors.brightEmerald,
+         foregroundColor: RuneColors.obsidian,
+        ),
+        icon: const Icon(Icons.arrow_upward_rounded, size: 19),
+       ),
+      ]),
+     ),
+    ),
+   ),
+  ],
+ );
 }
 
 class WorkPage extends StatefulWidget{const WorkPage({super.key,required this.api});final RuneApi api;@override State<WorkPage> createState()=>_WorkPageState();}
@@ -330,7 +456,24 @@ class _ExplorePageState extends State<ExplorePage>{
  List<dynamic> tools=[];bool loading=true;String? error;
  @override void initState(){super.initState();load();}
  Future<void> load()async{try{final t=await widget.api.tools();if(mounted)setState(() { tools=t; loading=false; error=null; });}catch(e){if(mounted)setState(() { loading=false; error=e.toString(); });}}
- @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Explore',eyebrow:'CAPABILITIES · INTEGRATIONS'),const SizedBox(height:9),const Text('Discover what your connected runtime exposes. External integrations appear only when they are actually configured.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),const SizedBox(height:22),const _SectionTitle('CORE CAPABILITIES'),const SizedBox(height:10),if(loading)const Center(child:CircularProgressIndicator())else if(error!=null)_Notice(text:error!,warning:true)else if(tools.isEmpty)_Panel(child:const Text('The core has not exposed any tools yet.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...tools.map((item){final t=item as Map<String,dynamic>;return _ToolTile(tool:t);}),const SizedBox(height:24),const _SectionTitle('INTEGRATION CHANNELS'),const SizedBox(height:10),const _Panel(child:Column(children:[_IntegrationRow('Google Workspace','Not connected',Icons.mail_outline),_IntegrationRow('WhatsApp','Not connected',Icons.chat_bubble_outline),_IntegrationRow('Discord','Not connected',Icons.forum_outlined),_IntegrationRow('GitHub','Not connected',Icons.code),_IntegrationRow('Notion','Not connected',Icons.article_outlined)])),const SizedBox(height:8),const Text('Connectors are shown as unavailable until credentials and permission scopes are configured in the core.',style:TextStyle(color:RuneColors.muted,fontSize:10,height:1.5))]);
+ @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Explore',eyebrow:'CAPABILITIES · INTEGRATIONS'),const SizedBox(height:9),const Text('Discover what your connected runtime exposes. External int
+class _PromptChip extends StatelessWidget {
+ const _PromptChip(this.label, this.icon, this.onTap);
+ final String label;
+ final IconData icon;
+ final VoidCallback onTap;
+ @override
+ Widget build(BuildContext context) => ActionChip(
+  onPressed: onTap,
+  avatar: Icon(icon, size: 14, color: RuneColors.mint),
+  label: Text(label, style: const TextStyle(fontSize: 10)),
+  backgroundColor: RuneColors.carbon.withOpacity(.8),
+  side: BorderSide(color: RuneColors.emerald.withOpacity(.22)),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+ );
+}
+egrations appear only when they are actually configured.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),const SizedBox(height:22),const _SectionTitle('CORE CAPABILITIES'),const SizedBox(height:10),if(loading)const Center(child:CircularProgressIndicator())else if(error!=null)_Notice(text:error!,warning:true)else if(tools.isEmpty)_Panel(child:const Text('The core has not exposed any tools yet.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...tools.map((item){final t=item as Map<String,dynamic>;return _ToolTile(tool:t);}),const SizedBox(height:24),const _SectionTitle('INTEGRATION CHANNELS'),const SizedBox(height:10),const _Panel(child:Column(children:[_IntegrationRow('Google Workspace','Not connected',Icons.mail_outline),_IntegrationRow('WhatsApp','Not connected',Icons.chat_bubble_outline),_IntegrationRow('Discord','Not connected',Icons.forum_outlined),_IntegrationRow('GitHub','Not connected',Icons.code),_IntegrationRow('Notion','Not connected',Icons.article_outlined)])),const SizedBox(height:8),const Text('Connectors are shown as unavailable until credentials and permission scopes are configured in the core.',style:TextStyle(color:RuneColors.muted,fontSize:10,height:1.5))]);
 }
 
 class MemoryPage extends StatefulWidget {
