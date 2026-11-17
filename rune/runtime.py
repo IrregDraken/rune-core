@@ -11,7 +11,7 @@ from .core.planning import Planner, Plan
 from .core.context import ContextAssembler, Retriever
 from .core.identity import IdentityProvider, LocalIdentityProvider
 from .core.tools import ToolRegistry
-from .core.voice import VoicePipeline
+from .core.voice import VoicePipeline, configured_voice_pipeline
 from .core.engine import RUNEEngine
 from .core.model import ModelProvider
 from .core.node import NodeInfo, NullNode, RUNEActionNode
@@ -54,7 +54,7 @@ class RUNERuntime:
         self.authority = authority or Authority.create()
         self.identity = identity or LocalIdentityProvider()
         self.tools = tools or ToolRegistry()
-        self.voice = voice or VoicePipeline()
+        self.voice = voice or configured_voice_pipeline()
         if node is not None:
             self.node = node
         elif platform.system().lower() == "windows" and WindowsNode is not None:
