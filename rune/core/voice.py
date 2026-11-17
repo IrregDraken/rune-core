@@ -46,8 +46,9 @@ class SpeakerVerifier(Protocol):
 class VoicePipeline:
     """Provider-neutral voice boundary.
 
-    No microphone, cloud speech service, wake-word engine, or TTS vendor is
-    connected here. Those adapters plug into these contracts later.
+    Microphone capture, speech recognition, local wake-word detection and
+    speaker verification remain separate adapters. TTS can be configured
+    through the server-side ElevenLabs adapter.
     """
 
     def __init__(
