@@ -1111,7 +1111,23 @@ class _SettingsPageState extends State<SettingsPage>{
 
 class _PageHeader extends StatelessWidget{const _PageHeader({required this.title,required this.eyebrow});final String title,eyebrow;@override Widget build(BuildContext context)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow,style:const TextStyle(color:RuneColors.muted,fontSize:9,letterSpacing:1.5)),const SizedBox(height:6),Text(title,style:const TextStyle(fontSize:27,fontWeight:FontWeight.w700,letterSpacing:-.7))]);}
 class _SectionTitle extends StatelessWidget{const _SectionTitle(this.text);final String text;@override Widget build(BuildContext context)=>Text(text,style:const TextStyle(fontSize:9,fontWeight:FontWeight.w800,letterSpacing:1.5,color:RuneColors.muted));}
-class _Panel extends StatelessWidget{const _Panel({required this.child});final Widget child;@override Widget build(BuildContext context)=>Container(width:double.infinity,margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.06))),child:child);}
+class _Panel extends StatelessWidget {
+ const _Panel({required this.child});
+ final Widget child;
+ @override
+ Widget build(BuildContext context) => Container(
+  width: double.infinity,
+  margin: const EdgeInsets.only(bottom: 10),
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+   gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF151F19), RuneColors.carbon]),
+   borderRadius: BorderRadius.circular(19),
+   border: Border.all(color: RuneColors.border),
+   boxShadow: [BoxShadow(color: Colors.black.withOpacity(.12), blurRadius: 16, offset: const Offset(0, 6))],
+  ),
+  child: child,
+ );
+}
 class _MetricCard extends StatelessWidget {
  const _MetricCard({required this.icon, required this.label, required this.value, required this.caption});
  final IconData icon;
@@ -1140,7 +1156,35 @@ class _InfoRow extends StatelessWidget{const _InfoRow(this.label,this.value,this
 class _Notice extends StatelessWidget{const _Notice({required this.text,this.warning=false});final String text;final bool warning;@override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(13),decoration:BoxDecoration(color:warning?const Color(0xFF302417):RuneColors.pine.withOpacity(.35),borderRadius:BorderRadius.circular(12),border:Border.all(color:warning?RuneColors.aurum.withOpacity(.2):RuneColors.emerald.withOpacity(.2))),child:Text(text,style:TextStyle(color:warning?const Color(0xFFE6C995):RuneColors.mint,fontSize:10,height:1.5)));}
 class _OnlineChip extends StatelessWidget{const _OnlineChip({required this.online});final bool online;@override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:7),decoration:BoxDecoration(color:RuneColors.pine.withOpacity(.5),borderRadius:BorderRadius.circular(30),border:Border.all(color:RuneColors.emerald.withOpacity(.2))),child:Row(children:[Icon(Icons.circle,size:6,color:online?RuneColors.brightEmerald:RuneColors.aurum),const SizedBox(width:6),Text(online?'CORE ONLINE':'CORE OFFLINE',style:const TextStyle(fontSize:8,letterSpacing:.8,color:RuneColors.muted))]));}
 class _IconButton extends StatelessWidget{const _IconButton({required this.icon,required this.onTap});final IconData icon;final VoidCallback onTap;@override Widget build(BuildContext context)=>IconButton(onPressed:onTap,icon:Icon(icon,color:RuneColors.muted,size:20));}
-class _QuickTile extends StatelessWidget{const _QuickTile({required this.icon,required this.title,required this.onTap});final IconData icon;final String title;final VoidCallback onTap;@override Widget build(BuildContext context)=>Expanded(child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(13),child:Container(padding:const EdgeInsets.symmetric(vertical:14),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(13),border:Border.all(color:Colors.white.withOpacity(.06))),child:Column(children:[Icon(icon,color:RuneColors.brightEmerald,size:18),const SizedBox(height:8),Text(title,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w700))]))));}
+class _QuickTile extends StatelessWidget {
+ const _QuickTile({required this.icon, required this.title, required this.onTap});
+ final IconData icon;
+ final String title;
+ final VoidCallback onTap;
+ @override
+ Widget build(BuildContext context) => Expanded(
+  child: Material(
+   color: Colors.transparent,
+   child: InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+     padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 3),
+     decoration: BoxDecoration(
+      color: RuneColors.carbon,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: RuneColors.border),
+     ),
+     child: Column(children: [
+      Icon(icon, color: RuneColors.mint, size: 19),
+      const SizedBox(height: 9),
+      Text(title, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700)),
+     ]),
+    ),
+   ),
+  ),
+ );
+}
 class _LinkCard extends StatelessWidget{const _LinkCard({required this.icon,required this.title,required this.subtitle,required this.onTap});final IconData icon;final String title,subtitle;final VoidCallback onTap;@override Widget build(BuildContext context)=>Expanded(child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(14),child:Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(14),border:Border.all(color:Colors.white.withOpacity(.06))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,color:RuneColors.brightEmerald),const SizedBox(height:13),Text(title,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),const SizedBox(height:3),Text(subtitle,style:const TextStyle(fontSize:9,color:RuneColors.muted))]))));}
 class _ActivityTile extends StatelessWidget{const _ActivityTile({required this.event});final Map<String,dynamic> event;@override Widget build(BuildContext context)=>_Panel(child:Row(children:[const Icon(Icons.bolt_outlined,color:RuneColors.brightEmerald,size:18),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(event['type']?.toString()??'Event',style:const TextStyle(fontSize:11,fontWeight:FontWeight.w700)),Text(event['timestamp']?.toString()??'',style:const TextStyle(fontSize:9,color:RuneColors.muted))]))]));}
 class _ToolTile extends StatelessWidget{const _ToolTile({required this.tool});final Map<String,dynamic> tool;@override Widget build(BuildContext context)=>_Panel(child:Row(children:[const Icon(Icons.extension_outlined,color:RuneColors.brightEmerald),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(tool['name']?.toString()??'Capability',style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),const SizedBox(height:4),Text(tool['description']?.toString()??'',style:const TextStyle(fontSize:10,color:RuneColors.muted,height:1.4))])),const SizedBox(width:8),Text(tool['risk']?.toString().toUpperCase()??'UNKNOWN',style:const TextStyle(fontSize:8,color:RuneColors.aurum,letterSpacing:.6))]));}
