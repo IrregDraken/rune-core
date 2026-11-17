@@ -24,10 +24,10 @@ class RuneTaskRunner {
     _busy=true;
     try {
       final caps=await device.capabilities();
-      if(caps['accessibilityEnabled']!=true) {
-        await remote.heartbeat(_advertised(caps));
-        return;
-      }
+      // App discovery and app launch do not require Accessibility. Always
+      // poll after advertising the exact capabilities available on this phone.
+      // UI observation/interaction remain absent from the heartbeat unless the
+      // owner has enabled the Accessibility Service.
       await remote.heartbeat(_advertised(caps));
       final task=await remote.nextTask();
       if(task==null)return;
