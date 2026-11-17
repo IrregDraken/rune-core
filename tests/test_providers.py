@@ -57,3 +57,42 @@ def test_usage_ledger_rejects_non_finite_reservations(tmp_path):
     with pytest.raises(ValueError):
         ledger.reserve("test", float("inf"))
     ledger.close()
+
+
+def test_provider_failure_keeps_reservation_when_billing_is_uncertain(tmp_path, monkeypatch):
+    from rune.core.providers import ProviderUnavailable, RoutedModelProvider
+
+    class BrokenProvider:
+        config = ProviderConfig(
+            "primary", "model", "RUNE_TEST_PROVIDER_KEY", 1.0, 1.0,
+            max_output_tokens=100,
+        )
+        def generate(self, prompt):
+            raise ProviderUnavailable("connection timed out after request dispatch")
+
+    monkeypatch.setenv("RUNE_TEST_PROVIDER_KEY", "configured")
+    ledger = UsageLedger(str(tmp_path / "usage.db"), monthly_limit_usd=1.0)
+    router = RoutedModelProvider([BrokenProvider()], ledger)
+    with pytest.raises(ProviderUnavailable):
+        router.respond("hello")
+    assert ledger.spent() > 0
+    ledger.close()
+
+
+def test_unconfigured_provider_does_not_reserve_budget(tmp_path, monkeypatch):
+    from rune.core.providers import ProviderUnavailable, RoutedModelProvider
+
+    class MissingKeyProvider:
+        config = ProviderConfig(
+            "primary", "model", "RUNE_MISSING_PROVIDER_KEY", 1.0, 1.0,
+            max_output_tokens=100,
+        )
+        def generate(self, prompt):
+            raise AssertionError("provider must not be called without its key")
+
+    monkeypatch.delenv("RUNE_MISSING_PROVIDER_KEY", raising=False)
+    ledger = UsageLedger(str(tmp_path / "usage.db"), monthly_limit_usd=1.0)
+    with pytest.raises(ProviderUnavailable):
+        RoutedModelProvider([MissingKeyProvider()], ledger).respond("hello")
+    assert ledger.spent() == 0
+    ledger.close()
