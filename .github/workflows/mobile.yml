@@ -1,6 +1,10 @@
 name: RUNE Mobile CI
 
 on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'feat/mobile-app-foundation']
+    paths: ['apps/mobile/**', '.github/workflows/mobile.yml']
   pull_request:
     paths: ['apps/mobile/**', '.github/workflows/mobile.yml']
   push:
