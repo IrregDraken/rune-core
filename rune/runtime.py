@@ -11,7 +11,7 @@ from .core.planning import Planner, Plan
 from .core.context import ContextAssembler, Retriever
 from .core.identity import IdentityProvider, LocalIdentityProvider
 from .core.tools import ToolRegistry
-from .core.voice import VoicePipeline, configured_voice_pipeline
+from .core.voice import VoicePipeline, VoiceSessionController, configured_voice_pipeline
 from .core.engine import RUNEEngine
 from .core.model import ModelProvider
 from .core.node import NodeInfo, NullNode, RUNEActionNode
@@ -55,6 +55,7 @@ class RUNERuntime:
         self.identity = identity or LocalIdentityProvider()
         self.tools = tools or ToolRegistry()
         self.voice = voice or configured_voice_pipeline()
+        self.voice_session = VoiceSessionController(inactivity_seconds=120, confirmation_seconds=15)
         if node is not None:
             self.node = node
         elif platform.system().lower() == "windows" and WindowsNode is not None:
@@ -274,7 +275,11 @@ class RUNERuntime:
             "active_plan": self.active_plan.to_dict() if self.active_plan else None,
             "tools": [spec.__dict__ for spec in self.tools.specs()],
             "voice": {
-                "wake_word": self.voice.wake_word is not None,
+                "wake_phrase": "Hey RUNE",
+                "session_state": self.voice_session.state.value,
+                "inactivity_seconds": self.voice_session.inactivity_seconds,
+                "confirmation_seconds": self.voice_session.confirmation_seconds,
+                "wake_word_engine": self.voice.wake_word is not None,
                 "speech_to_text": self.voice.speech_to_text is not None,
                 "text_to_speech": self.voice.text_to_speech is not None,
                 "speaker_verifier": self.voice.speaker_verifier is not None,
