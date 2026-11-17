@@ -103,6 +103,14 @@ class RuneApi {
     }
   }
 
+
+  Future<Map<String, dynamic>> voiceSessionAction(
+    String action, {bool? continueSession}
+  ) => _request('/api/voice/session', body: {
+    'action': action,
+    if (continueSession != null) 'continue': continueSession,
+  });
+
   Future<bool> health() async {
     final result = await _request('/api/health');
     return result['status'] == 'online';
