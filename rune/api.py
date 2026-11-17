@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 from .core.authority import Authority
 from .core.model import DeterministicModel
+from .core.providers import configured_model_provider
 from .core.node import Capability
 from .runtime import RUNERuntime
 from .shell.state import ShellMode, ShellState
@@ -219,10 +220,20 @@ def serve(
     port: int = 8765,
     runtime: RUNERuntime | None = None,
 ) -> None:
-    active_runtime = runtime or RUNERuntime(
-        DeterministicModel(),
-        authority=Authority(os.environ.get("RUNE_SESSION_TOKEN")),
-    )
+    if runtime is not None:
+        active_runtime = runtime
+    else:
+        model_mode = os.environ.get("RUNE_MODEL_MODE", "development").strip().lower()
+        if model_mode == "live":
+            model = configured_model_provider()
+        elif model_mode == "development":
+            model = DeterministicModel()
+        else:
+            raise ValueError("RUNE_MODEL_MODE must be 'development' or 'live'")
+        active_runtime = RUNERuntime(
+            model,
+            authority=Authority(os.environ.get("RUNE_SESSION_TOKEN")),
+        )
     RUNERequestHandler.runtime = active_runtime
     RUNERequestHandler.shell = ShellState()
     server = ThreadingHTTPServer((host, port), RUNERequestHandler)
