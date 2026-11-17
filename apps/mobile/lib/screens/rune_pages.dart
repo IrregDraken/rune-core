@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import '../services/rune_api.dart';
 import '../services/rune_device_agent.dart';
@@ -33,15 +35,134 @@ class _HomePageState extends State<HomePage>{
  }
 }
 
-class AssistantPage extends StatefulWidget{const AssistantPage({super.key,required this.api});final RuneApi api;@override State<AssistantPage> createState()=>_AssistantPageState();}
+class AssistantPage extends StatefulWidget {
+ const AssistantPage({super.key,required this.api});
+ final RuneApi api;
+ @override State<AssistantPage> createState()=>_AssistantPageState();
+}
 class _AssistantPageState extends State<AssistantPage>{
- final controller=TextEditingController();final scroll=ScrollController();final messages=<({bool user,String text})>[];bool sending=false;
+ final controller=TextEditingController();
+ final scroll=ScrollController();
+ final device=RuneDeviceAgent();
+ final messages=<({bool user,String text})>[];
+ bool sending=false,recording=false,voiceBusy=false;
  @override void dispose(){controller.dispose();scroll.dispose();super.dispose();}
- Future<void> send()async{final text=controller.text.trim();if(text.isEmpty||sending)return;setState((){messages.add((user:true,text:text));sending=true;});controller.clear();try{final response=await widget.api.chat(text);if(mounted)setState(()=>messages.add((user:false,text:response.isEmpty?'R.U.N.E. returned an empty response.':response)));}catch(e){if(mounted)setState(()=>messages.add((user:false,text:'Connection error: $e')));}if(mounted)setState(()=>sending=false);WidgetsBinding.instance.addPostFrameCallback((_){if(scroll.hasClients)scroll.animateTo(scroll.position.maxScrollExtent,duration:const Duration(milliseconds:250),curve:Curves.easeOut);});}
+
+ Future<void> send({bool speakResponse=false}) async {
+  final text=controller.text.trim();
+  if(text.isEmpty||sending)return;
+  setState((){messages.add((user:true,text:text));sending=true;});
+  controller.clear();
+  try {
+   final response=await widget.api.chat(text);
+   final answer=response.isEmpty?'R.U.N.E. returned an empty response.':response;
+   if(mounted)setState(()=>messages.add((user:false,text:answer)));
+   if(speakResponse&&response.isNotEmpty) {
+    try {
+     final audio=await widget.api.synthesizeSpeech(response);
+     await device.playAudio(audio);
+    } catch(e) {
+     if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Voice output unavailable: $e')));
+    }
+   }
+  } catch(e) {
+   if(mounted)setState(()=>messages.add((user:false,text:'Connection error: $e')));
+  }
+  if(mounted)setState(()=>sending=false);
+  WidgetsBinding.instance.addPostFrameCallback((_){
+   if(scroll.hasClients)scroll.animateTo(scroll.position.maxScrollExtent,
+    duration:const Duration(milliseconds:250),curve:Curves.easeOut);
+  });
+ }
+
+ Future<void> toggleVoice() async {
+  if(voiceBusy)return;
+  setState(()=>voiceBusy=true);
+  try {
+   if(!recording) {
+    final granted=await device.requestMicrophonePermission();
+    if(!granted) {
+     if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content:Text('Allow microphone access, then tap the microphone again.')));
+     return;
+    }
+    await device.stopAudio();
+    await device.startVoiceRecording();
+    if(mounted)setState(()=>recording=true);
+   } else {
+    final path=await device.stopVoiceRecording();
+    if(mounted)setState(()=>recording=false);
+    if(path==null)throw const RuneApiException('Recording could not be finalized.');
+    final bytes=await File(path).readAsBytes();
+    final transcript=await widget.api.transcribeAudio(bytes,contentType:'audio/mp4');
+    if(transcript.trim().isEmpty) {
+     if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content:Text('No speech was detected. Try again.')));
+    } else {
+     controller.text=transcript.trim();
+     await send(speakResponse:true);
+    }
+    await File(path).delete().catchError((_)=>File(path));
+   }
+  } catch(e) {
+   if(mounted) {
+    setState(()=>recording=false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Voice input failed: $e')));
+   }
+  } finally {
+   if(mounted)setState(()=>voiceBusy=false);
+  }
+ }
+
  @override Widget build(BuildContext context)=>Column(children:[
-  Padding(padding:const EdgeInsets.fromLTRB(20,18,20,16),child:Row(children:[const _RuneMark(size:28),const SizedBox(width:10),const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Assistant',style:TextStyle(fontSize:18,fontWeight:FontWeight.w700)),Text('CORE CONVERSATION',style:TextStyle(fontSize:8,color:RuneColors.muted,letterSpacing:1.3))]),const Spacer(),_OnlineChip(online:true)])),
-  Expanded(child:messages.isEmpty?Center(child:Padding(padding:const EdgeInsets.all(30),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[const _RuneOrb(size:150),const SizedBox(height:23),const Text('What are we working on?',style:TextStyle(fontSize:20,fontWeight:FontWeight.w700)),const SizedBox(height:8),const Text('Send a message to the connected R.U.N.E. runtime.\nConversation history is currently held in this session.',textAlign:TextAlign.center,style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),const SizedBox(height:20),Wrap(spacing:8,runSpacing:8,alignment:WrapAlignment.center,children:['Help me plan today','Summarize my current state','What can you do?'].map((s)=>ActionChip(label:Text(s,style:const TextStyle(fontSize:10)),onPressed:(){controller.text=s;send();})).toList())])):ListView.builder(controller:scroll,padding:const EdgeInsets.all(18),itemCount:messages.length+(sending?1:0),itemBuilder:(context,i){if(i>=messages.length)return const _Typing();final m=messages[i];return Align(alignment:m.user?Alignment.centerRight:Alignment.centerLeft,child:Container(constraints:const BoxConstraints(maxWidth:310),margin:const EdgeInsets.only(bottom:13),padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:m.user?RuneColors.pine:RuneColors.carbon,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.06))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(m.user?'YOU':'R.U.N.E.',style:const TextStyle(fontSize:8,color:RuneColors.brightEmerald,letterSpacing:1.4,fontWeight:FontWeight.w700)),const SizedBox(height:7),Text(m.text,style:const TextStyle(fontSize:12,height:1.55))]))); })),
-  SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(14,10,14,12),child:Row(children:[Expanded(child:TextField(controller:controller,minLines:1,maxLines:5,onSubmitted:(_)=>send(),decoration:const InputDecoration(hintText:'Message R.U.N.E.',prefixIcon:Icon(Icons.edit_outlined,size:18)))),const SizedBox(width:8),IconButton.filled(onPressed:sending?null:send,style:IconButton.styleFrom(backgroundColor:RuneColors.brightEmerald,foregroundColor:RuneColors.obsidian),icon:const Icon(Icons.arrow_upward_rounded))])))
+  Padding(padding:const EdgeInsets.fromLTRB(20,18,20,16),child:Row(children:[
+   const _RuneMark(size:28),const SizedBox(width:10),
+   const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Text('Assistant',style:TextStyle(fontSize:18,fontWeight:FontWeight.w700)),
+    Text('CORE CONVERSATION',style:TextStyle(fontSize:8,color:RuneColors.muted,letterSpacing:1.3))
+   ]),
+   const Spacer(),_OnlineChip(online:true)
+  ])),
+  Expanded(child:messages.isEmpty?Center(child:Padding(padding:const EdgeInsets.all(30),child:Column(
+   mainAxisAlignment:MainAxisAlignment.center,children:[
+    const _RuneOrb(size:150),const SizedBox(height:23),
+    const Text('What are we working on?',style:TextStyle(fontSize:20,fontWeight:FontWeight.w700)),
+    const SizedBox(height:8),
+    const Text('Send a message or use push-to-talk with the connected R.U.N.E. runtime.\nConversation history is currently held in this session.',
+     textAlign:TextAlign.center,style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),
+    const SizedBox(height:20),
+    Wrap(spacing:8,runSpacing:8,alignment:WrapAlignment.center,
+     children:['Help me plan today','Summarize my current state','What can you do?'].map((s)=>
+      ActionChip(label:Text(s,style:const TextStyle(fontSize:10)),onPressed:(){controller.text=s;send();})).toList())
+   ]))):ListView.builder(controller:scroll,padding:const EdgeInsets.all(18),
+    itemCount:messages.length+(sending?1:0),itemBuilder:(context,i){
+     if(i>=messages.length)return const _Typing();
+     final m=messages[i];
+     return Align(alignment:m.user?Alignment.centerRight:Alignment.centerLeft,
+      child:Container(constraints:const BoxConstraints(maxWidth:310),
+       margin:const EdgeInsets.only(bottom:13),padding:const EdgeInsets.all(14),
+       decoration:BoxDecoration(color:m.user?RuneColors.pine:RuneColors.carbon,
+        borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.06))),
+       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(m.user?'YOU':'R.U.N.E.',style:const TextStyle(fontSize:8,color:RuneColors.brightEmerald,letterSpacing:1.4,fontWeight:FontWeight.w700)),
+        const SizedBox(height:7),Text(m.text,style:const TextStyle(fontSize:12,height:1.55))
+       ])));
+    })),
+  SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(14,10,14,12),child:Row(children:[
+   Expanded(child:TextField(controller:controller,minLines:1,maxLines:5,onSubmitted:(_)=>send(),
+    decoration:const InputDecoration(hintText:'Message R.U.N.E.',prefixIcon:Icon(Icons.edit_outlined,size:18)))),
+   const SizedBox(width:5),
+   IconButton(onPressed:voiceBusy?null:toggleVoice,
+    tooltip:recording?'Stop recording':'Push to talk',
+    style:IconButton.styleFrom(
+     backgroundColor:recording?Colors.redAccent.withOpacity(.15):RuneColors.carbon,
+     foregroundColor:recording?Colors.redAccent:RuneColors.brightEmerald),
+    icon:Icon(recording?Icons.stop_circle_outlined:Icons.mic_none_rounded)),
+   const SizedBox(width:4),
+   IconButton.filled(onPressed:sending?null:()=>send(),
+    style:IconButton.styleFrom(backgroundColor:RuneColors.brightEmerald,foregroundColor:RuneColors.obsidian),
+    icon:const Icon(Icons.arrow_upward_rounded))
+  ])))
  ]);
 }
 
