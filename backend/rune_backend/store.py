@@ -43,7 +43,10 @@ class SupabaseStore:
             raise StoreError(f"database RPC request failed ({response.status_code})")
         if response.status_code == 204 or not response.content:
             return None
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise StoreError("database returned an invalid response") from exc
 
     async def request(
         self,
