@@ -62,3 +62,19 @@ def test_elevenlabs_tts_rejects_long_interactive_responses():
     provider = ElevenLabsTextToSpeechProvider()
     with pytest.raises(ValueError):
         provider.synthesize(Speech("x" * 1001))
+
+
+
+def test_configured_voice_pipeline_only_connects_tts_with_key_and_voice(monkeypatch):
+    from rune.core.voice import configured_voice_pipeline
+
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    monkeypatch.delenv("RUNE_ELEVENLABS_VOICE_ID", raising=False)
+    assert configured_voice_pipeline().text_to_speech is None
+
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+    monkeypatch.setenv("RUNE_ELEVENLABS_VOICE_ID", "test-voice")
+    assert isinstance(
+        configured_voice_pipeline().text_to_speech,
+        ElevenLabsTextToSpeechProvider,
+    )
