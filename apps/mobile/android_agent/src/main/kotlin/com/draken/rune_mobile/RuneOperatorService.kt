@@ -89,6 +89,7 @@ class RuneOperatorService : Service() {
     override fun onDestroy() {
         running = false
         executor.shutdownNow()
+        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
 
@@ -143,8 +144,14 @@ class RuneOperatorService : Service() {
                 val response = request("GET", "/v1/devices/$deviceId/tasks/next", null)
                 val task = response.optJSONObject("task")
                 if (task != null) executeTask(task)
+            } catch (_: SecurityException) {
+                // A revoked/invalid device token must not poll forever.
+                running = false
+                clearCredentials()
+                stopSelf()
+                break
             } catch (_: Exception) {
-                // Retry after a short delay. A network error never marks a task successful.
+                // Retry transient network failures. Never fabricate a task result.
             }
             try { Thread.sleep(10000L) } catch (_: InterruptedException) { break }
         }
@@ -259,8 +266,16 @@ class RuneOperatorService : Service() {
         val stream = if (code in 200..299) connection.inputStream else connection.errorStream
         val text = stream?.bufferedReader()?.use { it.readText() } ?: "{}"
         connection.disconnect()
+        if (code == 401 || code == 403) throw SecurityException("RUNE device credential revoked or invalid")
         if (code !in 200..299) throw IllegalStateException("RUNE backend HTTP $code")
         return JSONObject(text)
+    }
+
+    private fun clearCredentials() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().clear().apply()
+        backendUrl = ""
+        deviceId = ""
+        deviceToken = ""
     }
 
     private fun saveCredentials() {
