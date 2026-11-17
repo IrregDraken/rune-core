@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../services/rune_api.dart';
 import '../services/rune_device_agent.dart';
+import '../services/rune_remote_api.dart';
+import '../services/rune_task_runner.dart';
 import '../theme/rune_colors.dart';
 
 class HomePage extends StatefulWidget {
@@ -77,11 +79,20 @@ class SecurityPage extends StatefulWidget {
 }
 class _SecurityPageState extends State<SecurityPage> {
  final agent=RuneDeviceAgent();
+ final backend=TextEditingController();
+ final supabase=TextEditingController();
+ final publishable=TextEditingController();
+ final email=TextEditingController();
+ final password=TextEditingController();
  Map<String,dynamic> capabilities={};
  List<Map<String,String>> apps=[];
+ RuneRemoteApi? remote;
+ RuneTaskRunner? runner;
  String? error;
- bool loading=true;
+ String status='Not enrolled';
+ bool loading=true,busy=false;
  @override void initState(){super.initState();load();}
+ @override void dispose(){runner?.dispose();remote?.close();backend.dispose();supabase.dispose();publishable.dispose();email.dispose();password.dispose();super.dispose();}
  Future<void> load() async {
   try {
    final c=await agent.capabilities();
@@ -90,6 +101,26 @@ class _SecurityPageState extends State<SecurityPage> {
   } catch(e) {
    if(mounted)setState(()=>{loading=false,error:'Native Android agent unavailable: $e'});
   }
+ }
+ Future<void> enrollAndStart() async {
+  if(backend.text.trim().isEmpty||supabase.text.trim().isEmpty||publishable.text.trim().isEmpty||email.text.trim().isEmpty||password.text.isEmpty)return;
+  setState(()=>busy=true);
+  try {
+   final c=await agent.capabilities();
+   final remoteApi=RuneRemoteApi(backendUrl:backend.text.trim(),supabaseUrl:supabase.text.trim(),publishableKey:publishable.text.trim());
+   await remoteApi.signIn(email.text.trim(),password.text);
+   final caps=<String>[];
+   if(c['appDiscovery']==true)caps.add('app.list');
+   if(c['appLaunch']==true)caps.add('app.launch');
+   if(c['uiObservation']==true)caps.add('ui.observe');
+   if(c['uiInteraction']==true)caps.add('ui.interact');
+   final device=await remoteApi.registerDevice(name:'RUNE Android Device',capabilities:caps,appVersion:'0.2.0');
+   final taskRunner=RuneTaskRunner(remote:remoteApi,device:agent)..start();
+   if(mounted)setState(()=>{remote=remoteApi,runner=taskRunner,status:'Enrolled: ${device['device_name']??'Android device'} · operator active',error=null});
+  } catch(e) {
+   if(mounted)setState(()=>error=e.toString());
+  }
+  if(mounted)setState(()=>busy=false);
  }
  @override Widget build(BuildContext context)=>Scaffold(
   appBar:AppBar(title:const Text('Device & security')),
@@ -110,29 +141,40 @@ class _SecurityPageState extends State<SecurityPage> {
    const SizedBox(height:8),
    FilledButton.icon(onPressed:loading?null:()async{try{await agent.openAccessibilitySettings();}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}},icon:const Icon(Icons.accessibility_new),label:const Text('OPEN ACCESSIBILITY SETTINGS')),
    OutlinedButton.icon(onPressed:load,icon:const Icon(Icons.refresh),label:const Text('REFRESH DEVICE STATUS')),
-   const SizedBox(height:22),
+   const SizedBox(height:20),
+   const _SectionTitle('REMOTE ENROLLMENT'),
+   const SizedBox(height:8),
+   _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Text(status,style:const TextStyle(color:RuneColors.brightEmerald,fontSize:11,fontWeight:FontWeight.w700)),
+    const SizedBox(height:12),
+    const Text('Remote backend URL',style:TextStyle(fontSize:10,color:RuneColors.muted)),
+    const SizedBox(height:5),TextField(controller:backend,keyboardType:TextInputType.url,decoration:const InputDecoration(hintText:'https://your-rune-backend.example.com')),
+    const SizedBox(height:10),const Text('Supabase project URL',style:TextStyle(fontSize:10,color:RuneColors.muted)),
+    const SizedBox(height:5),TextField(controller:supabase,keyboardType:TextInputType.url,decoration:const InputDecoration(hintText:'https://project.supabase.co')),
+    const SizedBox(height:10),const Text('Supabase publishable key',style:TextStyle(fontSize:10,color:RuneColors.muted)),
+    const SizedBox(height:5),TextField(controller:publishable,decoration:const InputDecoration(hintText:'sb_publishable_…')),
+    const SizedBox(height:10),const Text('Account email',style:TextStyle(fontSize:10,color:RuneColors.muted)),
+    const SizedBox(height:5),TextField(controller:email,keyboardType:TextInputType.emailAddress,decoration:const InputDecoration(hintText:'you@example.com')),
+    const SizedBox(height:10),const Text('Account password',style:TextStyle(fontSize:10,color:RuneColors.muted)),
+    const SizedBox(height:5),TextField(controller:password,obscureText:true,decoration:const InputDecoration(hintText:'Supabase Auth password')),
+    const SizedBox(height:14),
+    SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:busy?null:enrollAndStart,icon:const Icon(Icons.phonelink_lock),label:Text(busy?'ENROLLING…':'SIGN IN, ENROLL & START OPERATOR'))),
+    const SizedBox(height:8),
+    const Text('The password is sent only to Supabase Auth over HTTPS. Owner and device tokens are stored in Android secure storage. The device operator polls while this app remains active.',style:TextStyle(color:RuneColors.muted,fontSize:9,height:1.5)),
+   ])),
+   const SizedBox(height:20),
    const _SectionTitle('VISIBLE APP CATALOG'),
    const SizedBox(height:8),
    if(loading)const Center(child:CircularProgressIndicator())
    else if(apps.isEmpty)_Panel(child:const Text('No launchable apps returned, or native app discovery is unavailable.',style:TextStyle(color:RuneColors.muted,fontSize:11)))
    else ...apps.take(100).map((app)=>_Panel(child:Row(children:[
-    const Icon(Icons.apps,color:RuneColors.brightEmerald),
-    const SizedBox(width:10),
+    const Icon(Icons.apps,color:RuneColors.brightEmerald),const SizedBox(width:10),
     Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
      Text(app['appName']??'Application',style:const TextStyle(fontSize:11,fontWeight:FontWeight.w700)),
      Text(app['packageName']??'',style:const TextStyle(fontSize:9,color:RuneColors.muted))
     ])),
     IconButton(onPressed:()async{try{final ok=await agent.launchApp(app['packageName']??'');if(!ok&&mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Android did not provide a launch intent.')));}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}},icon:const Icon(Icons.open_in_new,color:RuneColors.brightEmerald))
    ]))),
-   const SizedBox(height:20),
-   const _SectionTitle('REMOTE AUTHORITY'),
-   const SizedBox(height:8),
-   const _Panel(child:Column(children:[
-    _InfoRow('Trusted device enrollment','Not connected',RuneColors.aurum),
-    _InfoRow('Remote command session','Not connected',RuneColors.aurum),
-    _InfoRow('Device credential storage','Pending secure enrollment',RuneColors.muted),
-    _InfoRow('Biometric data collection','Not used',RuneColors.muted),
-   ])),
   ])
  );
 }
