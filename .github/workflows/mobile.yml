@@ -19,7 +19,10 @@ jobs:
           cache: true
       - name: Generate native project if absent
         working-directory: apps/mobile
-        run: if [ ! -d android ]; then flutter create --platforms=android,ios .; fi
+        run: if [ ! -d android ]; then flutter create --org com.draken --project-name rune_mobile --platforms=android,ios .; fi
+      - name: Install native Android device agent
+        working-directory: apps/mobile
+        run: python tool/install_android_agent.py
       - name: Resolve dependencies
         working-directory: apps/mobile
         run: flutter pub get
