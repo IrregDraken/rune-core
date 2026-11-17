@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
@@ -84,7 +85,11 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         elif path == "/api/voice":
             voice = self.runtime.voice
             self._send(200, {
-                "wake_word": voice.wake_word is not None,
+                "wake_phrase": "Hey RUNE",
+                "session_state": self.runtime.voice_session.state.value,
+                "inactivity_seconds": self.runtime.voice_session.inactivity_seconds,
+                "confirmation_seconds": self.runtime.voice_session.confirmation_seconds,
+                "wake_word_engine": voice.wake_word is not None,
                 "speech_to_text": voice.speech_to_text is not None,
                 "text_to_speech": voice.text_to_speech is not None,
                 "speaker_verifier": voice.speaker_verifier is not None,
@@ -119,6 +124,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             "/api/remote/approve",
             "/api/voice/synthesize",
             "/api/voice/transcribe",
+            "/api/voice/session",
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
@@ -158,8 +164,39 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
 
             if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify",
                                 "/api/remote/propose", "/api/remote/submit", "/api/remote/approve",
-                                "/api/voice/synthesize", "/api/voice/transcribe"} and not self._authorized():
+                                "/api/voice/synthesize", "/api/voice/transcribe",
+                                "/api/voice/session"} and not self._authorized():
                 self._send(403, {"error": "privileged session required"})
+                return
+
+            if request_path == "/api/voice/session":
+                controller = self.runtime.voice_session
+                action = str(payload.get("action", "")).strip()
+                now = time.time()
+                if action == "wake":
+                    controller.wake_detected(now)
+                elif action == "activity":
+                    controller.user_activity(now)
+                elif action == "processing":
+                    controller.processing_started(now)
+                elif action == "speech_started":
+                    controller.speech_started(now)
+                elif action == "speech_finished":
+                    controller.speech_finished(now)
+                elif action in {"stop", "interrupt"}:
+                    controller.interrupt(now)
+                elif action == "confirmation":
+                    controller.answer_confirmation(bool(payload.get("continue", False)), now)
+                elif action == "tick":
+                    prompt = controller.tick(now)
+                    self._send(200, {"state": controller.state.value, "prompt": prompt})
+                    return
+                elif action == "close":
+                    controller.close()
+                else:
+                    self._send(400, {"error": "unsupported voice session action"})
+                    return
+                self._send(200, {"state": controller.state.value})
                 return
 
             if request_path == "/api/voice/synthesize":
