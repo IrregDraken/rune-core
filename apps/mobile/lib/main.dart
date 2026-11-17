@@ -104,7 +104,7 @@ class _HomePageState extends State<HomePage> {
               const CircleAvatar(radius: 17, backgroundColor: pine, child: Icon(Icons.person_outline, size: 18, color: ivory)),
             ]),
             const SizedBox(height: 28),
-            Text('MONDAY, 17 NOVEMBER', style: TextStyle(color: muted, fontSize: 10, letterSpacing: 1.8)),
+            Text('TUESDAY, 17 NOVEMBER', style: TextStyle(color: muted, fontSize: 10, letterSpacing: 1.8)),
             const SizedBox(height: 7),
             Text('Good afternoon.', style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 3),
