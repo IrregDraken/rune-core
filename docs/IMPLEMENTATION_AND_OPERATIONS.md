@@ -11,6 +11,31 @@
 - `apps/mobile/android_agent/` contains native Android app discovery, launch and Accessibility Service implementation.
 - The Android app can run a native foreground operator service with a persistent notification. Android still controls its lifetime and may impose battery and foreground-service limits.
 
+## Mobile app workflow
+
+The Flutter companion includes:
+- **Home**: runtime reachability, identity, memory count, active goal and quick navigation.
+- **Assistant**: text chat, Android push-to-talk, speech playback, barge-in via the microphone control and encrypted local conversation history.
+- **Work**: create goals and plans, view the active objective and recent activity.
+- **Explore**: inspect capabilities exposed by the connected core and see integration availability.
+- **Memory**: inspect long-term memory returned by the core.
+- **Device & Security**: inspect Android capabilities, enable Accessibility, enroll the phone, pause/revoke the operator, review pending actions and approve/cancel queued work.
+- **Settings**: configure the core API URL and local session token.
+
+Conversation history is stored on-device using platform secure storage, capped at the most recent 60 messages and 6,000 characters per message. The Assistant screen provides an explicit clear-history action. Clearing local chat history does not delete core long-term memory.
+
+### First-run and Android device setup
+
+1. Install the CI-built APK on the Android phone.
+2. Complete onboarding with a display name and a reachable RUNE core URL. On a phone, `127.0.0.1` refers to the phone itself, not a laptop or VPS.
+3. Open Settings, enter the core's HTTPS URL and the matching `RUNE_SESSION_TOKEN`, then test the connection. Never send this token over plain HTTP to a remote host.
+4. Open Device & Security and enter the control-plane URL, Supabase project URL and publishable key. Sign in with the owner's Supabase Auth credentials. The password is sent to Supabase Auth over HTTPS and is not retained by the screen.
+5. Enable RUNE Accessibility from Android Settings only if you intend to use visible UI observation and interaction. Review the permission description before enabling it.
+6. Keep the foreground operator notification enabled while testing. Android may suspend or limit background work; this is not a guaranteed always-on service.
+7. Submit a harmless test action, approve it in the app, and verify the actual result on the phone before trying more consequential operations.
+
+Do not paste passwords, access tokens, device tokens, encryption keys or provider API keys into chat or commit them to the repository. Use the secure settings UI or deployment secret manager.
+
 ## Model configuration
 
 The default mode remains `RUNE_MODEL_MODE=development`, which uses the deterministic development model. To enable live inference, set `RUNE_MODEL_MODE=live` and configure a primary provider. A fallback is optional.
@@ -115,10 +140,10 @@ Deployment has not been approved or performed. Before deployment, run all CI sui
 - No deployed backend, intelligence core or remote domains.
 - Owner refresh manager source exists but still needs credential provisioning and live Supabase refresh testing.
 - Railway container definitions are prepared but Docker builds, persistent volume behavior and health probes are unverified.
-- Android foreground service source is implemented but has not been build-verified or tested on a physical phone.
+- Android APK build and widget tests are now exercised by GitHub Actions; a physical-phone installation and end-to-end device workflow still need testing.
 - Android device enrollment and real-device workflow not tested end-to-end.
 - No hardware-backed device attestation or signed command envelopes yet.
 - No formal threat model / penetration test.
-- CI status has not yet been confirmed from GitHub.
+- Latest GitHub Actions build status must be checked before distributing a candidate APK.
 
 Do not describe this build as production-ready until these are closed and an actual device workflow has been tested.
