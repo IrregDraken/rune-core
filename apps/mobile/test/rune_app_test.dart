@@ -18,7 +18,8 @@ void main() {
       'rune.api': 'http://127.0.0.1:8765',
     });
     await tester.pumpWidget(const RuneApp());
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('R.U.N.E.'), findsOneWidget);
     expect(find.text('SYSTEM SNAPSHOT'), findsOneWidget);
   });
