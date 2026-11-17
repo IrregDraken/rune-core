@@ -189,7 +189,7 @@ class OpenAISpeechToTextProvider:
         file_type = self._FORMATS.get(audio_format)
         if file_type is None:
             raise ValueError("unsupported audio format")
-        api_key = os.getenv(self.api_key_env) or os.getenv("OPENAI_API_KEY")
+        api_key = os.getenv(self.api_key_env)
         if not api_key:
             raise VoiceProviderUnavailable("OpenAI speech-to-text API key is not configured")
         model_id = os.getenv(self.model_id_env, "gpt-transcribe")
@@ -277,7 +277,7 @@ class ElevenLabsTextToSpeechProvider:
 def configured_voice_pipeline() -> VoicePipeline:
     """Connect TTS only when its server-side credentials and voice ID exist."""
     speech_to_text = None
-    if os.getenv("RUNE_OPENAI_STT_API_KEY") or os.getenv("OPENAI_API_KEY"):
+    if os.getenv("RUNE_OPENAI_STT_API_KEY"):
         speech_to_text = OpenAISpeechToTextProvider()
     text_to_speech = None
     if os.getenv("ELEVENLABS_API_KEY") and os.getenv("RUNE_ELEVENLABS_VOICE_ID"):
