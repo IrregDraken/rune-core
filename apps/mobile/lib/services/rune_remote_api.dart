@@ -335,12 +335,27 @@ class RuneRemoteApi {
         body: {},
       );
 
+  Future<void> revokeThisDevice() async {
+    final credentials = await deviceCredentials();
+    if (credentials == null) return;
+    await _send(
+      'DELETE',
+      '$_backend/v1/devices/${credentials['id']}',
+      headers: await _ownerHeaders(),
+    );
+    await clearDeviceCredentials();
+  }
+
+  Future<void> clearDeviceCredentials() async {
+    await _storage.delete(key: 'rune.device_id');
+    await _storage.delete(key: 'rune.device_token');
+  }
+
   Future<void> signOut() async {
     await _storage.delete(key: 'rune.owner_access_token');
     await _storage.delete(key: 'rune.owner_refresh_token');
     await _storage.delete(key: 'rune.owner_expires_at');
-    await _storage.delete(key: 'rune.device_id');
-    await _storage.delete(key: 'rune.device_token');
+    await clearDeviceCredentials();
   }
 
   void close() => _http.close(force: true);
