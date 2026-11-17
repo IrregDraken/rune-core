@@ -135,3 +135,11 @@ class ElevenLabsTextToSpeechProvider:
         if not response.content:
             raise VoiceProviderUnavailable("ElevenLabs returned an empty audio response")
         return response.content
+
+
+
+def configured_voice_pipeline() -> VoicePipeline:
+    """Connect TTS only when its server-side credentials and voice ID exist."""
+    if os.getenv("ELEVENLABS_API_KEY") and os.getenv("RUNE_ELEVENLABS_VOICE_ID"):
+        return VoicePipeline(text_to_speech=ElevenLabsTextToSpeechProvider())
+    return VoicePipeline()
