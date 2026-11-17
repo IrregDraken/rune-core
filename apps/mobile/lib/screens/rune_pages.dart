@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../services/rune_api.dart';
+import '../services/rune_device_agent.dart';
 import '../theme/rune_colors.dart';
 
 class HomePage extends StatefulWidget {
@@ -69,9 +70,71 @@ class _MemoryPageState extends State<MemoryPage>{Map<String,dynamic>? state;Stri
  @override Widget build(BuildContext context){final records=state?['long_term_memory'] as List? ?? [];return Scaffold(appBar:AppBar(title:const Text('Memory')),body:ListView(padding:const EdgeInsets.all(18),children:[const Text('PERSISTENT CONTEXT',style:TextStyle(color:RuneColors.muted,fontSize:9,letterSpacing:1.5)),const SizedBox(height:8),const Text('What R.U.N.E. remembers',style:TextStyle(fontSize:23,fontWeight:FontWeight.w700)),const SizedBox(height:8),const Text('Memory is owned by the core. This screen displays records returned by the connected runtime.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.5)),const SizedBox(height:18),if(error!=null)_Notice(text:error!,warning:true)else if(records.isEmpty)_Panel(child:Text(state==null?'Loading memory...':'No memory records were returned.',style:const TextStyle(color:RuneColors.muted,fontSize:11)))else ...records.map((r){final m=r as Map<String,dynamic>;return _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(m['key']?.toString()??'Untitled memory',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),const SizedBox(height:6),Text(m['value']?.toString()??'',style:const TextStyle(fontSize:11,height:1.5)),const SizedBox(height:8),Text('${m['kind']??'memory'} · salience ${m['salience']??'—'}',style:const TextStyle(color:RuneColors.muted,fontSize:9))]))})]));}
 }
 
-class SecurityPage extends StatefulWidget{const SecurityPage({super.key,required this.api});final RuneApi api;@override State<SecurityPage> createState()=>_SecurityPageState();}
-class _SecurityPageState extends State<SecurityPage>{List<dynamic> tools=[];@override void initState(){super.initState();widget.api.tools().then((v){if(mounted)setState(()=>tools=v);}).catchError((Object _) => <dynamic>[]);}
- @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Security & access')),body:ListView(padding:const EdgeInsets.all(18),children:[const _Notice(text:'This app currently has no remote device enrollment, passkey recovery or revocable session workflow. Do not treat this screen as an access-control system.'),const SizedBox(height:16),const _SectionTitle('CURRENT BOUNDARIES'),const SizedBox(height:10),const _Panel(child:Column(children:[_InfoRow('Local profile','Device-only label',RuneColors.muted),_InfoRow('Privileged session','Not configured',RuneColors.aurum),_InfoRow('Biometric verification','Not implemented',RuneColors.muted),_InfoRow('Emergency access','Not implemented',RuneColors.muted),_InfoRow('Audit trail','Core activity endpoint',RuneColors.muted)])),const SizedBox(height:22),const _SectionTitle('EXPOSED TOOL PERMISSIONS'),const SizedBox(height:10),if(tools.isEmpty)const _Panel(child:Text('No tool permission metadata available.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...tools.map((t){final m=t as Map<String,dynamic>;return _Panel(child:_InfoRow(m['name']?.toString()??'Tool',m['requires_authority']==true?'Authority required':'No authority flag',m['requires_authority']==true?RuneColors.aurum:RuneColors.muted));})]));}
+class SecurityPage extends StatefulWidget {
+ const SecurityPage({super.key,required this.api});
+ final RuneApi api;
+ @override State<SecurityPage> createState()=>_SecurityPageState();
+}
+class _SecurityPageState extends State<SecurityPage> {
+ final agent=RuneDeviceAgent();
+ Map<String,dynamic> capabilities={};
+ List<Map<String,String>> apps=[];
+ String? error;
+ bool loading=true;
+ @override void initState(){super.initState();load();}
+ Future<void> load() async {
+  try {
+   final c=await agent.capabilities();
+   final a=await agent.installedApps();
+   if(mounted)setState(()=>{capabilities=c,apps=a,loading=false,error=null});
+  } catch(e) {
+   if(mounted)setState(()=>{loading=false,error:'Native Android agent unavailable: $e'});
+  }
+ }
+ @override Widget build(BuildContext context)=>Scaffold(
+  appBar:AppBar(title:const Text('Device & security')),
+  body:ListView(padding:const EdgeInsets.all(18),children:[
+   const _Notice(text:'RUNE uses Android Accessibility only after you explicitly enable it. It can inspect and interact with visible interfaces, not bypass app authentication or Android security.'),
+   const SizedBox(height:16),
+   const _SectionTitle('ANDROID DEVICE AGENT'),
+   const SizedBox(height:10),
+   _Panel(child:Column(children:[
+    _InfoRow('Platform',capabilities['platform']?.toString()??'Checking…',RuneColors.muted),
+    _InfoRow('App discovery',capabilities['appDiscovery']==true?'Available':'Unavailable',RuneColors.muted),
+    _InfoRow('App launch',capabilities['appLaunch']==true?'Available':'Unavailable',RuneColors.muted),
+    _InfoRow('Accessibility',capabilities['accessibilityEnabled']==true?'Enabled':'Not enabled',capabilities['accessibilityEnabled']==true?RuneColors.brightEmerald:RuneColors.aurum),
+    _InfoRow('UI observation',capabilities['uiObservation']==true?'Available':'Permission required',RuneColors.muted),
+    _InfoRow('UI interaction',capabilities['uiInteraction']==true?'Available':'Permission required',RuneColors.muted),
+   ])),
+   if(error!=null)_Notice(text:error!,warning:true),
+   const SizedBox(height:8),
+   FilledButton.icon(onPressed:loading?null:()async{try{await agent.openAccessibilitySettings();}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}},icon:const Icon(Icons.accessibility_new),label:const Text('OPEN ACCESSIBILITY SETTINGS')),
+   OutlinedButton.icon(onPressed:load,icon:const Icon(Icons.refresh),label:const Text('REFRESH DEVICE STATUS')),
+   const SizedBox(height:22),
+   const _SectionTitle('VISIBLE APP CATALOG'),
+   const SizedBox(height:8),
+   if(loading)const Center(child:CircularProgressIndicator())
+   else if(apps.isEmpty)_Panel(child:const Text('No launchable apps returned, or native app discovery is unavailable.',style:TextStyle(color:RuneColors.muted,fontSize:11)))
+   else ...apps.take(100).map((app)=>_Panel(child:Row(children:[
+    const Icon(Icons.apps,color:RuneColors.brightEmerald),
+    const SizedBox(width:10),
+    Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+     Text(app['appName']??'Application',style:const TextStyle(fontSize:11,fontWeight:FontWeight.w700)),
+     Text(app['packageName']??'',style:const TextStyle(fontSize:9,color:RuneColors.muted))
+    ])),
+    IconButton(onPressed:()async{try{final ok=await agent.launchApp(app['packageName']??'');if(!ok&&mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Android did not provide a launch intent.')));}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}},icon:const Icon(Icons.open_in_new,color:RuneColors.brightEmerald))
+   ]))),
+   const SizedBox(height:20),
+   const _SectionTitle('REMOTE AUTHORITY'),
+   const SizedBox(height:8),
+   const _Panel(child:Column(children:[
+    _InfoRow('Trusted device enrollment','Not connected',RuneColors.aurum),
+    _InfoRow('Remote command session','Not connected',RuneColors.aurum),
+    _InfoRow('Device credential storage','Pending secure enrollment',RuneColors.muted),
+    _InfoRow('Biometric data collection','Not used',RuneColors.muted),
+   ])),
+  ])
+ );
 }
 
 class SettingsPage extends StatefulWidget{const SettingsPage({super.key,required this.apiUrl,required this.onSave,required this.api});final String apiUrl;final ValueChanged<String> onSave;final RuneApi api;@override State<SettingsPage> createState()=>_SettingsPageState();}
