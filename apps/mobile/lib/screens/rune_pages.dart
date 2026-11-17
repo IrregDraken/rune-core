@@ -10,6 +10,7 @@ import '../services/rune_device_agent.dart';
 import '../services/rune_remote_api.dart';
 import '../services/rune_task_runner.dart';
 import '../theme/rune_colors.dart';
+import '../widgets/rune_intelligence_orb.dart';
 
 class HomePage extends StatefulWidget {
  const HomePage({super.key,required this.owner,required this.api,required this.apiUrl,required this.onApiChanged,required this.onSessionTokenChanged,required this.onNavigate});
@@ -25,7 +26,7 @@ class _HomePageState extends State<HomePage>{
   return RefreshIndicator(onRefresh:refresh,color:RuneColors.brightEmerald,child:ListView(padding:const EdgeInsets.fromLTRB(21,18,21,30),children:[
    Row(children:[const _RuneMark(size:32),const SizedBox(width:10),const Text('R.U.N.E.',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,letterSpacing:2.7)),const Spacer(),_OnlineChip(online:online),const SizedBox(width:10),_IconButton(icon:Icons.shield_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SecurityPage(api:widget.api)))),_IconButton(icon:Icons.settings_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SettingsPage(apiUrl:widget.apiUrl,onSave:widget.onApiChanged,sessionToken:widget.api.sessionToken,onSessionTokenSave:widget.onSessionTokenChanged,api:widget.api))))]),
    const SizedBox(height:27),Text(DateTime.now().toLocal().toString().substring(0,10).toUpperCase(),style:const TextStyle(fontSize:9,color:RuneColors.muted,letterSpacing:1.8)),const SizedBox(height:7),Text('$greeting, ${widget.owner}.',style:const TextStyle(fontSize:26,fontWeight:FontWeight.w700,letterSpacing:-.7)),const SizedBox(height:4),const Text('Your command center is ready.',style:TextStyle(color:RuneColors.muted,fontSize:12)),
-   const SizedBox(height:12),Center(child:Column(children:[const _RuneOrb(),Text(online?'CORE REACHABLE':'CORE DISCONNECTED',style:TextStyle(fontSize:9,color:online?RuneColors.mint:RuneColors.aurum,letterSpacing:2,fontWeight:FontWeight.w700)),const SizedBox(height:5),Text(online?'Intelligence runtime responding':'Connect your core to activate intelligence',style:const TextStyle(fontSize:10,color:RuneColors.muted))])),
+   const SizedBox(height:12),Center(child:Column(children:[const RuneIntelligenceOrb(),Text(online?'CORE REACHABLE':'CORE DISCONNECTED',style:TextStyle(fontSize:9,color:online?RuneColors.mint:RuneColors.aurum,letterSpacing:2,fontWeight:FontWeight.w700)),const SizedBox(height:5),Text(online?'Intelligence runtime responding':'Connect your core to activate intelligence',style:const TextStyle(fontSize:10,color:RuneColors.muted))])),
    const SizedBox(height:18),GestureDetector(onTap:()=>widget.onNavigate(1),child:Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:16),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.07))),child:const Row(children:[Icon(Icons.auto_awesome,color:RuneColors.brightEmerald,size:18),SizedBox(width:11),Expanded(child:Text('Ask R.U.N.E. anything...',style:TextStyle(color:RuneColors.muted,fontSize:12))),Icon(Icons.arrow_forward_rounded,color:RuneColors.muted,size:17)]))),
    const SizedBox(height:24),const _SectionTitle('QUICK ACTIONS'),
    const SizedBox(height:11),Row(children:[_QuickTile(icon:Icons.route_rounded,title:'Plan',onTap:()=>widget.onNavigate(2)),const SizedBox(width:9),_QuickTile(icon:Icons.bolt_rounded,title:'Execute',onTap:()=>widget.onNavigate(2)),const SizedBox(width:9),_QuickTile(icon:Icons.account_tree_outlined,title:'Automate',onTap:()=>widget.onNavigate(3)),const SizedBox(width:9),_QuickTile(icon:Icons.add_link_rounded,title:'Connect',onTap:()=>widget.onNavigate(3))]),
@@ -269,7 +270,7 @@ class _AssistantPageState extends State<AssistantPage>{
   ])),
   Expanded(child:messages.isEmpty?Center(child:Padding(padding:const EdgeInsets.all(30),child:Column(
    mainAxisAlignment:MainAxisAlignment.center,children:[
-    const _RuneOrb(size:150),const SizedBox(height:23),
+    const RuneIntelligenceOrb(size:150),const SizedBox(height:23),
     const Text('What are we working on?',style:TextStyle(fontSize:20,fontWeight:FontWeight.w700)),
     const SizedBox(height:8),
     const Text('Send a message or use push-to-talk with the connected R.U.N.E. runtime.\nConversation history is encrypted and saved on this device.',
@@ -738,99 +739,4 @@ class _GlyphPainter extends CustomPainter {
  }
  @override
  bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
-}
-class _RuneOrb extends StatefulWidget{const _RuneOrb({this.size=230});final double size;@override State<_RuneOrb> createState()=>_RuneOrbState();}
-class _RuneOrbState extends State<_RuneOrb> with SingleTickerProviderStateMixin{late final controller=AnimationController(vsync:this,duration:const Duration(seconds:24))..repeat();@override void dispose(){controller.dispose();super.dispose();}@override Widget build(BuildContext context)=>AnimatedBuilder(animation:controller,builder:(_,__)=>SizedBox(width:widget.size,height:widget.size,child:CustomPaint(painter:_OrbPainter(controller.value))));}
-class _OrbPainter extends CustomPainter {
-  _OrbPainter(this.t);
-  final double t;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width * .34;
-    canvas.drawCircle(
-      center,
-      radius * 1.34,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            RuneColors.emerald.withOpacity(.15),
-            RuneColors.pine.withOpacity(.08),
-            Colors.transparent,
-          ],
-        ).createShader(Rect.fromCircle(center: center, radius: radius * 1.34)),
-    );
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..shader = const RadialGradient(
-          colors: [Color(0xFF173A29), Color(0xFF07100B), Color(0xFF020604)],
-        ).createShader(Rect.fromCircle(center: center, radius: radius)),
-    );
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = RuneColors.mint.withOpacity(.55),
-    );
-
-    for (var i = 0; i < 3; i++) {
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(t * math.pi * 2 * (i.isEven ? 1 : -.65) + i);
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset.zero,
-          width: radius * 2.12 - i * 5,
-          height: radius * .46 + i * 7,
-        ),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = .8
-          ..color = (i == 1 ? RuneColors.aurum : RuneColors.brightEmerald).withOpacity(.45),
-      );
-      canvas.restore();
-    }
-
-    final markRect = Rect.fromCenter(
-      center: center,
-      width: radius * 1.08,
-      height: radius * 1.08,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(markRect, Radius.circular(radius * .24)),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * .014
-        ..color = RuneColors.brightEmerald.withOpacity(.9),
-    );
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(-.48 + t * .08);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset.zero,
-        width: radius * 2.05,
-        height: radius * .42,
-      ),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * .009
-        ..color = RuneColors.aurum.withOpacity(.85),
-    );
-    canvas.restore();
-
-    final spark = Offset(
-      center.dx + math.cos(t * math.pi * 2) * radius,
-      center.dy + math.sin(t * math.pi * 2) * radius,
-    );
-    canvas.drawCircle(spark, 2.5, Paint()..color = RuneColors.mint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _OrbPainter old) => old.t != t;
 }
