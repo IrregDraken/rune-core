@@ -62,7 +62,7 @@ class _AssistantPageState extends State<AssistantPage>{
       final audio=await widget.api.synthesizeSpeech(prompt);
       await device.playAudio(audio);
      } finally {
-      await widget.api.voiceSessionAction('confirmation_prompted');
+      try {await widget.api.voiceSessionAction('confirmation_prompted');} catch (_) {}
       voiceTimer=Timer(const Duration(seconds:15),()async{
        try {await widget.api.voiceSessionAction('tick');} catch (_) {}
        if(mounted)setState(()=>awaitingConfirmation=false);
