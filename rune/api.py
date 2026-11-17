@@ -128,8 +128,11 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                     self._send(400, {"error": "message is required"})
                     return
                 remote = RemoteBackendClient()
-                proposal = RUNEOrchestrator(self.runtime.engine.model, remote).propose(request_text)
-                self._send(200, {"proposal": proposal})
+                try:
+                    proposal = RUNEOrchestrator(self.runtime.engine.model, remote).propose(request_text)
+                    self._send(200, {"proposal": proposal})
+                finally:
+                    remote.close()
                 return
 
             if request_path == "/api/remote/submit":
@@ -138,8 +141,11 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                     self._send(400, {"error": "proposal object is required"})
                     return
                 remote = RemoteBackendClient()
-                tasks = RUNEOrchestrator(self.runtime.engine.model, remote).submit_proposal(proposal)
-                self._send(202, {"tasks": tasks, "status": "awaiting_owner_approval"})
+                try:
+                    tasks = RUNEOrchestrator(self.runtime.engine.model, remote).submit_proposal(proposal)
+                    self._send(202, {"tasks": tasks, "status": "awaiting_owner_approval"})
+                finally:
+                    remote.close()
                 return
 
             if request_path == "/api/remote/approve":
@@ -148,8 +154,11 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                     self._send(400, {"error": "task_id is required"})
                     return
                 remote = RemoteBackendClient()
-                task = RUNEOrchestrator(self.runtime.engine.model, remote).approve(task_id)
-                self._send(200, {"task": task})
+                try:
+                    task = RUNEOrchestrator(self.runtime.engine.model, remote).approve(task_id)
+                    self._send(200, {"task": task})
+                finally:
+                    remote.close()
                 return
 
             if request_path == "/api/memory":
