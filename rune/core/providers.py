@@ -117,7 +117,8 @@ class UsageLedger:
             raise ValueError("monthly budget must be finite and positive")
         self.monthly_limit_usd = monthly_limit_usd
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, timeout=30.0, check_same_thread=False)
+        self._lock = __import__("threading").RLock()
         self.db.execute("""create table if not exists provider_usage (
             month text not null, provider text not null, input_tokens integer not null,
             output_tokens integer not null, cost_usd real not null,
@@ -138,23 +139,24 @@ class UsageLedger:
             raise ValueError("estimated cost must be finite and non-negative")
         # BEGIN IMMEDIATE serializes competing workers so two requests cannot
         # both spend the same remaining budget.
-        self.db.execute("BEGIN IMMEDIATE")
-        try:
-            row = self.db.execute(
-                "select coalesce(sum(cost_usd),0) from provider_usage where month=?",
-                (self.month_key(),),
-            ).fetchone()
-            if float(row[0] or 0) + estimated_cost_usd > self.monthly_limit_usd:
-                raise BudgetExceeded("monthly model API budget reservation would exceed the limit")
-            cursor = self.db.execute(
-                "insert into provider_usage(month,provider,input_tokens,output_tokens,cost_usd) values(?,?,?,?,?)",
-                (self.month_key(), provider, 0, 0, estimated_cost_usd),
-            )
-            self.db.commit()
-            return int(cursor.lastrowid)
-        except Exception:
-            self.db.rollback()
-            raise
+        with self._lock:
+            self.db.execute("BEGIN IMMEDIATE")
+            try:
+                row = self.db.execute(
+                    "select coalesce(sum(cost_usd),0) from provider_usage where month=?",
+                    (self.month_key(),),
+                ).fetchone()
+                if float(row[0] or 0) + estimated_cost_usd > self.monthly_limit_usd:
+                    raise BudgetExceeded("monthly model API budget reservation would exceed the limit")
+                cursor = self.db.execute(
+                    "insert into provider_usage(month,provider,input_tokens,output_tokens,cost_usd) values(?,?,?,?,?)",
+                    (self.month_key(), provider, 0, 0, estimated_cost_usd),
+                )
+                self.db.commit()
+                return int(cursor.lastrowid)
+            except Exception:
+                self.db.rollback()
+                raise
 
     def settle(self, reservation_id: int, usage: ProviderUsage) -> None:
         if (usage.input_tokens < 0 or usage.output_tokens < 0
@@ -186,7 +188,7 @@ class RoutedModelProvider(ModelProvider):
     def respond(self, prompt: str) -> ModelResponse:
         failures: list[str] = []
         for provider in self.providers:
-            estimated_input_tokens = max(1, (len(prompt) + 3) // 4)
+            estimated_input_tokens = max(1, len(prompt.encode("utf-8")))
             estimated_cost = (
                 estimated_input_tokens * provider.config.input_usd_per_million
                 + provider.config.max_output_tokens * provider.config.output_usd_per_million
