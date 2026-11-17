@@ -1,0 +1,144 @@
+from __future__ import annotations
+import hashlib, secrets
+from datetime import datetime, timedelta, timezone
+from uuid import UUID
+from fastapi import APIRouter, Depends, Header, HTTPException
+from rune_backend.auth import Owner, require_owner
+from rune_backend.schemas import DeviceHeartbeat, DeviceRegistration, TaskCreate, TaskResultInput
+from rune_backend.store import owner_filter, store
+
+router = APIRouter(prefix="/v1", tags=["RUNE remote operations"])
+
+def _hash(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+async def _audit(owner_id: UUID, event_type: str, outcome: str, *, device_id=None, task_id=None, metadata=None):
+    await store.request("POST", "rune_audit_events", body={
+        "owner_id": str(owner_id), "device_id": str(device_id) if device_id else None,
+        "task_id": str(task_id) if task_id else None, "event_type": event_type,
+        "outcome": outcome, "metadata": metadata or {},
+    })
+
+async def _device(device_id: UUID, token: str):
+    if len(token) < 32:
+        raise HTTPException(401, "Device credential required")
+    rows = await store.request("GET", "rune_devices", params={
+        "id": f"eq.{device_id}", "token_hash": f"eq.{_hash(token)}",
+        "status": "not.eq.revoked", "select": "*", "limit": "1",
+    })
+    if not rows:
+        raise HTTPException(401, "Invalid or revoked device credential")
+    return rows[0]
+
+@router.get("/me")
+async def me(owner: Owner = Depends(require_owner)):
+    return {"owner_id": str(owner.id), "email": owner.email}
+
+@router.post("/devices/register", status_code=201)
+async def register_device(body: DeviceRegistration, owner: Owner = Depends(require_owner)):
+    token = secrets.token_urlsafe(48)
+    rows = await store.request("POST", "rune_devices", body={
+        "owner_id": str(owner.id), "device_name": body.device_name, "platform": body.platform,
+        "app_version": body.app_version, "capabilities": body.capabilities,
+        "public_key": body.public_key, "token_hash": _hash(token), "status": "offline",
+    }, prefer="return=representation")
+    device = rows[0]
+    await _audit(owner.id, "device.registered", "success", device_id=UUID(device["id"]),
+                 metadata={"platform": body.platform})
+    return {"device": {k:v for k,v in device.items() if k != "token_hash"}, "device_token": token}
+
+@router.get("/devices")
+async def list_devices(owner: Owner = Depends(require_owner)):
+    return await store.request("GET", "rune_devices", params={
+        **owner_filter(owner.id),
+        "select": "id,device_name,platform,app_version,capabilities,status,last_seen_at,created_at,revoked_at",
+        "order": "created_at.desc",
+    })
+
+@router.delete("/devices/{device_id}")
+async def revoke_device(device_id: UUID, owner: Owner = Depends(require_owner)):
+    rows = await store.request("PATCH", "rune_devices", params={
+        **owner_filter(owner.id), "id": f"eq.{device_id}", "select": "id",
+    }, body={"status":"revoked","revoked_at":datetime.now(timezone.utc).isoformat()},
+       prefer="return=representation")
+    if not rows: raise HTTPException(404, "Device not found")
+    await _audit(owner.id, "device.revoked", "success", device_id=device_id)
+    return {"device_id":str(device_id),"status":"revoked"}
+
+@router.post("/devices/{device_id}/heartbeat")
+async def heartbeat(device_id: UUID, body: DeviceHeartbeat, x_rune_device_token: str = Header(default="")):
+    device = await _device(device_id, x_rune_device_token)
+    patch = {"status":body.status,"last_seen_at":datetime.now(timezone.utc).isoformat()}
+    if body.app_version is not None: patch["app_version"] = body.app_version
+    if body.capabilities is not None: patch["capabilities"] = body.capabilities
+    await store.request("PATCH","rune_devices",params={"id":f"eq.{device_id}"},body=patch)
+    return {"device_id":str(device_id),"status":body.status,"owner_id":device["owner_id"]}
+
+@router.post("/tasks", status_code=201)
+async def create_task(body: TaskCreate, owner: Owner = Depends(require_owner)):
+    devices = await store.request("GET","rune_devices",params={
+        **owner_filter(owner.id),"id":f"eq.{body.device_id}","status":"not.eq.revoked",
+        "select":"id,capabilities","limit":"1",
+    })
+    if not devices: raise HTTPException(404,"Registered device not found")
+    if body.capability not in (devices[0].get("capabilities") or []):
+        raise HTTPException(409,"Device has not advertised this capability")
+    now=datetime.now(timezone.utc)
+    rows=await store.request("POST","rune_tasks",body={
+        "owner_id":str(owner.id),"device_id":str(body.device_id),"capability":body.capability,
+        "arguments":body.arguments,"status":"awaiting_approval" if body.requires_approval else "queued",
+        "requires_approval":body.requires_approval,"created_at":now.isoformat(),
+        "expires_at":(now+timedelta(seconds=body.expires_in_seconds)).isoformat(),
+    },prefer="return=representation")
+    task=rows[0]
+    await _audit(owner.id,"task.created",task["status"],device_id=body.device_id,
+                 task_id=UUID(task["id"]),metadata={"capability":body.capability})
+    return {"task":task}
+
+@router.post("/tasks/{task_id}/approve")
+async def approve_task(task_id: UUID, owner: Owner = Depends(require_owner)):
+    now=datetime.now(timezone.utc).isoformat()
+    rows=await store.request("PATCH","rune_tasks",params={
+        **owner_filter(owner.id),"id":f"eq.{task_id}","status":"eq.awaiting_approval",
+        "expires_at":f"gt.{now}","select":"*",
+    },body={"status":"queued","approval_at":now},prefer="return=representation")
+    if not rows: raise HTTPException(409,"Task unavailable, expired or already decided")
+    task=rows[0]
+    await _audit(owner.id,"task.approved","success",device_id=UUID(task["device_id"]),task_id=task_id)
+    return {"task":task}
+
+@router.get("/devices/{device_id}/tasks/next")
+async def next_task(device_id: UUID, x_rune_device_token: str = Header(default="")):
+    device=await _device(device_id,x_rune_device_token)
+    now=datetime.now(timezone.utc).isoformat()
+    await store.request("PATCH","rune_tasks",params={
+        "device_id":f"eq.{device_id}","status":"in.(queued,approved)","expires_at":f"lte.{now}",
+    },body={"status":"expired","finished_at":now})
+    rows=await store.request("GET","rune_tasks",params={
+        "device_id":f"eq.{device_id}","status":"eq.queued","expires_at":f"gt.{now}",
+        "select":"*","order":"created_at.asc","limit":"1",
+    })
+    if not rows: return {"task":None}
+    task=rows[0]
+    claimed=await store.request("PATCH","rune_tasks",params={
+        "id":f"eq.{task['id']}","status":"eq.queued","select":"*",
+    },body={"status":"running","started_at":now},prefer="return=representation")
+    if not claimed: return {"task":None}
+    await _audit(UUID(device["owner_id"]),"task.claimed","running",device_id=device_id,task_id=UUID(task["id"]))
+    return {"task":claimed[0]}
+
+@router.post("/devices/{device_id}/tasks/{task_id}/result")
+async def task_result(device_id: UUID, task_id: UUID, body: TaskResultInput,
+                      x_rune_device_token: str = Header(default="")):
+    device=await _device(device_id,x_rune_device_token)
+    now=datetime.now(timezone.utc).isoformat()
+    rows=await store.request("PATCH","rune_tasks",params={
+        "id":f"eq.{task_id}","device_id":f"eq.{device_id}",
+        "owner_id":f"eq.{device['owner_id']}","status":"eq.running","select":"id",
+    },body={"status":body.status,"result":body.output,"evidence":body.evidence,
+            "error_code":body.error_code,"finished_at":now},prefer="return=representation")
+    if not rows: raise HTTPException(409,"Task is not running or does not belong to this device")
+    await _audit(UUID(device["owner_id"]),"task.result",body.status,device_id=device_id,
+                 task_id=task_id,metadata={"has_evidence":bool(body.evidence),"error_code":body.error_code})
+    return {"task_id":str(task_id),"status":body.status,
+            "verified":body.status=="completed" and bool(body.evidence)}
