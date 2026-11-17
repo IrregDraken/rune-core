@@ -27,7 +27,7 @@ def test_voice_pipeline_requires_connected_provider() -> None:
 
 
 import httpx
-from rune.core.voice import (ElevenLabsTextToSpeechProvider, OpenAISpeechToTextProvider, VoiceProviderUnavailable, VoiceInput, VoiceUsageLedger, VoiceBudgetExceeded)
+from rune.core.voice import (ElevenLabsTextToSpeechProvider, OpenAISpeechToTextProvider, VoiceProviderUnavailable, VoiceInput, VoiceUsageLedger, VoiceBudgetExceeded, VoiceSessionController, VoiceSessionState)
 
 
 def test_elevenlabs_tts_uses_configured_voice_and_returns_audio(monkeypatch):
@@ -137,3 +137,42 @@ def test_elevenlabs_monthly_character_budget_is_enforced(tmp_path, monkeypatch):
     with pytest.raises(VoiceBudgetExceeded):
         provider.synthesize(Speech("12"))
     ledger.close()
+
+
+
+def test_voice_session_uses_two_minute_prompt_and_fifteen_second_close():
+    session = VoiceSessionController(inactivity_seconds=120, confirmation_seconds=15)
+    session.wake_detected(0)
+    session.processing_started(5)
+    session.speech_started(8)
+    session.speech_finished(10)
+
+    assert session.tick(129) is None
+    assert session.tick(130) == "You still there, or are we good?"
+    assert session.state == VoiceSessionState.WAITING_CONFIRMATION
+    session.tick(144)
+    assert session.state == VoiceSessionState.WAITING_CONFIRMATION
+    session.tick(145)
+    assert session.state == VoiceSessionState.STANDBY
+
+
+def test_voice_session_can_resume_and_interrupt_without_touching_background_work():
+    session = VoiceSessionController()
+    session.wake_detected(0)
+    session.speech_started(1)
+    session.interrupt(2)
+    assert session.state == VoiceSessionState.LISTENING
+
+    session.last_activity_at = 2
+    session.tick(122)
+    session.answer_confirmation(True, 125)
+    assert session.state == VoiceSessionState.LISTENING
+    assert session.last_activity_at == 125
+
+
+def test_voice_session_closes_when_owner_says_done():
+    session = VoiceSessionController()
+    session.wake_detected(0)
+    session.tick(120)
+    session.answer_confirmation(False, 121)
+    assert session.state == VoiceSessionState.STANDBY
