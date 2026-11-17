@@ -12,6 +12,7 @@ class VoiceInput:
     audio: bytes
     sample_rate: int
     channels: int = 1
+    audio_format: str = "wav"
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,64 @@ class VoiceProviderUnavailable(RuntimeError):
     pass
 
 
+class OpenAISpeechToTextProvider:
+    """OpenAI file transcription adapter for completed speech utterances."""
+
+    _FORMATS = {
+        "wav": ("audio/wav", "wav"),
+        "mp3": ("audio/mpeg", "mp3"),
+        "m4a": ("audio/mp4", "m4a"),
+        "ogg": ("audio/ogg", "ogg"),
+        "webm": ("audio/webm", "webm"),
+        "flac": ("audio/flac", "flac"),
+    }
+
+    def __init__(
+        self,
+        *,
+        api_key_env: str = "RUNE_OPENAI_STT_API_KEY",
+        model_id_env: str = "RUNE_OPENAI_STT_MODEL_ID",
+        timeout: float = 45.0,
+        transport: httpx.BaseTransport | None = None,
+    ) -> None:
+        self.api_key_env = api_key_env
+        self.model_id_env = model_id_env
+        self.timeout = timeout
+        self.transport = transport
+
+    def transcribe(self, audio: VoiceInput) -> Transcript:
+        if not audio.audio:
+            raise ValueError("audio payload cannot be empty")
+        if len(audio.audio) > 25 * 1024 * 1024:
+            raise ValueError("audio payload exceeds the 25 MB transcription limit")
+        audio_format = audio.audio_format.lower().lstrip(".")
+        file_type = self._FORMATS.get(audio_format)
+        if file_type is None:
+            raise ValueError("unsupported audio format")
+        api_key = os.getenv(self.api_key_env) or os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise VoiceProviderUnavailable("OpenAI speech-to-text API key is not configured")
+        model_id = os.getenv(self.model_id_env, "gpt-transcribe")
+        try:
+            with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
+                response = client.post(
+                    "https://api.openai.com/v1/audio/transcriptions",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    data={"model": model_id},
+                    files={"file": (f"rune-utterance.{file_type[1]}", audio.audio, file_type[0])},
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise VoiceProviderUnavailable("OpenAI speech transcription request failed") from exc
+        text = payload.get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise VoiceProviderUnavailable("OpenAI returned an empty transcript")
+        return Transcript(text=text.strip())
+
+
+
+
 class ElevenLabsTextToSpeechProvider:
     """Synchronous ElevenLabs TTS adapter; voice identity is configured, not hardcoded."""
 
@@ -141,6 +200,10 @@ class ElevenLabsTextToSpeechProvider:
 
 def configured_voice_pipeline() -> VoicePipeline:
     """Connect TTS only when its server-side credentials and voice ID exist."""
+    speech_to_text = None
+    if os.getenv("RUNE_OPENAI_STT_API_KEY") or os.getenv("OPENAI_API_KEY"):
+        speech_to_text = OpenAISpeechToTextProvider()
+    text_to_speech = None
     if os.getenv("ELEVENLABS_API_KEY") and os.getenv("RUNE_ELEVENLABS_VOICE_ID"):
-        return VoicePipeline(text_to_speech=ElevenLabsTextToSpeechProvider())
-    return VoicePipeline()
+        text_to_speech = ElevenLabsTextToSpeechProvider()
+    return VoicePipeline(speech_to_text=speech_to_text, text_to_speech=text_to_speech)
