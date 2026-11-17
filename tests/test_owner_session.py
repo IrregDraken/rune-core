@@ -27,7 +27,10 @@ def test_owner_session_refreshes_and_encrypts_rotating_refresh_token(tmp_path):
         transport=httpx.MockTransport(handler),
     )
     assert session.get_access_token() == "new-access-token"
-    assert "initial-refresh-token" not in str(seen["refresh_token"])
+    # Supabase must receive the refresh token in the request; encryption applies
+    # to persistent storage, not to the HTTPS request body.
+    assert httpx.Request("POST", "https://example.test", content=seen["refresh_token"]).read()
+    assert '"refresh_token":"initial-refresh-token"' in seen["refresh_token"]
     session.close()
 
     connection = sqlite3.connect(db)
