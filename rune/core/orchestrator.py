@@ -97,6 +97,7 @@ class RUNEOrchestrator:
             if not isinstance(arguments, dict):
                 raise OrchestrationError("action arguments must be an object")
             _reject_sensitive(arguments)
+            _validate_capability_arguments(capability, arguments)
             actions.append(ProposedAction(device_id, capability, arguments))
         return {
             "summary": summary,
@@ -135,3 +136,33 @@ def _reject_sensitive(value: Any, path: str = "arguments") -> None:
     elif isinstance(value, list):
         for index, child in enumerate(value):
             _reject_sensitive(child, f"{path}[{index}]")
+
+
+def _validate_capability_arguments(capability: str, arguments: dict[str, Any]) -> None:
+    if capability in {"app.list", "ui.observe"}:
+        if arguments:
+            raise OrchestrationError(f"{capability} does not accept arguments")
+        return
+    if capability == "app.launch":
+        package_name = arguments.get("packageName", arguments.get("package_name"))
+        if not isinstance(package_name, str) or not package_name.strip() or len(package_name) > 255:
+            raise OrchestrationError("app.launch requires a valid packageName")
+        return
+    if capability == "ui.interact":
+        action = arguments.get("action")
+        if action == "tap":
+            if not isinstance(arguments.get("x"), (int, float)) or not isinstance(arguments.get("y"), (int, float)):
+                raise OrchestrationError("ui.interact tap requires numeric x and y coordinates")
+            if not (0 <= arguments["x"] <= 10000 and 0 <= arguments["y"] <= 10000):
+                raise OrchestrationError("tap coordinates are outside the allowed range")
+        elif action == "scroll":
+            if arguments.get("direction", "down") not in {"up", "down"}:
+                raise OrchestrationError("scroll direction must be up or down")
+        elif action == "type":
+            value = arguments.get("text")
+            if not isinstance(value, str) or not value or len(value) > 4000:
+                raise OrchestrationError("ui.interact type requires text up to 4000 characters")
+        else:
+            raise OrchestrationError("unsupported ui.interact action")
+        return
+    raise OrchestrationError("capability has no registered execution schema")
