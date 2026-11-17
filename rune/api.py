@@ -12,7 +12,7 @@ from .core.remote import RemoteBackendClient
 from .core.orchestrator import RUNEOrchestrator
 from .core.node import Capability
 from .runtime import RUNERuntime
-from .core.voice import Speech
+from .core.voice import Speech, VoiceInput
 from .shell.state import ShellMode, ShellState
 
 
@@ -118,18 +118,47 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             "/api/remote/submit",
             "/api/remote/approve",
             "/api/voice/synthesize",
+            "/api/voice/transcribe",
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
             return
 
         try:
+            if request_path == "/api/voice/transcribe":
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 25 * 1024 * 1024:
+                    self._send(400, {"error": "audio payload must be between 1 byte and 25 MB"})
+                    return
+                audio = self.rfile.read(length)
+                content_type = self.headers.get("Content-Type", "audio/wav").split(";")[0].strip().lower()
+                audio_format = {
+                    "audio/wav": "wav", "audio/x-wav": "wav", "audio/mpeg": "mp3",
+                    "audio/mp3": "mp3", "audio/mp4": "m4a", "audio/ogg": "ogg",
+                    "audio/webm": "webm", "audio/flac": "flac",
+                }.get(content_type)
+                if audio_format is None:
+                    self._send(415, {"error": "unsupported audio content type"})
+                    return
+                try:
+                    transcript = self.runtime.voice.transcribe(
+                        VoiceInput(audio=audio, sample_rate=16000, audio_format=audio_format)
+                    )
+                except ValueError as exc:
+                    self._send(400, {"error": str(exc)})
+                    return
+                except Exception:
+                    self._send(503, {"error": "speech recognition provider unavailable"})
+                    return
+                self._send(200, {"text": transcript.text, "confidence": transcript.confidence})
+                return
+
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
 
             if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify",
                                 "/api/remote/propose", "/api/remote/submit", "/api/remote/approve",
-                                "/api/voice/synthesize"} and not self._authorized():
+                                "/api/voice/synthesize", "/api/voice/transcribe"} and not self._authorized():
                 self._send(403, {"error": "privileged session required"})
                 return
 
