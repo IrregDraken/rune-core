@@ -65,7 +65,7 @@ The Android agent advertises only the capabilities currently available. Its fore
 - The API keys remain server-side. The voice ID is not hardcoded and must be selected after auditioning voices.
 - The authenticated local core API exposes `POST /api/voice/synthesize`, `POST /api/voice/transcribe` and `POST /api/voice/session`.
 - The session controller encodes the 120-second inactivity prompt, 15-second confirmation timeout and speech interruption behavior. It does not cancel background tasks when a voice session closes.
-- Audio capture/playback in the Android app and the "Hey RUNE" local wake-word engine are not yet integrated.
+- Android push-to-talk recording and response playback are now wired in source. The "Hey RUNE" local wake-word engine, barge-in audio focus, and fully integrated inactivity timer still require device testing and further work.
 
 ## Remote task lifecycle
 
