@@ -77,7 +77,7 @@ See [Implementation and Operations](docs/IMPLEMENTATION_AND_OPERATIONS.md) for s
 
 The project has moved beyond the original 0.4 milestone into the first remote-device vertical slice. The Supabase RUNE project contains the device, task and audit schema with RLS enabled and direct client access denied. The security advisor currently reports no findings for the RUNE project.
 
-GitHub Actions has successfully completed Flutter analysis, widget tests and an Android release APK build (commit `482fd1b`). A newer build containing the voice-interruption fix is running. **A physical-device installation and end-to-end test have not yet been completed.** The local "Hey RUNE" wake-word engine is not implemented yet. Live model credentials, verified provider pricing, remote backend deployment, owner-token refresh for the Python core and production security review remain outstanding.
+GitHub Actions has successfully completed Flutter analysis, widget tests and an Android release APK build containing the voice-interruption fix (commit `88f5047`, run [44143909930](https://github.com/IrregDraken/rune-core/actions/runs/44143909930)). The `rune-mobile-android-apk` artifact is 24,214,819 bytes (SHA-256 `b7cd76d27702319ec9235bebfe43e1cf09c16f4929555c1307f1de031af391f0`). **A physical-device installation and end-to-end test have not yet been completed.** The local "Hey RUNE" wake-word engine is not implemented yet. Live model credentials, verified provider pricing, remote backend deployment, owner-token refresh for the Python core and production security review remain outstanding.
 
 ## Brand system
 
