@@ -257,9 +257,68 @@ class _ExplorePageState extends State<ExplorePage>{
  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Explore',eyebrow:'CAPABILITIES · INTEGRATIONS'),const SizedBox(height:9),const Text('Discover what your connected runtime exposes. External integrations appear only when they are actually configured.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),const SizedBox(height:22),const _SectionTitle('CORE CAPABILITIES'),const SizedBox(height:10),if(loading)const Center(child:CircularProgressIndicator())else if(error!=null)_Notice(text:error!,warning:true)else if(tools.isEmpty)_Panel(child:const Text('The core has not exposed any tools yet.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...tools.map((item){final t=item as Map<String,dynamic>;return _ToolTile(tool:t);}),const SizedBox(height:24),const _SectionTitle('INTEGRATION CHANNELS'),const SizedBox(height:10),const _Panel(child:Column(children:[_IntegrationRow('Google Workspace','Not connected',Icons.mail_outline),_IntegrationRow('WhatsApp','Not connected',Icons.chat_bubble_outline),_IntegrationRow('Discord','Not connected',Icons.forum_outlined),_IntegrationRow('GitHub','Not connected',Icons.code),_IntegrationRow('Notion','Not connected',Icons.article_outlined)])),const SizedBox(height:8),const Text('Connectors are shown as unavailable until credentials and permission scopes are configured in the core.',style:TextStyle(color:RuneColors.muted,fontSize:10,height:1.5))]);
 }
 
-class MemoryPage extends StatefulWidget{const MemoryPage({super.key,required this.api});final RuneApi api;@override State<MemoryPage> createState()=>_MemoryPageState();}
-class _MemoryPageState extends State<MemoryPage>{Map<String,dynamic>? state;String? error;@override void initState(){super.initState();widget.api.state().then((s){if(mounted)setState(()=>state=s);}).catchError((Object e){if(mounted)setState(()=>error=e.toString());return <String,dynamic>{};});}
- @override Widget build(BuildContext context){final records=state?['long_term_memory'] as List? ?? [];return Scaffold(appBar:AppBar(title:const Text('Memory')),body:ListView(padding:const EdgeInsets.all(18),children:[const Text('PERSISTENT CONTEXT',style:TextStyle(color:RuneColors.muted,fontSize:9,letterSpacing:1.5)),const SizedBox(height:8),const Text('What R.U.N.E. remembers',style:TextStyle(fontSize:23,fontWeight:FontWeight.w700)),const SizedBox(height:8),const Text('Memory is owned by the core. This screen displays records returned by the connected runtime.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.5)),const SizedBox(height:18),if(error!=null)_Notice(text:error!,warning:true)else if(records.isEmpty)_Panel(child:Text(state==null?'Loading memory...':'No memory records were returned.',style:const TextStyle(color:RuneColors.muted,fontSize:11)))else ...records.map((r){final m=r as Map<String,dynamic>;return _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(m['key']?.toString()??'Untitled memory',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),const SizedBox(height:6),Text(m['value']?.toString()??'',style:const TextStyle(fontSize:11,height:1.5)),const SizedBox(height:8),Text('${m['kind']??'memory'} · salience ${m['salience']??'—'}',style:const TextStyle(color:RuneColors.muted,fontSize:9))]))})]));}
+class MemoryPage extends StatefulWidget {
+  const MemoryPage({super.key, required this.api});
+  final RuneApi api;
+  @override
+  State<MemoryPage> createState() => _MemoryPageState();
+}
+
+class _MemoryPageState extends State<MemoryPage> {
+  Map<String, dynamic>? state;
+  String? error;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    try {
+      final result = await widget.api.state();
+      if (mounted) setState(() => state = result);
+    } catch (exception) {
+      if (mounted) setState(() => error = exception.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rawRecords = state?['long_term_memory'];
+    final records = rawRecords is List ? rawRecords : const <dynamic>[];
+    return Scaffold(
+      appBar: AppBar(title: const Text('Memory')),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          const Text('PERSISTENT CONTEXT', style: TextStyle(color: RuneColors.muted, fontSize: 9, letterSpacing: 1.5)),
+          const SizedBox(height: 8),
+          const Text('What R.U.N.E. remembers', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          const Text('Memory is owned by the core. This screen displays records returned by the connected runtime.', style: TextStyle(color: RuneColors.muted, fontSize: 11, height: 1.5)),
+          const SizedBox(height: 18),
+          if (error != null)
+            _Notice(text: error!, warning: true)
+          else if (records.isEmpty)
+            _Panel(child: Text(state == null ? 'Loading memory...' : 'No memory records were returned.', style: const TextStyle(color: RuneColors.muted, fontSize: 11)))
+          else
+            ...records.map((record) {
+              final item = record is Map ? Map<String, dynamic>.from(record) : <String, dynamic>{};
+              return _Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item['key']?.toString() ?? 'Untitled memory', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    Text(item['value']?.toString() ?? '', style: const TextStyle(fontSize: 11, height: 1.5)),
+                    const SizedBox(height: 8),
+                    Text('${item['kind'] ?? 'memory'} · salience ${item['salience'] ?? '—'}', style: const TextStyle(color: RuneColors.muted, fontSize: 9)),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
 }
 
 class SecurityPage extends StatefulWidget {
@@ -561,4 +620,88 @@ class _RuneMark extends StatelessWidget{const _RuneMark({this.size=30});final do
 class _GlyphPainter extends CustomPainter{@override void paint(Canvas c,Size s){final p=Paint()..style=PaintingStyle.stroke..strokeWidth=s.width*.07..strokeCap=StrokeCap.round..strokeJoin=StrokeJoin.round..color=RuneColors.brightEmerald;final path=Path()..moveTo(s.width*.28125,s.height*.15625)..lineTo(s.width*.28125,s.height*.84375)..moveTo(s.width*.28125,s.height*.15625)..lineTo(s.width*.5625,s.height*.15625)..cubicTo(s.width*.671875,s.height*.15625,s.width*.75,s.height*.2421875,s.width*.75,s.height*.3515625)..cubicTo(s.width*.75,s.height*.4609375,s.width*.6640625,s.height*.546875,s.width*.5625,s.height*.546875)..lineTo(s.width*.28125,s.height*.546875)..moveTo(s.width*.4921875,s.height*.546875)..lineTo(s.width*.765625,s.height*.84375)..moveTo(s.width*.71875,s.height*.15625)..lineTo(s.width*.4375,s.height*.4375)..moveTo(s.width*.71875,s.height*.15625)..lineTo(s.width*.71875,s.height*.3671875)..cubicTo(s.width*.71875,s.height*.47265625,s.width*.6328125,s.height*.55859375,s.width*.52734375,s.height*.55859375)..lineTo(s.width*.484375,s.height*.55859375);c.drawPath(path,p);}@override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;}
 class _RuneOrb extends StatefulWidget{const _RuneOrb({this.size=230});final double size;@override State<_RuneOrb> createState()=>_RuneOrbState();}
 class _RuneOrbState extends State<_RuneOrb> with SingleTickerProviderStateMixin{late final controller=AnimationController(vsync:this,duration:const Duration(seconds:24))..repeat();@override void dispose(){controller.dispose();super.dispose();}@override Widget build(BuildContext context)=>AnimatedBuilder(animation:controller,builder:(_,__)=>SizedBox(width:widget.size,height:widget.size,child:CustomPaint(painter:_OrbPainter(controller.value))));}
-class _OrbPainter extends CustomPainter{_OrbPainter(this.t);final double t;@override void paint(Canvas canvas,Size size){final c=Offset(size.width/2,size.height/2);final r=size.width*.34;canvas.drawCircle(c,r*1.34,Paint()..shader=RadialGradient(colors:[RuneColors.emerald.withOpacity(.15),RuneColors.pine.withOpacity(.08),Colors.transparent]).createShader(Rect.fromCircle(center:c,radius:r*1.34)));canvas.drawCircle(c,r,Paint()..shader=const RadialGradient(colors:[Color(0xFF173A29),Color(0xFF07100B),Color(0xFF020604)]).createShader(Rect.fromCircle(center:c,radius:r)));canvas.drawCircle(c,r,Paint()..style=PaintingStyle.stroke..strokeWidth=1.2..color=RuneColors.mint.withOpacity(.55));for(int i=0;i<3;i++){canvas.save();canvas.translate(c.dx,c.dy);canvas.rotate(t*math.pi*2*(i.isEven?1:-.65)+i);canvas.drawOval(Rect.fromCenter(center:Offset.zero,width:r*2.12-i*5,height:r*.46+i*7),Paint()..style=PaintingStyle.stroke..strokeWidth:.8..color=(i==1?RuneColors.aurum:RuneColors.brightEmerald).withOpacity(.45));canvas.restore();}final p=Paint()..style=PaintingStyle.stroke..strokeWidth=size.width*.018..strokeCap=StrokeCap.round..strokeJoin=StrokeJoin.round..color=RuneColors.brightEmerald;final path=Path()..moveTo(c.dx-r*.46,c.dy-r*.5)..lineTo(c.dx+r*.08,c.dy-r*.5)..cubicTo(c.dx+r*.62,c.dy-r*.5,c.dx+r*.62,c.dy+r*.04,c.dx+r*.08,c.dy+r*.1)..lineTo(c.dx-r*.2,c.dy+r*.1)..lineTo(c.dx+r*.48,c.dy+r*.62)..moveTo(c.dx-r*.2,c.dy+r*.1)..lineTo(c.dx-r*.2,c.dy+r*.65);canvas.drawPath(path,p);final spark=Offset(c.dx+math.cos(t*math.pi*2)*r,c.dy+math.sin(t*math.pi*2)*r);canvas.drawCircle(spark,2.5,Paint()..color=RuneColors.mint);} @override bool shouldRepaint(covariant _OrbPainter old)=>old.t!=t;}
+class _OrbPainter extends CustomPainter {
+  _OrbPainter(this.t);
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width * .34;
+    canvas.drawCircle(
+      center,
+      radius * 1.34,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            RuneColors.emerald.withOpacity(.15),
+            RuneColors.pine.withOpacity(.08),
+            Colors.transparent,
+          ],
+        ).createShader(Rect.fromCircle(center: center, radius: radius * 1.34)),
+    );
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Color(0xFF173A29), Color(0xFF07100B), Color(0xFF020604)],
+        ).createShader(Rect.fromCircle(center: center, radius: radius)),
+    );
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = RuneColors.mint.withOpacity(.55),
+    );
+
+    for (var i = 0; i < 3; i++) {
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(t * math.pi * 2 * (i.isEven ? 1 : -.65) + i);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: radius * 2.12 - i * 5,
+          height: radius * .46 + i * 7,
+        ),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = .8
+          ..color = (i == 1 ? RuneColors.aurum : RuneColors.brightEmerald).withOpacity(.45),
+      );
+      canvas.restore();
+    }
+
+    final glyphPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * .018
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = RuneColors.brightEmerald;
+    final glyph = Path()
+      ..moveTo(center.dx - radius * .46, center.dy - radius * .5)
+      ..lineTo(center.dx + radius * .08, center.dy - radius * .5)
+      ..cubicTo(
+        center.dx + radius * .62, center.dy - radius * .5,
+        center.dx + radius * .62, center.dy + radius * .04,
+        center.dx + radius * .08, center.dy + radius * .1,
+      )
+      ..lineTo(center.dx - radius * .2, center.dy + radius * .1)
+      ..lineTo(center.dx + radius * .48, center.dy + radius * .62)
+      ..moveTo(center.dx - radius * .2, center.dy + radius * .1)
+      ..lineTo(center.dx - radius * .2, center.dy + radius * .65);
+    canvas.drawPath(glyph, glyphPaint);
+
+    final spark = Offset(
+      center.dx + math.cos(t * math.pi * 2) * radius,
+      center.dy + math.sin(t * math.pi * 2) * radius,
+    );
+    canvas.drawCircle(spark, 2.5, Paint()..color = RuneColors.mint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrbPainter old) => old.t != t;
+}
