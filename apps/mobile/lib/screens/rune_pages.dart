@@ -501,10 +501,11 @@ class _SettingsPageState extends State<SettingsPage>{
       setState(()=>checking=true);
       RuneApi? probe;
       try {
-       probe=RuneApi(baseUrl:url.text.trim(),sessionToken:token.text.trim());
-       final ok=await probe.health();
+       final client=RuneApi(baseUrl:url.text.trim(),sessionToken:token.text.trim());
+       probe=client;
+       final ok=await client.health();
        if(ok) {
-        await probe.state();
+        await client.state();
         setState(()=>status='Core reachable and session accepted.');
        } else {
         setState(()=>status='Core did not report online.');
