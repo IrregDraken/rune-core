@@ -22,6 +22,16 @@ The mobile product follows the supplied R.U.N.E. dark emerald app showcase and c
 - Particle buffers are retained by the painter and updated through its repaint listenable rather than allocating a new particle field on every animation frame.
 - The microphone remains a real capture control. The UI must not imply that voice is active unless recording/session state confirms it.
 
+## Current visual implementation status
+
+The first visual implementation pass now covers the onboarding entry, assistant-first shell, floating navigation dock, command-centre Home, Assistant empty/chat states and composer, Work, Explore, Device & Security, Settings, and the shared card/metric surfaces.
+
+- The same particle orb is used in onboarding, Home and Assistant.
+- The shell uses a custom floating dock instead of the stock Material navigation bar.
+- Home, Work and Explore use the shared emerald-on-obsidian visual language and consistent hierarchy.
+- Capability and connectivity states remain data-driven; disconnected services are not represented as connected.
+- This is an implementation milestone, not a visual QA sign-off. Final fidelity requires a fresh Android build and screenshots on the target device at its actual resolution, font scale and system insets.
+
 ## Product entry and identity
 
 - Owner identity is created once for the R.U.N.E. account, not once per installation.
