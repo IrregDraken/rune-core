@@ -176,3 +176,15 @@ def test_voice_session_closes_when_owner_says_done():
     session.tick(120)
     session.answer_confirmation(False, 121)
     assert session.state == VoiceSessionState.STANDBY
+
+
+
+def test_voice_confirmation_timeout_starts_after_prompt_playback():
+    session = VoiceSessionController()
+    session.wake_detected(0)
+    assert session.tick(120) == "You still there, or are we good?"
+    session.confirmation_prompted(126)
+    session.tick(140)
+    assert session.state == VoiceSessionState.WAITING_CONFIRMATION
+    session.tick(141)
+    assert session.state == VoiceSessionState.STANDBY
