@@ -109,6 +109,10 @@ class _SecurityPageState extends State<SecurityPage> {
   try {final items=await api.pendingTasks();if(mounted)setState(()=>pending=items);}
   catch(e){if(mounted)setState(()=>error=e.toString());}
  }
+ Future<void> stopOperator() async {
+  try {await agent.stopBackgroundOperator();runner?.stop();if(mounted)setState(()=>status='Device operator paused');}
+  catch(e){if(mounted)setState(()=>error=e.toString());}
+ }
  Future<void> approve(String taskId) async {
   final api=remote;if(api==null)return;
   setState(()=>busy=true);
@@ -182,8 +186,9 @@ class _SecurityPageState extends State<SecurityPage> {
     const SizedBox(height:5),TextField(controller:password,obscureText:true,decoration:const InputDecoration(hintText:'Supabase Auth password')),
     const SizedBox(height:14),
     SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:busy?null:enrollAndStart,icon:const Icon(Icons.phonelink_lock),label:Text(busy?'ENROLLING…':'SIGN IN, ENROLL & START OPERATOR'))),
+    if(remote!=null)OutlinedButton.icon(onPressed:stopOperator,icon:const Icon(Icons.pause_circle_outline),label:const Text('PAUSE DEVICE OPERATOR')),
     const SizedBox(height:8),
-    const Text('The password is sent only to Supabase Auth over HTTPS. Owner and device tokens are stored in Android secure storage. The device operator polls while this app remains active.',style:TextStyle(color:RuneColors.muted,fontSize:9,height:1.5)),
+    const Text('The password is sent only to Supabase Auth over HTTPS. Owner and device tokens are stored securely. Android runs the remote operator as a foreground service with a persistent notification; Android may still impose background execution limits.',style:TextStyle(color:RuneColors.muted,fontSize:9,height:1.5)),
    ])),
    if(remote!=null)...[
     const SizedBox(height:20),
