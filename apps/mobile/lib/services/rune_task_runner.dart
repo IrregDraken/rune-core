@@ -11,7 +11,7 @@ class RuneTaskRunner {
   bool _busy=false;
   bool get running=>_timer?.isActive??false;
 
-  void start({Duration interval=const Duration(seconds:3)}) {
+  void start({Duration interval=const Duration(seconds:10)}) {
     if(running)return;
     _timer=Timer.periodic(interval,(_)=>pollOnce());
     pollOnce();
