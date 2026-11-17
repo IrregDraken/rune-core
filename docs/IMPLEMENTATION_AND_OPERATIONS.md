@@ -58,6 +58,13 @@ The native operator:
 
 The Android agent advertises only the capabilities currently available. Its foreground service polls the remote queue every 10 seconds and refreshes its capability list every 30 seconds; the operating system may still stop or limit it.
 
+## Voice providers
+
+- Speech-to-text: OpenAI's file transcription endpoint using `gpt-transcribe` by default. It accepts bounded audio files up to 25 MB; live microphone streaming and local wake-word detection are separate work.
+- Text-to-speech: ElevenLabs `/v1/text-to-speech/{voice_id}` using the configured voice ID and `eleven_flash_v2_5` by default.
+- The API keys remain server-side. The voice ID is not hardcoded and must be selected after auditioning voices.
+- The authenticated local core API exposes `POST /api/voice/synthesize`. Audio capture/playback in the Android app and the "Hey RUNE" local wake-word path are not yet integrated.
+
 ## Remote task lifecycle
 
 1. The model proposes actions against registered device capabilities.
