@@ -20,7 +20,7 @@ class _RuneAppState extends State<RuneApp> {
   bool ready = false;
   bool onboarded = false;
   String owner = 'Owner';
-  String apiUrl = 'http://127.0.0.1:8765';
+  String apiUrl = 'https://rune-core-production-e1cb.up.railway.app';
   String sessionToken = '';
   final secureStorage = const FlutterSecureStorage();
 
