@@ -26,6 +26,37 @@ def _reject_secret_fields(value, path: str = "arguments") -> None:
         for index, item in enumerate(value):
             _reject_secret_fields(item, f"{path}[{index}]")
 
+
+def _validate_capability_arguments(capability: str, arguments: dict) -> None:
+    if capability in {"app.list", "ui.observe"}:
+        if arguments:
+            raise HTTPException(400, f"{capability} does not accept arguments")
+        return
+    if capability == "app.launch":
+        package_name = arguments.get("packageName", arguments.get("package_name"))
+        if not isinstance(package_name, str) or not package_name.strip() or len(package_name) > 255:
+            raise HTTPException(400, "app.launch requires a valid packageName")
+        return
+    if capability == "ui.interact":
+        action = arguments.get("action")
+        if action == "tap":
+            x, y = arguments.get("x"), arguments.get("y")
+            if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+                raise HTTPException(400, "tap requires numeric x and y coordinates")
+            if not (0 <= x <= 10000 and 0 <= y <= 10000):
+                raise HTTPException(400, "tap coordinates are outside the allowed range")
+        elif action == "scroll":
+            if arguments.get("direction", "down") not in {"up", "down"}:
+                raise HTTPException(400, "scroll direction must be up or down")
+        elif action == "type":
+            value = arguments.get("text")
+            if not isinstance(value, str) or not value or len(value) > 4000:
+                raise HTTPException(400, "type requires text up to 4000 characters")
+        else:
+            raise HTTPException(400, "unsupported ui.interact action")
+        return
+    raise HTTPException(400, "capability is not implemented by the current device agent")
+
 async def _audit(owner_id: UUID, event_type: str, outcome: str, *, device_id=None, task_id=None, metadata=None):
     await store.request("POST", "rune_audit_events", body={
         "owner_id": str(owner_id), "device_id": str(device_id) if device_id else None,
@@ -91,6 +122,7 @@ async def heartbeat(device_id: UUID, body: DeviceHeartbeat, x_rune_device_token:
 @router.post("/tasks", status_code=201)
 async def create_task(body: TaskCreate, owner: Owner = Depends(require_owner)):
     _reject_secret_fields(body.arguments)
+    _validate_capability_arguments(body.capability, body.arguments)
     devices = await store.request("GET","rune_devices",params={
         **owner_filter(owner.id),"id":f"eq.{body.device_id}","status":"not.eq.revoked",
         "select":"id,capabilities","limit":"1",
