@@ -309,7 +309,7 @@ class _AssistantPageState extends State<AssistantPage>{
            mainAxisAlignment: MainAxisAlignment.center,
            children: [
             const SizedBox(height: 5),
-            RuneIntelligenceOrb(size: math.min(250, constraints.maxWidth * .72), intensity: coreOnline ? 1.25 : .72),
+            RuneIntelligenceOrb(size: math.min(250.0, constraints.maxWidth * .72).toDouble(), intensity: coreOnline ? 1.25 : .72),
             const SizedBox(height: 8),
             Text(coreOnline ? 'YOUR INTELLIGENCE IS READY' : 'YOUR INTELLIGENCE CORE',
              style: const TextStyle(fontSize: 8, color: RuneColors.mint, letterSpacing: 2.0, fontWeight: FontWeight.w700)),
