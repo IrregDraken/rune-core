@@ -682,8 +682,54 @@ class _ActivityTile extends StatelessWidget{const _ActivityTile({required this.e
 class _ToolTile extends StatelessWidget{const _ToolTile({required this.tool});final Map<String,dynamic> tool;@override Widget build(BuildContext context)=>_Panel(child:Row(children:[const Icon(Icons.extension_outlined,color:RuneColors.brightEmerald),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(tool['name']?.toString()??'Capability',style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),const SizedBox(height:4),Text(tool['description']?.toString()??'',style:const TextStyle(fontSize:10,color:RuneColors.muted,height:1.4))])),const SizedBox(width:8),Text(tool['risk']?.toString().toUpperCase()??'UNKNOWN',style:const TextStyle(fontSize:8,color:RuneColors.aurum,letterSpacing:.6))]));}
 class _IntegrationRow extends StatelessWidget{const _IntegrationRow(this.name,this.status,this.icon);final String name,status;final IconData icon;@override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.symmetric(vertical:10),child:Row(children:[Icon(icon,color:RuneColors.muted,size:18),const SizedBox(width:12),Expanded(child:Text(name,style:const TextStyle(fontSize:11,fontWeight:FontWeight.w600))),Text(status,style:const TextStyle(fontSize:9,color:RuneColors.muted))]));}
 class _Typing extends StatelessWidget{const _Typing();@override Widget build(BuildContext context)=>const Padding(padding:EdgeInsets.all(16),child:Align(alignment:Alignment.centerLeft,child:Text('R.U.N.E. is thinking…',style:TextStyle(color:RuneColors.muted,fontSize:11))));}
-class _RuneMark extends StatelessWidget{const _RuneMark({this.size=30});final double size;@override Widget build(BuildContext context)=>SizedBox(width:size,height:size,child:CustomPaint(painter:_GlyphPainter()));}
-class _GlyphPainter extends CustomPainter{@override void paint(Canvas c,Size s){final p=Paint()..style=PaintingStyle.stroke..strokeWidth=s.width*.07..strokeCap=StrokeCap.round..strokeJoin=StrokeJoin.round..color=RuneColors.brightEmerald;final path=Path()..moveTo(s.width*.28125,s.height*.15625)..lineTo(s.width*.28125,s.height*.84375)..moveTo(s.width*.28125,s.height*.15625)..lineTo(s.width*.5625,s.height*.15625)..cubicTo(s.width*.671875,s.height*.15625,s.width*.75,s.height*.2421875,s.width*.75,s.height*.3515625)..cubicTo(s.width*.75,s.height*.4609375,s.width*.6640625,s.height*.546875,s.width*.5625,s.height*.546875)..lineTo(s.width*.28125,s.height*.546875)..moveTo(s.width*.4921875,s.height*.546875)..lineTo(s.width*.765625,s.height*.84375)..moveTo(s.width*.71875,s.height*.15625)..lineTo(s.width*.4375,s.height*.4375)..moveTo(s.width*.71875,s.height*.15625)..lineTo(s.width*.71875,s.height*.3671875)..cubicTo(s.width*.71875,s.height*.47265625,s.width*.6328125,s.height*.55859375,s.width*.52734375,s.height*.55859375)..lineTo(s.width*.484375,s.height*.55859375);c.drawPath(path,p);}@override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;}
+class _RuneMark extends StatelessWidget {
+ const _RuneMark({this.size=30});
+ final double size;
+ @override
+ Widget build(BuildContext context) => SizedBox(
+  width:size,
+  height:size,
+  child:CustomPaint(painter:_GlyphPainter()),
+ );
+}
+
+class _GlyphPainter extends CustomPainter {
+ @override
+ void paint(Canvas canvas,Size size) {
+  final rect=Rect.fromLTWH(size.width*.17,size.height*.17,size.width*.66,size.height*.66);
+  final radius=Radius.circular(size.width*.19);
+  final glow=Paint()
+   ..style=PaintingStyle.stroke
+   ..strokeWidth=size.width*.07
+   ..color=RuneColors.emerald.withOpacity(.22)
+   ..maskFilter=const MaskFilter.blur(BlurStyle.normal,3);
+  final outline=Paint()
+   ..style=PaintingStyle.stroke
+   ..strokeWidth=size.width*.055
+   ..shader=const LinearGradient(
+    colors:[RuneColors.mint,RuneColors.brightEmerald,RuneColors.emerald],
+    begin:Alignment.topLeft,
+    end:Alignment.bottomRight,
+   ).createShader(rect);
+  canvas.drawRRect(RRect.fromRectAndRadius(rect,radius),glow);
+  canvas.drawRRect(RRect.fromRectAndRadius(rect,radius),outline);
+  canvas.save();
+  canvas.translate(size.width/2,size.height/2);
+  canvas.rotate(-.48);
+  final orbit=Rect.fromCenter(
+   center:Offset.zero,
+   width:size.width*.98,
+   height:size.height*.30,
+  );
+  canvas.drawOval(orbit,Paint()
+   ..style=PaintingStyle.stroke
+   ..strokeWidth=size.width*.035
+   ..color=RuneColors.aurum);
+  canvas.restore();
+ }
+ @override
+ bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
+}
 class _RuneOrb extends StatefulWidget{const _RuneOrb({this.size=230});final double size;@override State<_RuneOrb> createState()=>_RuneOrbState();}
 class _RuneOrbState extends State<_RuneOrb> with SingleTickerProviderStateMixin{late final controller=AnimationController(vsync:this,duration:const Duration(seconds:24))..repeat();@override void dispose(){controller.dispose();super.dispose();}@override Widget build(BuildContext context)=>AnimatedBuilder(animation:controller,builder:(_,__)=>SizedBox(width:widget.size,height:widget.size,child:CustomPaint(painter:_OrbPainter(controller.value))));}
 class _OrbPainter extends CustomPainter {
@@ -741,25 +787,33 @@ class _OrbPainter extends CustomPainter {
       canvas.restore();
     }
 
-    final glyphPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * .018
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = RuneColors.brightEmerald;
-    final glyph = Path()
-      ..moveTo(center.dx - radius * .46, center.dy - radius * .5)
-      ..lineTo(center.dx + radius * .08, center.dy - radius * .5)
-      ..cubicTo(
-        center.dx + radius * .62, center.dy - radius * .5,
-        center.dx + radius * .62, center.dy + radius * .04,
-        center.dx + radius * .08, center.dy + radius * .1,
-      )
-      ..lineTo(center.dx - radius * .2, center.dy + radius * .1)
-      ..lineTo(center.dx + radius * .48, center.dy + radius * .62)
-      ..moveTo(center.dx - radius * .2, center.dy + radius * .1)
-      ..lineTo(center.dx - radius * .2, center.dy + radius * .65);
-    canvas.drawPath(glyph, glyphPaint);
+    final markRect = Rect.fromCenter(
+      center: center,
+      width: radius * 1.08,
+      height: radius * 1.08,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(markRect, Radius.circular(radius * .24)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * .014
+        ..color = RuneColors.brightEmerald.withOpacity(.9),
+    );
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(-.48 + t * .08);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset.zero,
+        width: radius * 2.05,
+        height: radius * .42,
+      ),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * .009
+        ..color = RuneColors.aurum.withOpacity(.85),
+    );
+    canvas.restore();
 
     final spark = Offset(
       center.dx + math.cos(t * math.pi * 2) * radius,
