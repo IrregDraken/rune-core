@@ -12,19 +12,27 @@ router = APIRouter(prefix="/v1", tags=["RUNE remote operations"])
 def _hash(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
-def _reject_secret_fields(value, path: str = "arguments") -> None:
+def _reject_secret_fields(value, path: str = "arguments", depth: int = 0) -> None:
+    if depth > 8:
+        raise HTTPException(400, "Task arguments are nested too deeply")
     forbidden = {"password", "passwd", "pin", "passcode", "secret", "secret_key",
                  "api_key", "access_token", "refresh_token", "session_cookie",
                  "private_key", "authorization", "credential"}
     if isinstance(value, dict):
+        if len(value) > 32:
+            raise HTTPException(400, "Too many task argument fields")
         for key, item in value.items():
             normalized = str(key).lower().replace("-", "_")
             if normalized in forbidden or normalized.endswith(("_password", "_token", "_secret", "_api_key")):
                 raise HTTPException(400, f"Sensitive field is not accepted in {path}")
-            _reject_secret_fields(item, f"{path}.{key}")
+            _reject_secret_fields(item, f"{path}.{key}", depth + 1)
     elif isinstance(value, list):
+        if len(value) > 100:
+            raise HTTPException(400, "Task argument list is too large")
         for index, item in enumerate(value):
-            _reject_secret_fields(item, f"{path}[{index}]")
+            _reject_secret_fields(item, f"{path}[{index}]", depth + 1)
+    elif isinstance(value, str) and len(value) > 4096:
+        raise HTTPException(400, "Task argument text is too long")
 
 
 def _validate_capability_arguments(capability: str, arguments: dict) -> None:
