@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from urllib.parse import urlparse
 from typing import Any
 from uuid import UUID
 
@@ -32,6 +33,9 @@ class RemoteBackendClient:
         self.transport = transport
         if not self.base_url:
             raise ValueError("RUNE_REMOTE_BACKEND_URL is required")
+        parsed = urlparse(self.base_url)
+        if parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1"}:
+            raise ValueError("RUNE remote backend must use HTTPS outside localhost development")
         if not self.access_token:
             raise ValueError("RUNE_OWNER_ACCESS_TOKEN is required")
 
