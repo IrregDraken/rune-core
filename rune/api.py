@@ -41,6 +41,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         body = json.dumps(payload, default=str).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
         self._cors_headers()
         self.end_headers()
         if status != 204:
@@ -50,6 +51,7 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(audio)))
+        self.send_header("Cache-Control", "no-store")
         self._cors_headers()
         self.end_headers()
         self.wfile.write(audio)
