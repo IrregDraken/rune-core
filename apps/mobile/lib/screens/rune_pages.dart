@@ -130,6 +130,13 @@ class _AssistantPageState extends State<AssistantPage>{
      if(awaitingConfirmation)scheduleVoiceInactivity();
     } else {
      final spoken=transcript.trim();
+     final lowerSpoken=spoken.toLowerCase().replaceAll(RegExp(r"[.!?]"),"").trim();
+     if(lowerSpoken=="stop"||lowerSpoken=="rune stop") {
+      await widget.api.voiceSessionAction('stop');
+      if(mounted)setState(()=>awaitingConfirmation=false);
+      scheduleVoiceInactivity();
+      return;
+     }
      if(awaitingConfirmation) {
       final lower=spoken.toLowerCase();
       final done=RegExp(r"\b(no|we're good|thats all|that's all|done|we are good)\b").hasMatch(lower);
