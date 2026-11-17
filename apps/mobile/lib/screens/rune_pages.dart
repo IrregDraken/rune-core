@@ -130,8 +130,15 @@ class _SecurityPageState extends State<SecurityPage> {
    if(c['uiObservation']==true)caps.add('ui.observe');
    if(c['uiInteraction']==true)caps.add('ui.interact');
    final device=await remoteApi.registerDevice(name:'RUNE Android Device',capabilities:caps,appVersion:'0.2.0');
-   final taskRunner=RuneTaskRunner(remote:remoteApi,device:agent)..start();
-   if(mounted)setState(()=>{remote=remoteApi,runner=taskRunner,status:'Enrolled: ${device['device_name']??'Android device'} · operator active',error=null});
+   await agent.requestNotificationPermission();
+   final credentials=await remoteApi.deviceCredentials();
+   final started=credentials==null?false:await agent.startBackgroundOperator(
+     backendUrl:backend.text.trim(),deviceId:credentials['id'].toString(),
+     deviceToken:credentials['token'].toString());
+   RuneTaskRunner? taskRunner;
+   if(!started){taskRunner=RuneTaskRunner(remote:remoteApi,device:agent)..start();}
+   if(mounted)setState(()=>{remote=remoteApi,runner=taskRunner,
+     status:'Enrolled: ${device['device_name']??'Android device'} · ${started?'background operator active':'foreground-only operator active'}',error=null});
    await refreshPending();
   } catch(e) {
    if(mounted)setState(()=>error=e.toString());
