@@ -142,7 +142,7 @@ class _SecurityPageState extends State<SecurityPage> {
    RuneTaskRunner? taskRunner;
    if(!started){taskRunner=RuneTaskRunner(remote:remoteApi,device:agent)..start();}
    if(mounted)setState(()=>{remote=remoteApi,runner=taskRunner,
-     status:'Enrolled: ${device['device_name']??'Android device'} · ${started?'background operator active':'foreground-only operator active'}',error=null});
+     status:'Enrolled: ${device['device_name']??'Android device'} · ${started?'background operator requested':'foreground-only operator started'}',error=null});
    await refreshPending();
   } catch(e) {
    if(mounted)setState(()=>error=e.toString());
