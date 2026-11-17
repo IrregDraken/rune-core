@@ -19,6 +19,5 @@ COPY docker/core-entrypoint.sh /usr/local/bin/rune-entrypoint
 RUN chmod 0755 /usr/local/bin/rune-entrypoint
 
 USER root
-VOLUME ["/app/data"]
 ENTRYPOINT ["/usr/local/bin/rune-entrypoint"]
 CMD ["rune-api"]
