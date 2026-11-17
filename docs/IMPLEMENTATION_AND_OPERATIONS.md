@@ -30,7 +30,7 @@ The owner-side core client additionally requires:
 - `RUNE_REMOTE_BACKEND_URL`
 - `RUNE_OWNER_ACCESS_TOKEN`
 
-The owner access token is short-lived. Production deployment must add a refresh-token/session manager or workload identity. Do not bake it into a container image or source control. Do not expose the local Python API publicly.
+The Python core now supports a rotating Supabase owner session. Supply the initial access token, refresh token, access-token expiry, and a URL-safe base64 32-byte `RUNE_OWNER_TOKEN_ENCRYPTION_KEY`. The refresh token is persisted AES-GCM encrypted in the configured SQLite session database using that key. Protect the key with the deployment secret manager and back up neither key nor token in source control. Do not expose the local Python API publicly.
 
 ## Android agent build
 
@@ -73,7 +73,7 @@ Every remote task currently requires owner approval. The backend intentionally i
 
 - No live provider credentials or verified model pricing configured.
 - No deployed backend or remote domain.
-- No production owner token refresh manager in the Python core.
+- Owner refresh manager source exists but still needs credential provisioning and live Supabase refresh testing.
 - Android foreground service source is implemented but has not been build-verified or tested on a physical phone.
 - Android device enrollment and real-device workflow not tested end-to-end.
 - No hardware-backed device attestation or signed command envelopes yet.
