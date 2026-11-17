@@ -41,7 +41,7 @@ class OwnerSession:
         self._lock = threading.Lock()
         self._aes = AESGCM(encryption_key) if encryption_key else None
         if refresh_token and self._aes is None:
-            raise ValueError("RUNE_OWNER_TOKEN_ENCRYPTION_KEY is required to persist refresh tokens")
+            raise ValueError("an encryption key (RUNE_OWNER_TOKEN_ENCRYPTION_KEY) is required to persist refresh tokens")
         Path(store_path).parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(store_path, check_same_thread=False)
         self._db.execute(
