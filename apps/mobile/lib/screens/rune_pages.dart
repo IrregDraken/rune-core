@@ -120,6 +120,13 @@ class _SecurityPageState extends State<SecurityPage> {
   catch(e){if(mounted)setState(()=>error=e.toString());}
   if(mounted)setState(()=>busy=false);
  }
+ Future<void> cancelTask(String taskId) async {
+  final api=remote;if(api==null)return;
+  setState(()=>busy=true);
+  try {await api.cancelTask(taskId);await refreshPending();}
+  catch(e){if(mounted)setState(()=>error=e.toString());}
+  if(mounted)setState(()=>busy=false);
+ }
  Future<void> enrollAndStart() async {
   if(backend.text.trim().isEmpty||supabase.text.trim().isEmpty||publishable.text.trim().isEmpty||email.text.trim().isEmpty||password.text.isEmpty)return;
   setState(()=>busy=true);
@@ -202,6 +209,7 @@ class _SecurityPageState extends State<SecurityPage> {
        Text(task['arguments']?.toString()??'{}',style:const TextStyle(color:RuneColors.muted,fontSize:10)),
        const SizedBox(height:8),
        Row(children:[const Text('AWAITING APPROVAL',style:TextStyle(color:RuneColors.aurum,fontSize:8,letterSpacing:1)),const Spacer(),
+        TextButton(onPressed:busy?null:()=>cancelTask(task['id'].toString()),child:const Text('CANCEL')),
         FilledButton.tonal(onPressed:busy?null:()=>approve(task['id'].toString()),child:const Text('APPROVE'))
        ])
       ]));
