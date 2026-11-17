@@ -21,3 +21,10 @@ def test_health_preserves_supplied_request_id():
 
     assert response.status_code == 200
     assert response.json()["request_id"] == "test-request-123"
+
+
+
+def test_readiness_is_unavailable_without_supabase_configuration():
+    response = client.get("/ready")
+    assert response.status_code == 503
+    assert response.json()["status"] == "not_ready"
