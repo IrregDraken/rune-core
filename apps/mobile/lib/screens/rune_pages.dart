@@ -78,6 +78,7 @@ class _AssistantPageState extends State<AssistantPage>{
  Future<void> toggleVoice() async {
   if(voiceBusy)return;
   setState(()=>voiceBusy=true);
+  String? temporaryRecording;
   try {
    if(!recording) {
     final granted=await device.requestMicrophonePermission();
@@ -93,6 +94,7 @@ class _AssistantPageState extends State<AssistantPage>{
     final path=await device.stopVoiceRecording();
     if(mounted)setState(()=>recording=false);
     if(path==null)throw const RuneApiException('Recording could not be finalized.');
+    temporaryRecording=path;
     final bytes=await File(path).readAsBytes();
     final transcript=await widget.api.transcribeAudio(bytes,contentType:'audio/mp4');
     if(transcript.trim().isEmpty) {
@@ -102,7 +104,6 @@ class _AssistantPageState extends State<AssistantPage>{
      controller.text=transcript.trim();
      await send(speakResponse:true);
     }
-    await File(path).delete().catchError((_)=>File(path));
    }
   } catch(e) {
    if(mounted) {
@@ -110,6 +111,9 @@ class _AssistantPageState extends State<AssistantPage>{
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Voice input failed: $e')));
    }
   } finally {
+   if(temporaryRecording!=null) {
+    await File(temporaryRecording).delete().catchError((_)=>File(temporaryRecording!));
+   }
    if(mounted)setState(()=>voiceBusy=false);
   }
  }
