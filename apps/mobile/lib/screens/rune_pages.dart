@@ -13,29 +13,140 @@ import '../theme/rune_colors.dart';
 import '../widgets/rune_intelligence_orb.dart';
 
 class HomePage extends StatefulWidget {
- const HomePage({super.key,required this.owner,required this.api,required this.apiUrl,required this.onApiChanged,required this.onSessionTokenChanged,required this.onNavigate});
- final String owner;final RuneApi api;final String apiUrl;final Future<void> Function(String) onApiChanged,onSessionTokenChanged;final ValueChanged<int> onNavigate;
- @override State<HomePage> createState()=>_HomePageState();
+ const HomePage({super.key, required this.owner, required this.api, required this.apiUrl, required this.onApiChanged, required this.onSessionTokenChanged, required this.onNavigate});
+ final String owner;
+ final RuneApi api;
+ final String apiUrl;
+ final Future<void> Function(String) onApiChanged, onSessionTokenChanged;
+ final ValueChanged<int> onNavigate;
+ @override State<HomePage> createState() => _HomePageState();
 }
-class _HomePageState extends State<HomePage>{
- Map<String,dynamic>? state;bool online=false;String? error;
- @override void initState(){super.initState();refresh();}
- Future<void> refresh()async{try{final result=await widget.api.state();if(mounted)setState(() { state=result; online=true; error=null; });}catch(e){if(mounted)setState(() { online=false; error=e.toString(); });}}
- @override Widget build(BuildContext context){
-  final hour=DateTime.now().hour;final greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
-  return RefreshIndicator(onRefresh:refresh,color:RuneColors.brightEmerald,child:ListView(padding:const EdgeInsets.fromLTRB(21,18,21,30),children:[
-   Row(children:[const _RuneMark(size:32),const SizedBox(width:10),const Text('R.U.N.E.',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,letterSpacing:2.7)),const Spacer(),_OnlineChip(online:online),const SizedBox(width:10),_IconButton(icon:Icons.shield_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SecurityPage(api:widget.api)))),_IconButton(icon:Icons.settings_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SettingsPage(apiUrl:widget.apiUrl,onSave:widget.onApiChanged,sessionToken:widget.api.sessionToken,onSessionTokenSave:widget.onSessionTokenChanged,api:widget.api))))]),
-   const SizedBox(height:27),Text(DateTime.now().toLocal().toString().substring(0,10).toUpperCase(),style:const TextStyle(fontSize:9,color:RuneColors.muted,letterSpacing:1.8)),const SizedBox(height:7),Text('$greeting, ${widget.owner}.',style:const TextStyle(fontSize:26,fontWeight:FontWeight.w700,letterSpacing:-.7)),const SizedBox(height:4),const Text('Your command center is ready.',style:TextStyle(color:RuneColors.muted,fontSize:12)),
-   const SizedBox(height:12),Center(child:Column(children:[const RuneIntelligenceOrb(),Text(online?'CORE REACHABLE':'CORE DISCONNECTED',style:TextStyle(fontSize:9,color:online?RuneColors.mint:RuneColors.aurum,letterSpacing:2,fontWeight:FontWeight.w700)),const SizedBox(height:5),Text(online?'Intelligence runtime responding':'Connect your core to activate intelligence',style:const TextStyle(fontSize:10,color:RuneColors.muted))])),
-   const SizedBox(height:18),GestureDetector(onTap:()=>widget.onNavigate(1),child:Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:16),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.07))),child:const Row(children:[Icon(Icons.auto_awesome,color:RuneColors.brightEmerald,size:18),SizedBox(width:11),Expanded(child:Text('Ask R.U.N.E. anything...',style:TextStyle(color:RuneColors.muted,fontSize:12))),Icon(Icons.arrow_forward_rounded,color:RuneColors.muted,size:17)]))),
-   const SizedBox(height:24),const _SectionTitle('QUICK ACTIONS'),
-   const SizedBox(height:11),Row(children:[_QuickTile(icon:Icons.route_rounded,title:'Plan',onTap:()=>widget.onNavigate(2)),const SizedBox(width:9),_QuickTile(icon:Icons.bolt_rounded,title:'Execute',onTap:()=>widget.onNavigate(2)),const SizedBox(width:9),_QuickTile(icon:Icons.account_tree_outlined,title:'Automate',onTap:()=>widget.onNavigate(3)),const SizedBox(width:9),_QuickTile(icon:Icons.add_link_rounded,title:'Connect',onTap:()=>widget.onNavigate(3))]),
-   const SizedBox(height:25),Row(children:[const _SectionTitle('SYSTEM SNAPSHOT'),const Spacer(),TextButton(onPressed:refresh,child:const Text('REFRESH',style:TextStyle(fontSize:9,letterSpacing:1,color:RuneColors.brightEmerald)))]),
-   _Panel(child:Column(children:[_InfoRow('Runtime',online?'Reachable':'Offline',online?RuneColors.brightEmerald:RuneColors.aurum),_InfoRow('Identity',state==null?'Not loaded':(state?['identity']?['name']?.toString()??'Local identity'),RuneColors.muted),_InfoRow('Memory records',(state?['long_term_memory'] is List?(state!['long_term_memory'] as List).length:0).toString(),RuneColors.muted),_InfoRow('Current goal',state?['current_goal']?.toString()??'No active goal',RuneColors.muted)])),
-   if(error!=null)...[const SizedBox(height:12),_Notice(text:error!,warning:true)],
-   const SizedBox(height:24),const _SectionTitle('YOUR WORKSPACE'),
-   const SizedBox(height:10),Row(children:[Expanded(child:_LinkCard(icon:Icons.psychology_outlined,title:'Memory',subtitle:'What R.U.N.E. knows',onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>MemoryPage(api:widget.api))))),const SizedBox(width:10),Expanded(child:_LinkCard(icon:Icons.security_outlined,title:'Security',subtitle:'Access and safeguards',onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SecurityPage(api:widget.api)))))])
-  ]));
+
+class _HomePageState extends State<HomePage> {
+ Map<String, dynamic>? state;
+ bool online = false, loading = true;
+ String? error;
+ @override void initState() { super.initState(); refresh(); }
+ Future<void> refresh() async {
+  setState(() => loading = true);
+  try {
+   final result = await widget.api.state();
+   if (mounted) setState(() { state = result; online = true; error = null; loading = false; });
+  } catch (e) {
+   if (mounted) setState(() { online = false; error = e.toString(); loading = false; });
+  }
+ }
+ @override Widget build(BuildContext context) {
+  final hour = DateTime.now().hour;
+  final greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  final memories = state?['long_term_memory'] is List ? (state!['long_term_memory'] as List).length : 0;
+  final goal = state?['current_goal']?.toString() ?? 'No active objective';
+  final identity = state?['identity'] is Map ? (state!['identity'] as Map)['name']?.toString() ?? widget.owner : widget.owner;
+  return RefreshIndicator(
+   onRefresh: refresh,
+   color: RuneColors.brightEmerald,
+   backgroundColor: RuneColors.carbon,
+   child: ListView(
+    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+    padding: const EdgeInsets.fromLTRB(20, 18, 20, 34),
+    children: [
+     Row(children: [
+      const _RuneMark(size: 34),
+      const SizedBox(width: 11),
+      const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+       Text('R.U.N.E.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 2.2)),
+       SizedBox(height: 3),
+       Text('PERSONAL INTELLIGENCE', style: TextStyle(fontSize: 8, color: RuneColors.muted, letterSpacing: 1.4)),
+      ]),
+      const Spacer(),
+      _OnlineChip(online: online),
+      const SizedBox(width: 4),
+      _IconButton(icon: Icons.shield_outlined, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SecurityPage(api: widget.api)))),
+      _IconButton(icon: Icons.tune_rounded, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage(apiUrl: widget.apiUrl, onSave: widget.onApiChanged, sessionToken: widget.api.sessionToken, onSessionTokenSave: widget.onSessionTokenChanged, api: widget.api)))),
+     ]),
+     const SizedBox(height: 28),
+     Text(DateTime.now().toLocal().toString().substring(0, 10).toUpperCase(), style: const TextStyle(fontSize: 9, color: RuneColors.muted, letterSpacing: 2)),
+     const SizedBox(height: 9),
+     Text('$greeting, $identity.', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: -.8)),
+     const SizedBox(height: 5),
+     const Text('Here is the state of your world.', style: TextStyle(color: RuneColors.muted, fontSize: 12)),
+     const SizedBox(height: 20),
+     Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 17),
+      decoration: BoxDecoration(
+       borderRadius: BorderRadius.circular(26),
+       gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF143A28), Color(0xFF0E1B14), Color(0xFF101612)]),
+       border: Border.all(color: RuneColors.emerald.withOpacity(.24)),
+       boxShadow: [BoxShadow(color: RuneColors.emerald.withOpacity(.08), blurRadius: 30, spreadRadius: -8)],
+      ),
+      child: Column(children: [
+       Row(children: [
+        const Text('INTELLIGENCE CORE', style: TextStyle(fontSize: 8, letterSpacing: 1.8, color: RuneColors.mint, fontWeight: FontWeight.w700)),
+        const Spacer(),
+        Container(width: 7, height: 7, decoration: BoxDecoration(color: online ? RuneColors.brightEmerald : RuneColors.aurum, shape: BoxShape.circle, boxShadow: [BoxShadow(color: (online ? RuneColors.brightEmerald : RuneColors.aurum).withOpacity(.55), blurRadius: 8)])),
+        const SizedBox(width: 7),
+        Text(online ? 'REACHABLE' : 'DISCONNECTED', style: TextStyle(fontSize: 8, letterSpacing: 1, color: online ? RuneColors.mint : RuneColors.aurum, fontWeight: FontWeight.w700)),
+       ]),
+       const SizedBox(height: 4),
+       RuneIntelligenceOrb(size: 205, intensity: online ? 1.25 : .72),
+       Text(online ? 'The core is responding' : 'Waiting for your core', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+       const SizedBox(height: 5),
+       Text(online ? 'Your intelligence runtime is reachable.' : 'Connect your runtime to activate live intelligence.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.5)),
+       const SizedBox(height: 15),
+       SizedBox(width: double.infinity, child: FilledButton.icon(
+        onPressed: () => widget.onNavigate(1),
+        icon: const Icon(Icons.auto_awesome, size: 16),
+        label: const Text('OPEN ASSISTANT'),
+        style: FilledButton.styleFrom(minimumSize: const Size(0, 46), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+       )),
+      ]),
+     ),
+     const SizedBox(height: 26),
+     Row(children: [
+      const _SectionTitle('QUICK ACCESS'),
+      const Spacer(),
+      TextButton(onPressed: refresh, child: const Text('REFRESH', style: TextStyle(fontSize: 9, letterSpacing: 1, color: RuneColors.mint))),
+     ]),
+     const SizedBox(height: 9),
+     Row(children: [
+      _QuickTile(icon: Icons.route_rounded, title: 'Plan', onTap: () => widget.onNavigate(2)),
+      const SizedBox(width: 9),
+      _QuickTile(icon: Icons.bolt_rounded, title: 'Execute', onTap: () => widget.onNavigate(2)),
+      const SizedBox(width: 9),
+      _QuickTile(icon: Icons.hub_outlined, title: 'Explore', onTap: () => widget.onNavigate(3)),
+      const SizedBox(width: 9),
+      _QuickTile(icon: Icons.memory_rounded, title: 'Memory', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MemoryPage(api: widget.api)))),
+     ]),
+     const SizedBox(height: 26),
+     const _SectionTitle('SYSTEM OVERVIEW'),
+     const SizedBox(height: 10),
+     Row(children: [
+      Expanded(child: _MetricCard(icon: Icons.psychology_outlined, label: 'MEMORIES', value: memories.toString(), caption: 'Stored records')),
+      const SizedBox(width: 10),
+      Expanded(child: _MetricCard(icon: Icons.bolt_outlined, label: 'RUNTIME', value: online ? 'Online' : 'Offline', caption: 'Core connection')),
+     ]),
+     const SizedBox(height: 10),
+     _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('CURRENT OBJECTIVE', style: TextStyle(fontSize: 8, color: RuneColors.mint, letterSpacing: 1.5, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 9),
+      Text(goal, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.45)),
+      const SizedBox(height: 10),
+      Row(children: [
+       const Icon(Icons.account_circle_outlined, size: 15, color: RuneColors.muted),
+       const SizedBox(width: 7),
+       Expanded(child: Text('Identity · $identity', style: const TextStyle(fontSize: 10, color: RuneColors.muted))),
+       Icon(online ? Icons.verified_rounded : Icons.info_outline_rounded, size: 14, color: online ? RuneColors.mint : RuneColors.aurum),
+      ]),
+     ])),
+     if (error != null) ...[
+      const SizedBox(height: 8),
+      _Notice(text: 'Core connection failed. Check the API address and network in Settings. Details: $error', warning: true),
+     ],
+     const SizedBox(height: 16),
+     const Text('R.U.N.E. is the intelligence layer. Your devices and channels are its interfaces.', style: TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.6)),
+    ],
+   ),
+  );
  }
 }
 
