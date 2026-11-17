@@ -37,6 +37,7 @@ def install() -> None:
 
     for permission in (
         "android.permission.INTERNET",
+        "android.permission.RECORD_AUDIO",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
         "android.permission.POST_NOTIFICATIONS",
