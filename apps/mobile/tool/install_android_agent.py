@@ -44,7 +44,8 @@ def install() -> None:
         ET.SubElement(intent, "action", {android_attr("name"): "android.intent.action.MAIN"})
         ET.SubElement(intent, "category", {android_attr("name"): "android.intent.category.LAUNCHER"})
 
-    existing = application.find("service[@android:name=' .RuneAccessibilityService ']".strip())
+    existing = next((item for item in application.findall("service")
+                     if item.get(android_attr("name")) == ".RuneAccessibilityService"), None)
     if existing is None:
         service = ET.SubElement(application, "service", {
             android_attr("name"): ".RuneAccessibilityService",
