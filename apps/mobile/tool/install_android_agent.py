@@ -41,7 +41,8 @@ def install() -> None:
         "android.permission.POST_NOTIFICATIONS",
     ):
         if not any(item.get(android_attr("name")) == permission for item in root.findall("uses-permission")):
-            ET.SubElement(root, "uses-permission", {android_attr("name"): permission})
+            permission_node = ET.Element("uses-permission", {android_attr("name"): permission})
+            root.insert(list(root).index(application), permission_node)
 
     queries = root.find("queries")
     if queries is None:
