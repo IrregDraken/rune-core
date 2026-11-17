@@ -437,6 +437,23 @@ class _AssistantPageState extends State<AssistantPage>{
  );
 }
 
+class _PromptChip extends StatelessWidget {
+ const _PromptChip(this.label, this.icon, this.onTap);
+ final String label;
+ final IconData icon;
+ final VoidCallback onTap;
+ @override
+ Widget build(BuildContext context) => ActionChip(
+  onPressed: onTap,
+  avatar: Icon(icon, size: 14, color: RuneColors.mint),
+  label: Text(label, style: const TextStyle(fontSize: 10)),
+  backgroundColor: RuneColors.carbon.withOpacity(.8),
+  side: BorderSide(color: RuneColors.emerald.withOpacity(.22)),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+ );
+}
+
 class WorkPage extends StatefulWidget{const WorkPage({super.key,required this.api});final RuneApi api;@override State<WorkPage> createState()=>_WorkPageState();}
 class _WorkPageState extends State<WorkPage>{
  final goal=TextEditingController();final steps=TextEditingController();Map<String,dynamic>? state;List<dynamic> events=[];bool busy=false;String? note;
@@ -457,22 +474,6 @@ class _ExplorePageState extends State<ExplorePage>{
  @override void initState(){super.initState();load();}
  Future<void> load()async{try{final t=await widget.api.tools();if(mounted)setState(() { tools=t; loading=false; error=null; });}catch(e){if(mounted)setState(() { loading=false; error=e.toString(); });}}
  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Explore',eyebrow:'CAPABILITIES · INTEGRATIONS'),const SizedBox(height:9),const Text('Discover what your connected runtime exposes. External int
-class _PromptChip extends StatelessWidget {
- const _PromptChip(this.label, this.icon, this.onTap);
- final String label;
- final IconData icon;
- final VoidCallback onTap;
- @override
- Widget build(BuildContext context) => ActionChip(
-  onPressed: onTap,
-  avatar: Icon(icon, size: 14, color: RuneColors.mint),
-  label: Text(label, style: const TextStyle(fontSize: 10)),
-  backgroundColor: RuneColors.carbon.withOpacity(.8),
-  side: BorderSide(color: RuneColors.emerald.withOpacity(.22)),
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
- );
-}
 egrations appear only when they are actually configured.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),const SizedBox(height:22),const _SectionTitle('CORE CAPABILITIES'),const SizedBox(height:10),if(loading)const Center(child:CircularProgressIndicator())else if(error!=null)_Notice(text:error!,warning:true)else if(tools.isEmpty)_Panel(child:const Text('The core has not exposed any tools yet.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...tools.map((item){final t=item as Map<String,dynamic>;return _ToolTile(tool:t);}),const SizedBox(height:24),const _SectionTitle('INTEGRATION CHANNELS'),const SizedBox(height:10),const _Panel(child:Column(children:[_IntegrationRow('Google Workspace','Not connected',Icons.mail_outline),_IntegrationRow('WhatsApp','Not connected',Icons.chat_bubble_outline),_IntegrationRow('Discord','Not connected',Icons.forum_outlined),_IntegrationRow('GitHub','Not connected',Icons.code),_IntegrationRow('Notion','Not connected',Icons.article_outlined)])),const SizedBox(height:8),const Text('Connectors are shown as unavailable until credentials and permission scopes are configured in the core.',style:TextStyle(color:RuneColors.muted,fontSize:10,height:1.5))]);
 }
 
