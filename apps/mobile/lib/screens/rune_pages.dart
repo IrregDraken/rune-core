@@ -10,31 +10,143 @@ import '../services/rune_device_agent.dart';
 import '../services/rune_remote_api.dart';
 import '../services/rune_task_runner.dart';
 import '../theme/rune_colors.dart';
+import '../widgets/rune_intelligence_orb.dart';
 
 class HomePage extends StatefulWidget {
- const HomePage({super.key,required this.owner,required this.api,required this.apiUrl,required this.onApiChanged,required this.onSessionTokenChanged,required this.onNavigate});
- final String owner;final RuneApi api;final String apiUrl;final Future<void> Function(String) onApiChanged,onSessionTokenChanged;final ValueChanged<int> onNavigate;
- @override State<HomePage> createState()=>_HomePageState();
+ const HomePage({super.key, required this.owner, required this.api, required this.apiUrl, required this.onApiChanged, required this.onSessionTokenChanged, required this.onNavigate});
+ final String owner;
+ final RuneApi api;
+ final String apiUrl;
+ final Future<void> Function(String) onApiChanged, onSessionTokenChanged;
+ final ValueChanged<int> onNavigate;
+ @override State<HomePage> createState() => _HomePageState();
 }
-class _HomePageState extends State<HomePage>{
- Map<String,dynamic>? state;bool online=false;String? error;
- @override void initState(){super.initState();refresh();}
- Future<void> refresh()async{try{final result=await widget.api.state();if(mounted)setState(() { state=result; online=true; error=null; });}catch(e){if(mounted)setState(() { online=false; error=e.toString(); });}}
- @override Widget build(BuildContext context){
-  final hour=DateTime.now().hour;final greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
-  return RefreshIndicator(onRefresh:refresh,color:RuneColors.brightEmerald,child:ListView(padding:const EdgeInsets.fromLTRB(21,18,21,30),children:[
-   Row(children:[const _RuneMark(size:32),const SizedBox(width:10),const Text('R.U.N.E.',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,letterSpacing:2.7)),const Spacer(),_OnlineChip(online:online),const SizedBox(width:10),_IconButton(icon:Icons.shield_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SecurityPage(api:widget.api)))),_IconButton(icon:Icons.settings_outlined,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SettingsPage(apiUrl:widget.apiUrl,onSave:widget.onApiChanged,sessionToken:widget.api.sessionToken,onSessionTokenSave:widget.onSessionTokenChanged,api:widget.api))))]),
-   const SizedBox(height:27),Text(DateTime.now().toLocal().toString().substring(0,10).toUpperCase(),style:const TextStyle(fontSize:9,color:RuneColors.muted,letterSpacing:1.8)),const SizedBox(height:7),Text('$greeting, ${widget.owner}.',style:const TextStyle(fontSize:26,fontWeight:FontWeight.w700,letterSpacing:-.7)),const SizedBox(height:4),const Text('Your command center is ready.',style:TextStyle(color:RuneColors.muted,fontSize:12)),
-   const SizedBox(height:12),Center(child:Column(children:[const _RuneOrb(),Text(online?'CORE REACHABLE':'CORE DISCONNECTED',style:TextStyle(fontSize:9,color:online?RuneColors.mint:RuneColors.aurum,letterSpacing:2,fontWeight:FontWeight.w700)),const SizedBox(height:5),Text(online?'Intelligence runtime responding':'Connect your core to activate intelligence',style:const TextStyle(fontSize:10,color:RuneColors.muted))])),
-   const SizedBox(height:18),GestureDetector(onTap:()=>widget.onNavigate(1),child:Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:16),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.07))),child:const Row(children:[Icon(Icons.auto_awesome,color:RuneColors.brightEmerald,size:18),SizedBox(width:11),Expanded(child:Text('Ask R.U.N.E. anything...',style:TextStyle(color:RuneColors.muted,fontSize:12))),Icon(Icons.arrow_forward_rounded,color:RuneColors.muted,size:17)]))),
-   const SizedBox(height:24),const _SectionTitle('QUICK ACTIONS'),
-   const SizedBox(height:11),Row(children:[_QuickTile(icon:Icons.route_rounded,title:'Plan',onTap:()=>widget.onNavigate(2)),const SizedBox(width:9),_QuickTile(icon:Icons.bolt_rounded,title:'Execute',onTap:()=>widget.onNavigate(2)),const SizedBox(width:9),_QuickTile(icon:Icons.account_tree_outlined,title:'Automate',onTap:()=>widget.onNavigate(3)),const SizedBox(width:9),_QuickTile(icon:Icons.add_link_rounded,title:'Connect',onTap:()=>widget.onNavigate(3))]),
-   const SizedBox(height:25),Row(children:[const _SectionTitle('SYSTEM SNAPSHOT'),const Spacer(),TextButton(onPressed:refresh,child:const Text('REFRESH',style:TextStyle(fontSize:9,letterSpacing:1,color:RuneColors.brightEmerald)))]),
-   _Panel(child:Column(children:[_InfoRow('Runtime',online?'Reachable':'Offline',online?RuneColors.brightEmerald:RuneColors.aurum),_InfoRow('Identity',state==null?'Not loaded':(state?['identity']?['name']?.toString()??'Local identity'),RuneColors.muted),_InfoRow('Memory records',(state?['long_term_memory'] is List?(state!['long_term_memory'] as List).length:0).toString(),RuneColors.muted),_InfoRow('Current goal',state?['current_goal']?.toString()??'No active goal',RuneColors.muted)])),
-   if(error!=null)...[const SizedBox(height:12),_Notice(text:error!,warning:true)],
-   const SizedBox(height:24),const _SectionTitle('YOUR WORKSPACE'),
-   const SizedBox(height:10),Row(children:[Expanded(child:_LinkCard(icon:Icons.psychology_outlined,title:'Memory',subtitle:'What R.U.N.E. knows',onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>MemoryPage(api:widget.api))))),const SizedBox(width:10),Expanded(child:_LinkCard(icon:Icons.security_outlined,title:'Security',subtitle:'Access and safeguards',onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>SecurityPage(api:widget.api)))))])
-  ]));
+
+class _HomePageState extends State<HomePage> {
+ Map<String, dynamic>? state;
+ bool online = false, loading = true;
+ String? error;
+ @override void initState() { super.initState(); refresh(); }
+ Future<void> refresh() async {
+  setState(() => loading = true);
+  try {
+   final result = await widget.api.state();
+   if (mounted) setState(() { state = result; online = true; error = null; loading = false; });
+  } catch (e) {
+   if (mounted) setState(() { online = false; error = e.toString(); loading = false; });
+  }
+ }
+ @override Widget build(BuildContext context) {
+  final hour = DateTime.now().hour;
+  final greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  final memories = state?['long_term_memory'] is List ? (state!['long_term_memory'] as List).length : 0;
+  final goal = state?['current_goal']?.toString() ?? 'No active objective';
+  final identity = state?['identity'] is Map ? (state!['identity'] as Map)['name']?.toString() ?? widget.owner : widget.owner;
+  return RefreshIndicator(
+   onRefresh: refresh,
+   color: RuneColors.brightEmerald,
+   backgroundColor: RuneColors.carbon,
+   child: ListView(
+    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+    padding: const EdgeInsets.fromLTRB(20, 18, 20, 34),
+    children: [
+     Row(children: [
+      const _RuneMark(size: 34),
+      const SizedBox(width: 11),
+      const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+       Text('R.U.N.E.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 2.2)),
+       SizedBox(height: 3),
+       Text('PERSONAL INTELLIGENCE', style: TextStyle(fontSize: 8, color: RuneColors.muted, letterSpacing: 1.4)),
+      ]),
+      const Spacer(),
+      _OnlineChip(online: online),
+      const SizedBox(width: 4),
+      _IconButton(icon: Icons.shield_outlined, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SecurityPage(api: widget.api)))),
+      _IconButton(icon: Icons.tune_rounded, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage(apiUrl: widget.apiUrl, onSave: widget.onApiChanged, sessionToken: widget.api.sessionToken, onSessionTokenSave: widget.onSessionTokenChanged, api: widget.api)))),
+     ]),
+     const SizedBox(height: 28),
+     Text(DateTime.now().toLocal().toString().substring(0, 10).toUpperCase(), style: const TextStyle(fontSize: 9, color: RuneColors.muted, letterSpacing: 2)),
+     const SizedBox(height: 9),
+     Text('$greeting, $identity.', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: -.8)),
+     const SizedBox(height: 5),
+     const Text('Here is the state of your world.', style: TextStyle(color: RuneColors.muted, fontSize: 12)),
+     const SizedBox(height: 20),
+     Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 17),
+      decoration: BoxDecoration(
+       borderRadius: BorderRadius.circular(26),
+       gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF143A28), Color(0xFF0E1B14), Color(0xFF101612)]),
+       border: Border.all(color: RuneColors.emerald.withOpacity(.24)),
+       boxShadow: [BoxShadow(color: RuneColors.emerald.withOpacity(.08), blurRadius: 30, spreadRadius: -8)],
+      ),
+      child: Column(children: [
+       Row(children: [
+        const Text('INTELLIGENCE CORE', style: TextStyle(fontSize: 8, letterSpacing: 1.8, color: RuneColors.mint, fontWeight: FontWeight.w700)),
+        const Spacer(),
+        Container(width: 7, height: 7, decoration: BoxDecoration(color: online ? RuneColors.brightEmerald : RuneColors.aurum, shape: BoxShape.circle, boxShadow: [BoxShadow(color: (online ? RuneColors.brightEmerald : RuneColors.aurum).withOpacity(.55), blurRadius: 8)])),
+        const SizedBox(width: 7),
+        Text(online ? 'REACHABLE' : 'DISCONNECTED', style: TextStyle(fontSize: 8, letterSpacing: 1, color: online ? RuneColors.mint : RuneColors.aurum, fontWeight: FontWeight.w700)),
+       ]),
+       const SizedBox(height: 4),
+       RuneIntelligenceOrb(size: 205, intensity: online ? 1.25 : .72),
+       Text(online ? 'The core is responding' : 'Waiting for your core', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+       const SizedBox(height: 5),
+       Text(online ? 'Your intelligence runtime is reachable.' : 'Connect your runtime to activate live intelligence.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.5)),
+       const SizedBox(height: 15),
+       SizedBox(width: double.infinity, child: FilledButton.icon(
+        onPressed: () => widget.onNavigate(1),
+        icon: const Icon(Icons.auto_awesome, size: 16),
+        label: const Text('OPEN ASSISTANT'),
+        style: FilledButton.styleFrom(minimumSize: const Size(0, 46), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+       )),
+      ]),
+     ),
+     const SizedBox(height: 26),
+     Row(children: [
+      const _SectionTitle('QUICK ACCESS'),
+      const Spacer(),
+      TextButton(onPressed: refresh, child: const Text('REFRESH', style: TextStyle(fontSize: 9, letterSpacing: 1, color: RuneColors.mint))),
+     ]),
+     const SizedBox(height: 9),
+     Row(children: [
+      _QuickTile(icon: Icons.route_rounded, title: 'Plan', onTap: () => widget.onNavigate(2)),
+      const SizedBox(width: 9),
+      _QuickTile(icon: Icons.bolt_rounded, title: 'Execute', onTap: () => widget.onNavigate(2)),
+      const SizedBox(width: 9),
+      _QuickTile(icon: Icons.hub_outlined, title: 'Explore', onTap: () => widget.onNavigate(3)),
+      const SizedBox(width: 9),
+      _QuickTile(icon: Icons.memory_rounded, title: 'Memory', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MemoryPage(api: widget.api)))),
+     ]),
+     const SizedBox(height: 26),
+     const _SectionTitle('SYSTEM OVERVIEW'),
+     const SizedBox(height: 10),
+     Row(children: [
+      Expanded(child: _MetricCard(icon: Icons.psychology_outlined, label: 'MEMORIES', value: memories.toString(), caption: 'Stored records')),
+      const SizedBox(width: 10),
+      Expanded(child: _MetricCard(icon: Icons.bolt_outlined, label: 'RUNTIME', value: online ? 'Online' : 'Offline', caption: 'Core connection')),
+     ]),
+     const SizedBox(height: 10),
+     _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('CURRENT OBJECTIVE', style: TextStyle(fontSize: 8, color: RuneColors.mint, letterSpacing: 1.5, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 9),
+      Text(goal, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.45)),
+      const SizedBox(height: 10),
+      Row(children: [
+       const Icon(Icons.account_circle_outlined, size: 15, color: RuneColors.muted),
+       const SizedBox(width: 7),
+       Expanded(child: Text('Identity · $identity', style: const TextStyle(fontSize: 10, color: RuneColors.muted))),
+       Icon(online ? Icons.verified_rounded : Icons.info_outline_rounded, size: 14, color: online ? RuneColors.mint : RuneColors.aurum),
+      ]),
+     ])),
+     if (error != null) ...[
+      const SizedBox(height: 8),
+      _Notice(text: 'Core connection failed. Check the API address and network in Settings. Details: $error', warning: true),
+     ],
+     const SizedBox(height: 16),
+     const Text('R.U.N.E. is the intelligence layer. Your devices and channels are its interfaces.', style: TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.6)),
+    ],
+   ),
+  );
  }
 }
 
@@ -49,10 +161,19 @@ class _AssistantPageState extends State<AssistantPage>{
  final device=RuneDeviceAgent();
  final messages=<({bool user,String text})>[];
  final secureStorage=const FlutterSecureStorage();
- bool sending=false,recording=false,voiceBusy=false,awaitingConfirmation=false,historyLoaded=false;
+ bool sending=false,recording=false,voiceBusy=false,awaitingConfirmation=false,historyLoaded=false,coreOnline=false;
  Timer? voiceTimer;
- @override void initState(){super.initState();_loadConversation();}
+ @override void initState(){super.initState();_loadConversation();_refreshHealth();}
  @override void dispose(){voiceTimer?.cancel();controller.dispose();scroll.dispose();super.dispose();}
+
+ Future<void> _refreshHealth() async {
+  try {
+   final online=await widget.api.health();
+   if(mounted)setState(()=>coreOnline=online);
+  } catch (_) {
+   if(mounted)setState(()=>coreOnline=false);
+  }
+ }
 
  Future<void> _loadConversation() async {
   try {
@@ -244,83 +365,402 @@ class _AssistantPageState extends State<AssistantPage>{
   }
  }
 
- @override Widget build(BuildContext context)=>Column(children:[
-  Padding(padding:const EdgeInsets.fromLTRB(20,18,20,16),child:Row(children:[
-   const _RuneMark(size:28),const SizedBox(width:10),
-   const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    Text('Assistant',style:TextStyle(fontSize:18,fontWeight:FontWeight.w700)),
-    Text('CORE CONVERSATION',style:TextStyle(fontSize:8,color:RuneColors.muted,letterSpacing:1.3))
-   ]),
-   const Spacer(),_OnlineChip(online:true),
-   if(messages.isNotEmpty)IconButton(
-    tooltip:'Clear saved conversation',
-    onPressed:sending?null:_clearConversation,
-    icon:const Icon(Icons.delete_outline,color:RuneColors.muted,size:19),
-   )
-  ])),
-  Expanded(child:messages.isEmpty?Center(child:Padding(padding:const EdgeInsets.all(30),child:Column(
-   mainAxisAlignment:MainAxisAlignment.center,children:[
-    const _RuneOrb(size:150),const SizedBox(height:23),
-    const Text('What are we working on?',style:TextStyle(fontSize:20,fontWeight:FontWeight.w700)),
-    const SizedBox(height:8),
-    const Text('Send a message or use push-to-talk with the connected R.U.N.E. runtime.\nConversation history is encrypted and saved on this device.',
-     textAlign:TextAlign.center,style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),
-    const SizedBox(height:20),
-    Wrap(spacing:8,runSpacing:8,alignment:WrapAlignment.center,
-     children:['Help me plan today','Summarize my current state','What can you do?'].map((s)=>
-      ActionChip(label:Text(s,style:const TextStyle(fontSize:10)),onPressed:(){controller.text=s;send();})).toList())
-   ]))):ListView.builder(controller:scroll,padding:const EdgeInsets.all(18),
-    itemCount:messages.length+(sending?1:0),itemBuilder:(context,i){
-     if(i>=messages.length)return const _Typing();
-     final m=messages[i];
-     return Align(alignment:m.user?Alignment.centerRight:Alignment.centerLeft,
-      child:Container(constraints:const BoxConstraints(maxWidth:310),
-       margin:const EdgeInsets.only(bottom:13),padding:const EdgeInsets.all(14),
-       decoration:BoxDecoration(color:m.user?RuneColors.pine:RuneColors.carbon,
-        borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.06))),
-       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text(m.user?'YOU':'R.U.N.E.',style:const TextStyle(fontSize:8,color:RuneColors.brightEmerald,letterSpacing:1.4,fontWeight:FontWeight.w700)),
-        const SizedBox(height:7),Text(m.text,style:const TextStyle(fontSize:12,height:1.55))
-       ])));
-    })),
-  SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(14,10,14,12),child:Row(children:[
-   Expanded(child:TextField(controller:controller,minLines:1,maxLines:5,onSubmitted:(_)=>send(),
-    decoration:const InputDecoration(hintText:'Message R.U.N.E.',prefixIcon:Icon(Icons.edit_outlined,size:18)))),
-   const SizedBox(width:5),
-   IconButton(onPressed:voiceBusy?null:toggleVoice,
-    tooltip:recording?'Stop recording':'Push to talk',
-    style:IconButton.styleFrom(
-     backgroundColor:recording?Colors.redAccent.withOpacity(.15):RuneColors.carbon,
-     foregroundColor:recording?Colors.redAccent:RuneColors.brightEmerald),
-    icon:Icon(recording?Icons.stop_circle_outlined:Icons.mic_none_rounded)),
-   const SizedBox(width:4),
-   IconButton.filled(onPressed:sending?null:()=>send(),
-    style:IconButton.styleFrom(backgroundColor:RuneColors.brightEmerald,foregroundColor:RuneColors.obsidian),
-    icon:const Icon(Icons.arrow_upward_rounded))
-  ])))
- ]);
+ @override
+ Widget build(BuildContext context) => Column(
+  children: [
+   Padding(
+    padding: const EdgeInsets.fromLTRB(20, 17, 18, 13),
+    child: Row(
+     children: [
+      const _RuneMark(size: 30),
+      const SizedBox(width: 11),
+      const Expanded(child: Column(
+       crossAxisAlignment: CrossAxisAlignment.start,
+       children: [
+        Text('R.U.N.E.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 2.1)),
+        SizedBox(height: 3),
+        Text('PERSONAL AI EXECUTIVE', style: TextStyle(fontSize: 8, color: RuneColors.muted, letterSpacing: 1.45)),
+       ],
+      )),
+      Container(
+       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+       decoration: BoxDecoration(
+        color: RuneColors.carbon.withOpacity(.82),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: (coreOnline ? RuneColors.emerald : RuneColors.aurum).withOpacity(.28)),
+       ),
+       child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 6, height: 6, decoration: BoxDecoration(
+         color: coreOnline ? RuneColors.brightEmerald : RuneColors.aurum,
+         shape: BoxShape.circle,
+         boxShadow: [BoxShadow(color: (coreOnline ? RuneColors.brightEmerald : RuneColors.aurum).withOpacity(.45), blurRadius: 7)],
+        )),
+        const SizedBox(width: 7),
+        Text(coreOnline ? 'CONNECTED' : 'OFFLINE', style: const TextStyle(fontSize: 8, letterSpacing: .9, color: RuneColors.muted, fontWeight: FontWeight.w700)),
+       ]),
+      ),
+      if (messages.isNotEmpty)
+       IconButton(
+        tooltip: 'Clear saved conversation',
+        onPressed: sending ? null : _clearConversation,
+        icon: const Icon(Icons.more_horiz_rounded, color: RuneColors.muted),
+       ),
+     ],
+    ),
+   ),
+   Expanded(
+    child: messages.isEmpty
+     ? LayoutBuilder(builder: (context, constraints) => SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: ConstrainedBox(
+         constraints: BoxConstraints(minHeight: constraints.maxHeight),
+         child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
+          child: Column(
+           mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+            const SizedBox(height: 5),
+            RuneIntelligenceOrb(size: math.min(250.0, constraints.maxWidth * .72).toDouble(), intensity: coreOnline ? 1.25 : .72),
+            const SizedBox(height: 8),
+            Text(coreOnline ? 'YOUR INTELLIGENCE IS READY' : 'YOUR INTELLIGENCE CORE',
+             style: const TextStyle(fontSize: 8, color: RuneColors.mint, letterSpacing: 2.0, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 14),
+            const Text('What’s on your mind?',
+             textAlign: TextAlign.center,
+             style: TextStyle(fontSize: 25, height: 1.15, fontWeight: FontWeight.w700, letterSpacing: -.8)),
+            const SizedBox(height: 9),
+            Text(
+             coreOnline
+              ? 'Think out loud. Make a plan. Put R.U.N.E. to work.'
+              : 'Your assistant interface is ready. Connect the R.U.N.E. core to start a live conversation.',
+             textAlign: TextAlign.center,
+             style: const TextStyle(color: RuneColors.muted, fontSize: 11, height: 1.6),
+            ),
+            const SizedBox(height: 24),
+            Align(alignment: Alignment.centerLeft, child: Text('START WITH', style: const TextStyle(fontSize: 8, color: RuneColors.muted, letterSpacing: 1.6, fontWeight: FontWeight.w700))),
+            const SizedBox(height: 10),
+            Wrap(
+             spacing: 8,
+             runSpacing: 8,
+             alignment: WrapAlignment.center,
+             children: [
+              _PromptChip('Plan my day', Icons.calendar_today_outlined, () { controller.text = 'Help me plan my day.'; send(); }),
+              _PromptChip('Think through an idea', Icons.lightbulb_outline_rounded, () { controller.text = 'Help me think through an idea.'; send(); }),
+              _PromptChip('Review my work', Icons.layers_outlined, () { controller.text = 'Help me review my current work.'; send(); }),
+             ],
+            ),
+           ],
+          ),
+         ),
+        ),
+       ))
+     : ListView.builder(
+        controller: scroll,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+        itemCount: messages.length + (sending ? 1 : 0),
+        itemBuilder: (context, i) {
+         if (i >= messages.length) return const _Typing();
+         final message = messages[i];
+         return Align(
+          alignment: message.user ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+           constraints: const BoxConstraints(maxWidth: 320),
+           margin: const EdgeInsets.only(bottom: 13),
+           padding: const EdgeInsets.fromLTRB(15, 12, 15, 13),
+           decoration: BoxDecoration(
+            color: message.user ? RuneColors.pine.withOpacity(.82) : RuneColors.carbon.withOpacity(.94),
+            borderRadius: BorderRadius.only(
+             topLeft: const Radius.circular(18),
+             topRight: const Radius.circular(18),
+             bottomLeft: Radius.circular(message.user ? 18 : 5),
+             bottomRight: Radius.circular(message.user ? 5 : 18),
+            ),
+            border: Border.all(color: message.user ? RuneColors.emerald.withOpacity(.22) : Colors.white.withOpacity(.065)),
+           ),
+           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(message.user ? 'YOU' : 'R.U.N.E.',
+             style: const TextStyle(fontSize: 8, color: RuneColors.mint, letterSpacing: 1.4, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 7),
+            Text(message.text, style: const TextStyle(fontSize: 12, height: 1.6)),
+           ]),
+          ),
+         );
+        },
+       ),
+   ),
+   SafeArea(
+    top: false,
+    child: Padding(
+     padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+     child: Container(
+      padding: const EdgeInsets.fromLTRB(7, 5, 7, 5),
+      decoration: BoxDecoration(
+       color: const Color(0xE6101813),
+       borderRadius: BorderRadius.circular(27),
+       border: Border.all(color: RuneColors.mint.withOpacity(.24)),
+       boxShadow: [BoxShadow(color: RuneColors.emerald.withOpacity(.07), blurRadius: 24, spreadRadius: 1)],
+      ),
+      child: Row(children: [
+       IconButton(
+        onPressed: null,
+        tooltip: 'Attachments coming with the connected core',
+        icon: const Icon(Icons.add_rounded, color: RuneColors.muted, size: 20),
+       ),
+       Expanded(child: TextField(
+        controller: controller,
+        minLines: 1,
+        maxLines: 5,
+        onSubmitted: (_) => send(),
+        textInputAction: TextInputAction.send,
+        decoration: const InputDecoration(
+         filled: false,
+         border: InputBorder.none,
+         enabledBorder: InputBorder.none,
+         focusedBorder: InputBorder.none,
+         contentPadding: EdgeInsets.symmetric(vertical: 11),
+         hintText: 'Message R.U.N.E...',
+        ),
+       )),
+       IconButton(
+        onPressed: voiceBusy ? null : toggleVoice,
+        tooltip: recording ? 'Stop recording' : 'Push to talk',
+        style: IconButton.styleFrom(
+         backgroundColor: recording ? Colors.redAccent.withOpacity(.16) : RuneColors.pine,
+         foregroundColor: recording ? Colors.redAccent : RuneColors.mint,
+        ),
+        icon: Icon(recording ? Icons.stop_rounded : Icons.mic_none_rounded, size: 19),
+       ),
+       const SizedBox(width: 3),
+       IconButton.filled(
+        onPressed: sending ? null : () => send(),
+        style: IconButton.styleFrom(
+         backgroundColor: RuneColors.brightEmerald,
+         foregroundColor: RuneColors.obsidian,
+        ),
+        icon: const Icon(Icons.arrow_upward_rounded, size: 19),
+       ),
+      ]),
+     ),
+    ),
+   ),
+  ],
+ );
 }
 
-class WorkPage extends StatefulWidget{const WorkPage({super.key,required this.api});final RuneApi api;@override State<WorkPage> createState()=>_WorkPageState();}
-class _WorkPageState extends State<WorkPage>{
- final goal=TextEditingController();final steps=TextEditingController();Map<String,dynamic>? state;List<dynamic> events=[];bool busy=false;String? note;
- @override void initState(){super.initState();load();}
- @override void dispose(){goal.dispose();steps.dispose();super.dispose();}
- Future<void> load()async{try{final s=await widget.api.state();final e=await widget.api.activity();if(mounted)setState(() { state=s; events=e; });}catch(e){if(mounted)setState(()=>note=e.toString());}}
- Future<void> create()async{if(goal.text.trim().isEmpty)return;setState(()=>busy=true);try{await widget.api.setGoal(goal.text.trim());final list=steps.text.split('\n').map((e)=>e.trim()).where((e)=>e.isNotEmpty).toList();if(list.isNotEmpty)await widget.api.createPlan(goal.text.trim(),list);goal.clear();steps.clear();setState(()=>note='Goal submitted to the core.');await load();}catch(e){setState(()=>note=e.toString());}if(mounted)setState(()=>busy=false);}
- @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Work',eyebrow:'PLANS · TASKS · EXECUTION'),const SizedBox(height:20),_Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Set an objective',style:TextStyle(fontSize:15,fontWeight:FontWeight.w700)),const SizedBox(height:6),const Text('Create a goal in the R.U.N.E. core. Add optional plan steps, one per line.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.5)),const SizedBox(height:14),TextField(controller:goal,decoration:const InputDecoration(hintText:'What outcome do you want?')),const SizedBox(height:9),TextField(controller:steps,minLines:2,maxLines:5,decoration:const InputDecoration(hintText:'Plan steps (optional, one per line)')),const SizedBox(height:12),Align(alignment:Alignment.centerRight,child:FilledButton(onPressed:busy?null:create,child:Text(busy?'SENDING...':'CREATE PLAN')))])),
- if(note!=null)...[const SizedBox(height:10),_Notice(text:note!)],
- const SizedBox(height:24),const _SectionTitle('ACTIVE GOAL'),const SizedBox(height:10),_Panel(child:Text(state?['current_goal']?.toString()??'No active goal has been set.',style:const TextStyle(fontSize:13,height:1.5))),
- const SizedBox(height:24),const _SectionTitle('RECENT ACTIVITY'),const SizedBox(height:10),if(events.isEmpty)_Panel(child:const Text('No activity events returned by the core.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...events.take(12).map((e)=>_ActivityTile(event:e as Map<String,dynamic>))
- ]);
+class _PromptChip extends StatelessWidget {
+ const _PromptChip(this.label, this.icon, this.onTap);
+ final String label;
+ final IconData icon;
+ final VoidCallback onTap;
+ @override
+ Widget build(BuildContext context) => ActionChip(
+  onPressed: onTap,
+  avatar: Icon(icon, size: 14, color: RuneColors.mint),
+  label: Text(label, style: const TextStyle(fontSize: 10)),
+  backgroundColor: RuneColors.carbon.withOpacity(.8),
+  side: BorderSide(color: RuneColors.emerald.withOpacity(.22)),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+ );
 }
 
-class ExplorePage extends StatefulWidget{const ExplorePage({super.key,required this.api});final RuneApi api;@override State<ExplorePage> createState()=>_ExplorePageState();}
-class _ExplorePageState extends State<ExplorePage>{
- List<dynamic> tools=[];bool loading=true;String? error;
- @override void initState(){super.initState();load();}
- Future<void> load()async{try{final t=await widget.api.tools();if(mounted)setState(() { tools=t; loading=false; error=null; });}catch(e){if(mounted)setState(() { loading=false; error=e.toString(); });}}
- @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(20,20,20,30),children:[const _PageHeader(title:'Explore',eyebrow:'CAPABILITIES · INTEGRATIONS'),const SizedBox(height:9),const Text('Discover what your connected runtime exposes. External integrations appear only when they are actually configured.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),const SizedBox(height:22),const _SectionTitle('CORE CAPABILITIES'),const SizedBox(height:10),if(loading)const Center(child:CircularProgressIndicator())else if(error!=null)_Notice(text:error!,warning:true)else if(tools.isEmpty)_Panel(child:const Text('The core has not exposed any tools yet.',style:TextStyle(color:RuneColors.muted,fontSize:11)))else ...tools.map((item){final t=item as Map<String,dynamic>;return _ToolTile(tool:t);}),const SizedBox(height:24),const _SectionTitle('INTEGRATION CHANNELS'),const SizedBox(height:10),const _Panel(child:Column(children:[_IntegrationRow('Google Workspace','Not connected',Icons.mail_outline),_IntegrationRow('WhatsApp','Not connected',Icons.chat_bubble_outline),_IntegrationRow('Discord','Not connected',Icons.forum_outlined),_IntegrationRow('GitHub','Not connected',Icons.code),_IntegrationRow('Notion','Not connected',Icons.article_outlined)])),const SizedBox(height:8),const Text('Connectors are shown as unavailable until credentials and permission scopes are configured in the core.',style:TextStyle(color:RuneColors.muted,fontSize:10,height:1.5))]);
+class WorkPage extends StatefulWidget {
+ const WorkPage({super.key, required this.api});
+ final RuneApi api;
+ @override State<WorkPage> createState() => _WorkPageState();
+}
+
+class _WorkPageState extends State<WorkPage> {
+ final goal = TextEditingController();
+ final steps = TextEditingController();
+ Map<String, dynamic>? state;
+ List<dynamic> events = [];
+ bool busy = false, loading = true;
+ String? note;
+ @override void initState() { super.initState(); load(); }
+ @override void dispose() { goal.dispose(); steps.dispose(); super.dispose(); }
+ Future<void> load() async {
+  try {
+   final s = await widget.api.state();
+   final e = await widget.api.activity();
+   if (mounted) setState(() { state = s; events = e; loading = false; note = null; });
+  } catch (e) {
+   if (mounted) setState(() { loading = false; note = e.toString(); });
+  }
+ }
+ Future<void> create() async {
+  if (goal.text.trim().isEmpty || busy) return;
+  setState(() => busy = true);
+  try {
+   await widget.api.setGoal(goal.text.trim());
+   final list = steps.text.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+   if (list.isNotEmpty) await widget.api.createPlan(goal.text.trim(), list);
+   goal.clear(); steps.clear();
+   if (mounted) setState(() => note = 'Objective submitted to the core.');
+   await load();
+  } catch (e) {
+   if (mounted) setState(() => note = e.toString());
+  }
+  if (mounted) setState(() => busy = false);
+ }
+ @override Widget build(BuildContext context) {
+  final activeGoal = state?['current_goal']?.toString() ?? 'No active objective yet';
+  return ListView(
+   physics: const BouncingScrollPhysics(),
+   padding: const EdgeInsets.fromLTRB(20, 20, 20, 34),
+   children: [
+    const _PageHeader(title: 'Work', eyebrow: 'THINK · PLAN · EXECUTE'),
+    const SizedBox(height: 7),
+    const Text('Turn intent into a sequence of deliberate actions.', style: TextStyle(color: RuneColors.muted, fontSize: 11, height: 1.55)),
+    const SizedBox(height: 20),
+    Container(
+     padding: const EdgeInsets.all(18),
+     decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(23),
+      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF153B29), Color(0xFF101813)]),
+      border: Border.all(color: RuneColors.emerald.withOpacity(.22)),
+     ),
+     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+       const Icon(Icons.flag_outlined, color: RuneColors.mint, size: 17),
+       const SizedBox(width: 8),
+       const Text('ACTIVE OBJECTIVE', style: TextStyle(fontSize: 8, color: RuneColors.mint, letterSpacing: 1.5, fontWeight: FontWeight.w700)),
+       const Spacer(),
+       Icon(loading ? Icons.sync_rounded : Icons.circle, size: 8, color: loading ? RuneColors.muted : RuneColors.brightEmerald),
+      ]),
+      const SizedBox(height: 13),
+      Text(activeGoal, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, height: 1.35)),
+      const SizedBox(height: 8),
+      const Text('The outcome currently held by your R.U.N.E. core.', style: TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.5)),
+     ]),
+    ),
+    const SizedBox(height: 24),
+    const _SectionTitle('CREATE AN OBJECTIVE'),
+    const SizedBox(height: 10),
+    _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+     const Text('What needs to happen?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+     const SizedBox(height: 6),
+     const Text('Define the outcome first. Add steps only when you already know the sequence.', style: TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.5)),
+     const SizedBox(height: 14),
+     TextField(controller: goal, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(prefixIcon: Icon(Icons.flag_outlined), hintText: 'Describe the result you want')),
+     const SizedBox(height: 10),
+     TextField(controller: steps, minLines: 2, maxLines: 5, decoration: const InputDecoration(prefixIcon: Icon(Icons.format_list_numbered_rounded), hintText: 'Optional steps, one per line')),
+     const SizedBox(height: 14),
+     SizedBox(width: double.infinity, child: FilledButton.icon(
+      onPressed: busy ? null : create,
+      icon: busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: RuneColors.obsidian)) : const Icon(Icons.add_rounded),
+      label: Text(busy ? 'SENDING TO CORE…' : 'CREATE OBJECTIVE'),
+     )),
+    ])),
+    if (note != null) ...[const SizedBox(height: 8), _Notice(text: note!, warning: note!.contains('Exception') || note!.contains('Socket'))],
+    const SizedBox(height: 24),
+    Row(children: [
+     const _SectionTitle('RECENT ACTIVITY'),
+     const Spacer(),
+     TextButton.icon(onPressed: load, icon: const Icon(Icons.refresh_rounded, size: 13), label: const Text('REFRESH', style: TextStyle(fontSize: 9))),
+    ]),
+    const SizedBox(height: 7),
+    if (loading)
+     const _Panel(child: Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))))
+    else if (events.isEmpty)
+     _Panel(child: Column(children: [
+      const Icon(Icons.hourglass_empty_rounded, size: 24, color: RuneColors.muted),
+      const SizedBox(height: 9),
+      const Text('No activity to show yet', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      const Text('When the core records work, it will appear here.', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: RuneColors.muted)),
+     ]))
+    else ...events.take(15).map((e) => _ActivityTile(event: e as Map<String, dynamic>)),
+   ],
+  );
+ }
+}
+
+class ExplorePage extends StatefulWidget {
+ const ExplorePage({super.key, required this.api});
+ final RuneApi api;
+ @override State<ExplorePage> createState() => _ExplorePageState();
+}
+
+class _ExplorePageState extends State<ExplorePage> {
+ List<dynamic> tools = [];
+ bool loading = true;
+ String? error;
+ @override void initState() { super.initState(); load(); }
+ Future<void> load() async {
+  try {
+   final t = await widget.api.tools();
+   if (mounted) setState(() { tools = t; loading = false; error = null; });
+  } catch (e) {
+   if (mounted) setState(() { loading = false; error = e.toString(); });
+  }
+ }
+ @override Widget build(BuildContext context) => RefreshIndicator(
+  onRefresh: load,
+  color: RuneColors.brightEmerald,
+  backgroundColor: RuneColors.carbon,
+  child: ListView(
+   physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+   padding: const EdgeInsets.fromLTRB(20, 20, 20, 34),
+   children: [
+    const _PageHeader(title: 'Explore', eyebrow: 'CAPABILITIES · CONNECTIONS'),
+    const SizedBox(height: 7),
+    const Text('A live view of what your connected R.U.N.E. runtime makes available.', style: TextStyle(color: RuneColors.muted, fontSize: 11, height: 1.55)),
+    const SizedBox(height: 20),
+    Container(
+     padding: const EdgeInsets.all(17),
+     decoration: BoxDecoration(
+      color: RuneColors.carbon,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: RuneColors.border),
+     ),
+     child: Row(children: [
+      Container(width: 42, height: 42, decoration: BoxDecoration(color: RuneColors.pine, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.hub_rounded, color: RuneColors.mint)),
+      const SizedBox(width: 13),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+       const Text('Your capability network', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+       const SizedBox(height: 3),
+       Text(loading ? 'Reading the core…' : error != null ? 'Core unavailable' : '\${tools.length} capabilities reported by the core', style: const TextStyle(fontSize: 9, color: RuneColors.muted)),
+      ])),
+      IconButton(onPressed: loading ? null : load, icon: const Icon(Icons.refresh_rounded, color: RuneColors.mint)),
+     ]),
+    ),
+    const SizedBox(height: 23),
+    const _SectionTitle('AVAILABLE CAPABILITIES'),
+    const SizedBox(height: 10),
+    if (loading)
+     const Center(child: Padding(padding: EdgeInsets.all(25), child: CircularProgressIndicator(strokeWidth: 2)))
+    else if (error != null)
+     _Notice(text: error!, warning: true)
+    else if (tools.isEmpty)
+     _Panel(child: Column(children: [
+      const Icon(Icons.extension_off_outlined, size: 24, color: RuneColors.muted),
+      const SizedBox(height: 9),
+      const Text('No capabilities exposed yet', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      const Text('The core has not reported any tools. Connected capabilities will appear here when available.', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: RuneColors.muted, height: 1.5)),
+     ]))
+    else ...tools.map((item) => _ToolTile(tool: item as Map<String, dynamic>)),
+    const SizedBox(height: 23),
+    const _SectionTitle('INTEGRATION CHANNELS'),
+    const SizedBox(height: 10),
+    _Panel(child: Column(children: [
+     const _IntegrationRow('Google Workspace', 'Not connected', Icons.mail_outline),
+     const Divider(height: 1, color: RuneColors.border),
+     const _IntegrationRow('WhatsApp', 'Not connected', Icons.chat_bubble_outline),
+     const Divider(height: 1, color: RuneColors.border),
+     const _IntegrationRow('Discord', 'Not connected', Icons.forum_outlined),
+     const Divider(height: 1, color: RuneColors.border),
+     const _IntegrationRow('GitHub', 'Not connected', Icons.code_rounded),
+     const Divider(height: 1, color: RuneColors.border),
+     const _IntegrationRow('Notion', 'Not connected', Icons.article_outlined),
+    ])),
+    const SizedBox(height: 9),
+    const Text('Unavailable integrations are shown honestly. They will become active only after credentials and permission scopes are configured in the core.', style: TextStyle(color: RuneColors.muted, fontSize: 9, height: 1.55)),
+   ],
+  ),
+ );
 }
 
 class MemoryPage extends StatefulWidget {
@@ -524,7 +964,11 @@ class _SecurityPageState extends State<SecurityPage> {
  }
  @override Widget build(BuildContext context)=>Scaffold(
   appBar:AppBar(title:const Text('Device & security')),
-  body:ListView(padding:const EdgeInsets.all(18),children:[
+  body:ListView(padding:const EdgeInsets.fromLTRB(18,8,18,30),children:[
+   const _PageHeader(title:'Device & security',eyebrow:'TRUST · PERMISSIONS · CONTROL'),
+   const SizedBox(height:8),
+   const Text('Manage this phone’s access to your R.U.N.E. environment.',style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.5)),
+   const SizedBox(height:16),
    const _Notice(text:'RUNE uses Android Accessibility only after you explicitly enable it. It can inspect and interact with visible interfaces, not bypass app authentication or Android security.'),
    const SizedBox(height:16),
    const _SectionTitle('ANDROID DEVICE AGENT'),
@@ -615,7 +1059,9 @@ class _SettingsPageState extends State<SettingsPage>{
  @override void dispose(){url.dispose();token.dispose();super.dispose();}
  @override Widget build(BuildContext context)=>Scaffold(
   appBar:AppBar(title:const Text('Settings')),
-  body:ListView(padding:const EdgeInsets.all(18),children:[
+  body:ListView(padding:const EdgeInsets.fromLTRB(18,8,18,30),children:[
+   const _PageHeader(title:'Settings',eyebrow:'PREFERENCES · CONNECTION'),
+   const SizedBox(height:18),
    const _SectionTitle('CONNECTION'),const SizedBox(height:10),
    _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     const Text('Core API address',style:TextStyle(fontWeight:FontWeight.w700)),
@@ -662,7 +1108,7 @@ class _SettingsPageState extends State<SettingsPage>{
    const _Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     _InfoRow('App','R.U.N.E. Mobile',RuneColors.muted),
     _InfoRow('Platform','Flutter',RuneColors.muted),
-    _InfoRow('Typography','Manrope + system mono',RuneColors.muted),
+    _InfoRow('Typography','Sora + Inter',RuneColors.muted),
     _InfoRow('Session token','Encrypted local storage',RuneColors.muted)
    ]))
   ])
@@ -671,103 +1117,130 @@ class _SettingsPageState extends State<SettingsPage>{
 
 class _PageHeader extends StatelessWidget{const _PageHeader({required this.title,required this.eyebrow});final String title,eyebrow;@override Widget build(BuildContext context)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow,style:const TextStyle(color:RuneColors.muted,fontSize:9,letterSpacing:1.5)),const SizedBox(height:6),Text(title,style:const TextStyle(fontSize:27,fontWeight:FontWeight.w700,letterSpacing:-.7))]);}
 class _SectionTitle extends StatelessWidget{const _SectionTitle(this.text);final String text;@override Widget build(BuildContext context)=>Text(text,style:const TextStyle(fontSize:9,fontWeight:FontWeight.w800,letterSpacing:1.5,color:RuneColors.muted));}
-class _Panel extends StatelessWidget{const _Panel({required this.child});final Widget child;@override Widget build(BuildContext context)=>Container(width:double.infinity,margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white.withOpacity(.06))),child:child);}
+class _Panel extends StatelessWidget {
+ const _Panel({required this.child});
+ final Widget child;
+ @override
+ Widget build(BuildContext context) => Container(
+  width: double.infinity,
+  margin: const EdgeInsets.only(bottom: 10),
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+   gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF151F19), RuneColors.carbon]),
+   borderRadius: BorderRadius.circular(19),
+   border: Border.all(color: RuneColors.border),
+   boxShadow: [BoxShadow(color: Colors.black.withOpacity(.12), blurRadius: 16, offset: const Offset(0, 6))],
+  ),
+  child: child,
+ );
+}
+class _MetricCard extends StatelessWidget {
+ const _MetricCard({required this.icon, required this.label, required this.value, required this.caption});
+ final IconData icon;
+ final String label, value, caption;
+ @override
+ Widget build(BuildContext context) => Container(
+  padding: const EdgeInsets.all(15),
+  decoration: BoxDecoration(
+   color: RuneColors.carbon,
+   borderRadius: BorderRadius.circular(18),
+   border: Border.all(color: RuneColors.border),
+  ),
+  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+   Icon(icon, size: 18, color: RuneColors.mint),
+   const SizedBox(height: 13),
+   Text(label, style: const TextStyle(fontSize: 8, color: RuneColors.muted, letterSpacing: 1.3, fontWeight: FontWeight.w700)),
+   const SizedBox(height: 5),
+   Text(value, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -.5)),
+   const SizedBox(height: 3),
+   Text(caption, style: const TextStyle(fontSize: 9, color: RuneColors.muted)),
+  ]),
+ );
+}
+
 class _InfoRow extends StatelessWidget{const _InfoRow(this.label,this.value,this.color);final String label,value;final Color color;@override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Row(children:[Expanded(child:Text(label,style:const TextStyle(color:RuneColors.muted,fontSize:11))),Flexible(child:Text(value,textAlign:TextAlign.right,style:TextStyle(color:color,fontSize:10,fontWeight:FontWeight.w600)))]));}
 class _Notice extends StatelessWidget{const _Notice({required this.text,this.warning=false});final String text;final bool warning;@override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(13),decoration:BoxDecoration(color:warning?const Color(0xFF302417):RuneColors.pine.withOpacity(.35),borderRadius:BorderRadius.circular(12),border:Border.all(color:warning?RuneColors.aurum.withOpacity(.2):RuneColors.emerald.withOpacity(.2))),child:Text(text,style:TextStyle(color:warning?const Color(0xFFE6C995):RuneColors.mint,fontSize:10,height:1.5)));}
 class _OnlineChip extends StatelessWidget{const _OnlineChip({required this.online});final bool online;@override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:7),decoration:BoxDecoration(color:RuneColors.pine.withOpacity(.5),borderRadius:BorderRadius.circular(30),border:Border.all(color:RuneColors.emerald.withOpacity(.2))),child:Row(children:[Icon(Icons.circle,size:6,color:online?RuneColors.brightEmerald:RuneColors.aurum),const SizedBox(width:6),Text(online?'CORE ONLINE':'CORE OFFLINE',style:const TextStyle(fontSize:8,letterSpacing:.8,color:RuneColors.muted))]));}
 class _IconButton extends StatelessWidget{const _IconButton({required this.icon,required this.onTap});final IconData icon;final VoidCallback onTap;@override Widget build(BuildContext context)=>IconButton(onPressed:onTap,icon:Icon(icon,color:RuneColors.muted,size:20));}
-class _QuickTile extends StatelessWidget{const _QuickTile({required this.icon,required this.title,required this.onTap});final IconData icon;final String title;final VoidCallback onTap;@override Widget build(BuildContext context)=>Expanded(child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(13),child:Container(padding:const EdgeInsets.symmetric(vertical:14),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(13),border:Border.all(color:Colors.white.withOpacity(.06))),child:Column(children:[Icon(icon,color:RuneColors.brightEmerald,size:18),const SizedBox(height:8),Text(title,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w700))]))));}
+class _QuickTile extends StatelessWidget {
+ const _QuickTile({required this.icon, required this.title, required this.onTap});
+ final IconData icon;
+ final String title;
+ final VoidCallback onTap;
+ @override
+ Widget build(BuildContext context) => Expanded(
+  child: Material(
+   color: Colors.transparent,
+   child: InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+     padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 3),
+     decoration: BoxDecoration(
+      color: RuneColors.carbon,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: RuneColors.border),
+     ),
+     child: Column(children: [
+      Icon(icon, color: RuneColors.mint, size: 19),
+      const SizedBox(height: 9),
+      Text(title, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700)),
+     ]),
+    ),
+   ),
+  ),
+ );
+}
 class _LinkCard extends StatelessWidget{const _LinkCard({required this.icon,required this.title,required this.subtitle,required this.onTap});final IconData icon;final String title,subtitle;final VoidCallback onTap;@override Widget build(BuildContext context)=>Expanded(child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(14),child:Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:RuneColors.carbon,borderRadius:BorderRadius.circular(14),border:Border.all(color:Colors.white.withOpacity(.06))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,color:RuneColors.brightEmerald),const SizedBox(height:13),Text(title,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),const SizedBox(height:3),Text(subtitle,style:const TextStyle(fontSize:9,color:RuneColors.muted))]))));}
 class _ActivityTile extends StatelessWidget{const _ActivityTile({required this.event});final Map<String,dynamic> event;@override Widget build(BuildContext context)=>_Panel(child:Row(children:[const Icon(Icons.bolt_outlined,color:RuneColors.brightEmerald,size:18),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(event['type']?.toString()??'Event',style:const TextStyle(fontSize:11,fontWeight:FontWeight.w700)),Text(event['timestamp']?.toString()??'',style:const TextStyle(fontSize:9,color:RuneColors.muted))]))]));}
 class _ToolTile extends StatelessWidget{const _ToolTile({required this.tool});final Map<String,dynamic> tool;@override Widget build(BuildContext context)=>_Panel(child:Row(children:[const Icon(Icons.extension_outlined,color:RuneColors.brightEmerald),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(tool['name']?.toString()??'Capability',style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),const SizedBox(height:4),Text(tool['description']?.toString()??'',style:const TextStyle(fontSize:10,color:RuneColors.muted,height:1.4))])),const SizedBox(width:8),Text(tool['risk']?.toString().toUpperCase()??'UNKNOWN',style:const TextStyle(fontSize:8,color:RuneColors.aurum,letterSpacing:.6))]));}
 class _IntegrationRow extends StatelessWidget{const _IntegrationRow(this.name,this.status,this.icon);final String name,status;final IconData icon;@override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.symmetric(vertical:10),child:Row(children:[Icon(icon,color:RuneColors.muted,size:18),const SizedBox(width:12),Expanded(child:Text(name,style:const TextStyle(fontSize:11,fontWeight:FontWeight.w600))),Text(status,style:const TextStyle(fontSize:9,color:RuneColors.muted))]));}
 class _Typing extends StatelessWidget{const _Typing();@override Widget build(BuildContext context)=>const Padding(padding:EdgeInsets.all(16),child:Align(alignment:Alignment.centerLeft,child:Text('R.U.N.E. is thinking…',style:TextStyle(color:RuneColors.muted,fontSize:11))));}
-class _RuneMark extends StatelessWidget{const _RuneMark({this.size=30});final double size;@override Widget build(BuildContext context)=>SizedBox(width:size,height:size,child:CustomPaint(painter:_GlyphPainter()));}
-class _GlyphPainter extends CustomPainter{@override void paint(Canvas c,Size s){final p=Paint()..style=PaintingStyle.stroke..strokeWidth=s.width*.07..strokeCap=StrokeCap.round..strokeJoin=StrokeJoin.round..color=RuneColors.brightEmerald;final path=Path()..moveTo(s.width*.28125,s.height*.15625)..lineTo(s.width*.28125,s.height*.84375)..moveTo(s.width*.28125,s.height*.15625)..lineTo(s.width*.5625,s.height*.15625)..cubicTo(s.width*.671875,s.height*.15625,s.width*.75,s.height*.2421875,s.width*.75,s.height*.3515625)..cubicTo(s.width*.75,s.height*.4609375,s.width*.6640625,s.height*.546875,s.width*.5625,s.height*.546875)..lineTo(s.width*.28125,s.height*.546875)..moveTo(s.width*.4921875,s.height*.546875)..lineTo(s.width*.765625,s.height*.84375)..moveTo(s.width*.71875,s.height*.15625)..lineTo(s.width*.4375,s.height*.4375)..moveTo(s.width*.71875,s.height*.15625)..lineTo(s.width*.71875,s.height*.3671875)..cubicTo(s.width*.71875,s.height*.47265625,s.width*.6328125,s.height*.55859375,s.width*.52734375,s.height*.55859375)..lineTo(s.width*.484375,s.height*.55859375);c.drawPath(path,p);}@override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;}
-class _RuneOrb extends StatefulWidget{const _RuneOrb({this.size=230});final double size;@override State<_RuneOrb> createState()=>_RuneOrbState();}
-class _RuneOrbState extends State<_RuneOrb> with SingleTickerProviderStateMixin{late final controller=AnimationController(vsync:this,duration:const Duration(seconds:24))..repeat();@override void dispose(){controller.dispose();super.dispose();}@override Widget build(BuildContext context)=>AnimatedBuilder(animation:controller,builder:(_,__)=>SizedBox(width:widget.size,height:widget.size,child:CustomPaint(painter:_OrbPainter(controller.value))));}
-class _OrbPainter extends CustomPainter {
-  _OrbPainter(this.t);
-  final double t;
+class _RuneMark extends StatelessWidget {
+ const _RuneMark({this.size=30});
+ final double size;
+ @override
+ Widget build(BuildContext context) => SizedBox(
+  width:size,
+  height:size,
+  child:CustomPaint(painter:_GlyphPainter()),
+ );
+}
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width * .34;
-    canvas.drawCircle(
-      center,
-      radius * 1.34,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            RuneColors.emerald.withOpacity(.15),
-            RuneColors.pine.withOpacity(.08),
-            Colors.transparent,
-          ],
-        ).createShader(Rect.fromCircle(center: center, radius: radius * 1.34)),
-    );
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..shader = const RadialGradient(
-          colors: [Color(0xFF173A29), Color(0xFF07100B), Color(0xFF020604)],
-        ).createShader(Rect.fromCircle(center: center, radius: radius)),
-    );
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = RuneColors.mint.withOpacity(.55),
-    );
-
-    for (var i = 0; i < 3; i++) {
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(t * math.pi * 2 * (i.isEven ? 1 : -.65) + i);
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset.zero,
-          width: radius * 2.12 - i * 5,
-          height: radius * .46 + i * 7,
-        ),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = .8
-          ..color = (i == 1 ? RuneColors.aurum : RuneColors.brightEmerald).withOpacity(.45),
-      );
-      canvas.restore();
-    }
-
-    final glyphPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * .018
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = RuneColors.brightEmerald;
-    final glyph = Path()
-      ..moveTo(center.dx - radius * .46, center.dy - radius * .5)
-      ..lineTo(center.dx + radius * .08, center.dy - radius * .5)
-      ..cubicTo(
-        center.dx + radius * .62, center.dy - radius * .5,
-        center.dx + radius * .62, center.dy + radius * .04,
-        center.dx + radius * .08, center.dy + radius * .1,
-      )
-      ..lineTo(center.dx - radius * .2, center.dy + radius * .1)
-      ..lineTo(center.dx + radius * .48, center.dy + radius * .62)
-      ..moveTo(center.dx - radius * .2, center.dy + radius * .1)
-      ..lineTo(center.dx - radius * .2, center.dy + radius * .65);
-    canvas.drawPath(glyph, glyphPaint);
-
-    final spark = Offset(
-      center.dx + math.cos(t * math.pi * 2) * radius,
-      center.dy + math.sin(t * math.pi * 2) * radius,
-    );
-    canvas.drawCircle(spark, 2.5, Paint()..color = RuneColors.mint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _OrbPainter old) => old.t != t;
+class _GlyphPainter extends CustomPainter {
+ @override
+ void paint(Canvas canvas,Size size) {
+  final rect=Rect.fromLTWH(size.width*.17,size.height*.17,size.width*.66,size.height*.66);
+  final radius=Radius.circular(size.width*.19);
+  final glow=Paint()
+   ..style=PaintingStyle.stroke
+   ..strokeWidth=size.width*.07
+   ..color=RuneColors.emerald.withOpacity(.22)
+   ..maskFilter=const MaskFilter.blur(BlurStyle.normal,3);
+  final outline=Paint()
+   ..style=PaintingStyle.stroke
+   ..strokeWidth=size.width*.055
+   ..shader=const LinearGradient(
+    colors:[RuneColors.mint,RuneColors.brightEmerald,RuneColors.emerald],
+    begin:Alignment.topLeft,
+    end:Alignment.bottomRight,
+   ).createShader(rect);
+  canvas.drawRRect(RRect.fromRectAndRadius(rect,radius),glow);
+  canvas.drawRRect(RRect.fromRectAndRadius(rect,radius),outline);
+  canvas.save();
+  canvas.translate(size.width/2,size.height/2);
+  canvas.rotate(-.48);
+  final orbit=Rect.fromCenter(
+   center:Offset.zero,
+   width:size.width*.98,
+   height:size.height*.30,
+  );
+  canvas.drawOval(orbit,Paint()
+   ..style=PaintingStyle.stroke
+   ..strokeWidth=size.width*.035
+   ..color=RuneColors.aurum);
+  canvas.restore();
+ }
+ @override
+ bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
 }
