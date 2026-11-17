@@ -32,6 +32,12 @@ class RuneTaskRunner {
       final task=await remote.nextTask();
       if(task==null)return;
       await _execute(task);
+    } on RuneRemoteException catch (error) {
+      if(error.statusCode==401||error.statusCode==403) {
+        stop();
+        await remote.clearDeviceCredentials();
+      }
+      // Other remote errors are retried on the next poll.
     } catch (_) {
       // A transient network error is retried on the next poll. No success
       // response is fabricated and no task is marked complete here.
