@@ -192,6 +192,10 @@ class RoutedModelProvider(ModelProvider):
             raise ValueError("prompt exceeds the 128 KB inference limit")
         failures: list[str] = []
         for provider in self.providers:
+            if not os.getenv(provider.config.api_key_env):
+                failures.append(f"{provider.config.name} API key is not configured")
+                continue
+            # Reserve input using UTF-8 bytes and output at the configured cap.
             estimated_input_tokens = max(1, len(prompt.encode("utf-8")))
             estimated_cost = (
                 estimated_input_tokens * provider.config.input_usd_per_million
