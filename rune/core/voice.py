@@ -6,6 +6,7 @@ import os
 import sqlite3
 import threading
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 
 import httpx
@@ -283,3 +284,84 @@ def configured_voice_pipeline() -> VoicePipeline:
     if os.getenv("ELEVENLABS_API_KEY") and os.getenv("RUNE_ELEVENLABS_VOICE_ID"):
         text_to_speech = ElevenLabsTextToSpeechProvider()
     return VoicePipeline(speech_to_text=speech_to_text, text_to_speech=text_to_speech)
+
+
+
+class VoiceSessionState(str, Enum):
+    STANDBY = "standby"
+    LISTENING = "listening"
+    PROCESSING = "processing"
+    SPEAKING = "speaking"
+    WAITING_CONFIRMATION = "waiting_confirmation"
+
+
+class VoiceSessionController:
+    """Deterministic voice-session state machine; background jobs are independent."""
+
+    def __init__(self, inactivity_seconds: int = 120, confirmation_seconds: int = 15) -> None:
+        if inactivity_seconds < 1 or confirmation_seconds < 1:
+            raise ValueError("voice session timeouts must be positive")
+        self.inactivity_seconds = inactivity_seconds
+        self.confirmation_seconds = confirmation_seconds
+        self.state = VoiceSessionState.STANDBY
+        self.last_activity_at: float | None = None
+        self.confirmation_deadline: float | None = None
+
+    def wake_detected(self, now: float) -> None:
+        self.state = VoiceSessionState.LISTENING
+        self.last_activity_at = now
+        self.confirmation_deadline = None
+
+    def user_activity(self, now: float) -> None:
+        if self.state == VoiceSessionState.STANDBY:
+            return
+        self.last_activity_at = now
+        self.confirmation_deadline = None
+        self.state = VoiceSessionState.LISTENING
+
+    def processing_started(self, now: float) -> None:
+        self.user_activity(now)
+        if self.state != VoiceSessionState.STANDBY:
+            self.state = VoiceSessionState.PROCESSING
+
+    def speech_started(self, now: float) -> None:
+        if self.state == VoiceSessionState.STANDBY:
+            return
+        self.last_activity_at = now
+        self.state = VoiceSessionState.SPEAKING
+
+    def speech_finished(self, now: float) -> None:
+        if self.state == VoiceSessionState.SPEAKING:
+            self.last_activity_at = now
+            self.state = VoiceSessionState.LISTENING
+
+    def interrupt(self, now: float) -> None:
+        # Stops current speech playback only. It has no access to task execution.
+        if self.state != VoiceSessionState.STANDBY:
+            self.last_activity_at = now
+            self.confirmation_deadline = None
+            self.state = VoiceSessionState.LISTENING
+
+    def tick(self, now: float) -> str | None:
+        if self.state == VoiceSessionState.LISTENING and self.last_activity_at is not None:
+            if now - self.last_activity_at >= self.inactivity_seconds:
+                self.state = VoiceSessionState.WAITING_CONFIRMATION
+                self.confirmation_deadline = now + self.confirmation_seconds
+                return "You still there, or are we good?"
+        elif self.state == VoiceSessionState.WAITING_CONFIRMATION:
+            if self.confirmation_deadline is not None and now >= self.confirmation_deadline:
+                self.close()
+        return None
+
+    def answer_confirmation(self, continue_session: bool, now: float) -> None:
+        if self.state != VoiceSessionState.WAITING_CONFIRMATION:
+            return
+        if continue_session:
+            self.user_activity(now)
+        else:
+            self.close()
+
+    def close(self) -> None:
+        self.state = VoiceSessionState.STANDBY
+        self.last_activity_at = None
+        self.confirmation_deadline = None
