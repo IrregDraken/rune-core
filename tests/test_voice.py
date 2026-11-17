@@ -27,7 +27,7 @@ def test_voice_pipeline_requires_connected_provider() -> None:
 
 
 import httpx
-from rune.core.voice import (ElevenLabsTextToSpeechProvider, OpenAISpeechToTextProvider, VoiceProviderUnavailable, VoiceInput)
+from rune.core.voice import (ElevenLabsTextToSpeechProvider, OpenAISpeechToTextProvider, VoiceProviderUnavailable, VoiceInput, VoiceUsageLedger, VoiceBudgetExceeded)
 
 
 def test_elevenlabs_tts_uses_configured_voice_and_returns_audio(monkeypatch):
@@ -121,3 +121,19 @@ def test_configured_voice_pipeline_connects_stt_separately_from_tts(monkeypatch)
     pipeline = configured_voice_pipeline()
     assert isinstance(pipeline.speech_to_text, OpenAISpeechToTextProvider)
     assert pipeline.text_to_speech is None
+
+
+
+def test_elevenlabs_monthly_character_budget_is_enforced(tmp_path, monkeypatch):
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "test-secret")
+    monkeypatch.setenv("RUNE_ELEVENLABS_VOICE_ID", "configured-voice")
+    ledger = VoiceUsageLedger(str(tmp_path / "voice.db"), monthly_limit=5)
+    provider = ElevenLabsTextToSpeechProvider(
+        usage_ledger=ledger,
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=b"audio")),
+    )
+    provider.synthesize(Speech("1234"))
+    assert ledger.spent() == 4
+    with pytest.raises(VoiceBudgetExceeded):
+        provider.synthesize(Speech("12"))
+    ledger.close()
