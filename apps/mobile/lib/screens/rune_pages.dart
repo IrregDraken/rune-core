@@ -277,24 +277,54 @@ class _SecurityPageState extends State<SecurityPage> {
   setState(()=>busy=true);
   try {
    final c=await agent.capabilities();
-   final remoteApi=RuneRemoteApi(backendUrl:backend.text.trim(),supabaseUrl:supabase.text.trim(),publishableKey:publishable.text.trim());
+   final remoteApi=RuneRemoteApi(
+    backendUrl:backend.text.trim(),
+    supabaseUrl:supabase.text.trim(),
+    publishableKey:publishable.text.trim(),
+   );
    await remoteApi.signIn(email.text.trim(),password.text);
    password.clear();
-   final caps=<String>[];
-   if(c['appDiscovery']==true)caps.add('app.list');
-   if(c['appLaunch']==true)caps.add('app.launch');
-   if(c['uiObservation']==true)caps.add('ui.observe');
-   if(c['uiInteraction']==true)caps.add('ui.interact');
-   final device=await remoteApi.registerDevice(name:'RUNE Android Device',capabilities:caps,appVersion:'0.2.0');
+
+   var credentials=await remoteApi.deviceCredentials();
+   Map<String,dynamic>? device;
+   if(credentials!=null) {
+    final known=await remoteApi.devices();
+    for(final item in known) {
+     if(item is Map && item['id']?.toString()==credentials['id']?.toString() && item['status']!='revoked') {
+      device=Map<String,dynamic>.from(item);
+      break;
+     }
+    }
+    if(device==null) {
+     await remoteApi.clearDeviceCredentials();
+     credentials=null;
+    }
+   }
+
+   if(credentials==null) {
+    final caps=<String>[];
+    if(c['appDiscovery']==true)caps.add('app.list');
+    if(c['appLaunch']==true)caps.add('app.launch');
+    if(c['uiObservation']==true)caps.add('ui.observe');
+    if(c['uiInteraction']==true)caps.add('ui.interact');
+    device=await remoteApi.registerDevice(
+     name:'RUNE Android Device',capabilities:caps,appVersion:'0.2.0');
+    credentials=await remoteApi.deviceCredentials();
+   }
+
    await agent.requestNotificationPermission();
-   final credentials=await remoteApi.deviceCredentials();
    final started=credentials==null?false:await agent.startBackgroundOperator(
-     backendUrl:backend.text.trim(),deviceId:credentials['id'].toString(),
-     deviceToken:credentials['token'].toString());
+    backendUrl:backend.text.trim(),
+    deviceId:credentials['id'].toString(),
+    deviceToken:credentials['token'].toString(),
+   );
    RuneTaskRunner? taskRunner;
-   if(!started){taskRunner=RuneTaskRunner(remote:remoteApi,device:agent)..start();}
-   if(mounted)setState(()=>{remote=remoteApi,runner=taskRunner,
-     status:'Enrolled: ${device['device_name']??'Android device'} · ${started?'background operator requested':'foreground-only operator started'}',error=null});
+   if(!started)taskRunner=RuneTaskRunner(remote:remoteApi,device:agent)..start();
+   if(mounted)setState(()=>{
+    remote=remoteApi,runner=taskRunner,
+    status:'Enrolled: ${device?['device_name']??'Android device'} · ${started?'background operator requested':'foreground-only operator started'}',
+    error:null
+   });
    await refreshPending();
   } catch(e) {
    if(mounted)setState(()=>error=e.toString());
