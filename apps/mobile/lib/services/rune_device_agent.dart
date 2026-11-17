@@ -21,6 +21,22 @@ class RuneDeviceAgent {
   Future<void> openAccessibilitySettings() =>
       _channel.invokeMethod<void>('openAccessibilitySettings');
 
+
+  Future<bool> requestNotificationPermission() async =>
+      await _channel.invokeMethod<bool>('requestNotificationPermission') ?? false;
+
+  Future<bool> startBackgroundOperator({
+    required String backendUrl,
+    required String deviceId,
+    required String deviceToken,
+  }) async => await _channel.invokeMethod<bool>('startBackgroundOperator',{
+    'backendUrl':backendUrl,'deviceId':deviceId,'deviceToken':deviceToken,
+  }) ?? false;
+
+  Future<void> stopBackgroundOperator() async {
+    await _channel.invokeMethod<void>('stopBackgroundOperator');
+  }
+
   Future<Map<String, dynamic>> observeUi() async {
     final value = await _channel.invokeMapMethod<String, dynamic>('observeUi');
     return value ?? <String, dynamic>{'available': false};
