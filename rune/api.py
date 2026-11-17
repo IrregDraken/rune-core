@@ -172,6 +172,9 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                 return
 
             length = int(self.headers.get("Content-Length", "0"))
+            if length < 0 or length > 1_048_576:
+                self._send(413, {"error": "JSON request body exceeds the 1 MB limit"})
+                return
             payload = json.loads(self.rfile.read(length) or b"{}")
 
             if request_path in {"/api/memory", "/api/goal", "/api/plan", "/api/plan/verify",
