@@ -23,6 +23,9 @@ jobs:
       - name: Generate native project if absent
         working-directory: apps/mobile
         run: if [ ! -d android ]; then flutter create --org com.draken --project-name rune_mobile --platforms=android,ios .; fi
+      - name: Remove generated placeholder test
+        working-directory: apps/mobile
+        run: rm -f test/widget_test.dart
       - name: Install native Android device agent
         working-directory: apps/mobile
         run: python tool/install_android_agent.py
