@@ -21,6 +21,30 @@ class SupabaseStore:
             raise StoreError("server database credentials are not configured")
         return settings.supabase_url.rstrip("/"), settings.supabase_secret_key
 
+    async def rpc(self, function: str, *, body: dict[str, Any] | None = None) -> Any:
+        if not function.replace("_", "").isalnum():
+            raise ValueError("invalid RPC function name")
+        base_url, secret = self._config()
+        headers = {
+            "apikey": secret,
+            "Authorization": f"Bearer {secret}",
+            "Content-Type": "application/json",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    f"{base_url}/rest/v1/rpc/{function}",
+                    headers=headers,
+                    json=body or {},
+                )
+        except httpx.HTTPError as exc:
+            raise StoreError("database RPC request failed") from exc
+        if response.is_error:
+            raise StoreError(f"database RPC request failed ({response.status_code})")
+        if response.status_code == 204 or not response.content:
+            return None
+        return response.json()
+
     async def request(
         self,
         method: str,
