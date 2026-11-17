@@ -847,15 +847,22 @@ class _SecurityPageState extends State<SecurityPage> {
  String? error;
  String status='Not enrolled';
  bool loading=true,busy=false;
+ final secureStorage=const FlutterSecureStorage();
  @override void initState(){super.initState();load();}
  @override void dispose(){runner?.dispose();remote?.close();backend.dispose();supabase.dispose();publishable.dispose();email.dispose();password.dispose();super.dispose();}
  Future<void> load() async {
   try {
+   final savedBackend=await secureStorage.read(key:'rune.remote_backend_url');
+   final savedSupabase=await secureStorage.read(key:'rune.supabase_url');
+   final savedPublishable=await secureStorage.read(key:'rune.supabase_publishable_key');
+   if(savedBackend!=null)backend.text=savedBackend;
+   if(savedSupabase!=null)supabase.text=savedSupabase;
+   if(savedPublishable!=null)publishable.text=savedPublishable;
    final c=await agent.capabilities();
    final a=await agent.installedApps();
    if(mounted)setState(() { capabilities=c; apps=a; loading=false; error=null; });
   } catch(e) {
-   if(mounted)setState(() { loading=false; error='Native Android agent unavailable: $e'; });
+   if(mounted)setState(() { loading=false; error='Device setup could not be loaded: $e'; });
   }
  }
  Future<void> refreshPending() async {
@@ -906,6 +913,9 @@ class _SecurityPageState extends State<SecurityPage> {
   if(backend.text.trim().isEmpty||supabase.text.trim().isEmpty||publishable.text.trim().isEmpty||email.text.trim().isEmpty||password.text.isEmpty)return;
   setState(()=>busy=true);
   try {
+   await secureStorage.write(key:'rune.remote_backend_url',value:backend.text.trim());
+   await secureStorage.write(key:'rune.supabase_url',value:supabase.text.trim());
+   await secureStorage.write(key:'rune.supabase_publishable_key',value:publishable.text.trim());
    final c=await agent.capabilities();
    final remoteApi=RuneRemoteApi(
     backendUrl:backend.text.trim(),
