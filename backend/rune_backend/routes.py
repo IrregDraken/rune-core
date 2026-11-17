@@ -102,11 +102,24 @@ async def register_device(body: DeviceRegistration, owner: Owner = Depends(requi
 
 @router.get("/devices")
 async def list_devices(owner: Owner = Depends(require_owner)):
-    return await store.request("GET", "rune_devices", params={
+    rows = await store.request("GET", "rune_devices", params={
         **owner_filter(owner.id),
         "select": "id,device_name,platform,app_version,capabilities,status,last_seen_at,created_at,revoked_at",
         "order": "created_at.desc",
     })
+    now = datetime.now(timezone.utc)
+    for device in rows:
+        last_seen = device.get("last_seen_at")
+        if device.get("status") != "revoked" and last_seen:
+            try:
+                seen = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
+                if now - seen > timedelta(seconds=90):
+                    device["status"] = "offline"
+            except (TypeError, ValueError):
+                device["status"] = "offline"
+        elif device.get("status") != "revoked" and not last_seen:
+            device["status"] = "offline"
+    return rows
 
 @router.delete("/devices/{device_id}")
 async def revoke_device(device_id: UUID, owner: Owner = Depends(require_owner)):
@@ -233,7 +246,7 @@ async def next_task(device_id: UUID, x_rune_device_token: str = Header(default="
     now = datetime.now(timezone.utc).isoformat()
     await store.request("PATCH", "rune_tasks", params={
         "device_id": f"eq.{device_id}",
-        "status": "eq.queued",
+        "status": "in.(queued,running)",
         "expires_at": f"lte.{now}",
     }, body={"status": "expired", "finished_at": now})
     # A single Postgres UPDATE ... FOR UPDATE SKIP LOCKED claim prevents two
