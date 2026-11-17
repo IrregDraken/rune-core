@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/rune_api.dart';
 import '../services/rune_device_agent.dart';
 import '../services/rune_remote_api.dart';
@@ -46,9 +48,60 @@ class _AssistantPageState extends State<AssistantPage>{
  final scroll=ScrollController();
  final device=RuneDeviceAgent();
  final messages=<({bool user,String text})>[];
- bool sending=false,recording=false,voiceBusy=false,awaitingConfirmation=false;
+ final secureStorage=const FlutterSecureStorage();
+ bool sending=false,recording=false,voiceBusy=false,awaitingConfirmation=false,historyLoaded=false;
  Timer? voiceTimer;
+ @override void initState(){super.initState();_loadConversation();}
  @override void dispose(){voiceTimer?.cancel();controller.dispose();scroll.dispose();super.dispose();}
+
+ Future<void> _loadConversation() async {
+  try {
+   final raw=await secureStorage.read(key:'rune.conversation.v1');
+   if(raw!=null) {
+    final decoded=jsonDecode(raw);
+    if(decoded is List) {
+     for(final item in decoded.take(60)) {
+      if(item is Map && item['text'] is String && item['user'] is bool) {
+       messages.add((user:item['user'] as bool,text:(item['text'] as String).substring(0,math.min(6000,(item['text'] as String).length))));
+      }
+     }
+    }
+   }
+  } catch (_) {
+   // Conversation history is optional; a storage failure must not block chat.
+  }
+  historyLoaded=true;
+  if(mounted)setState((){});
+ }
+
+ Future<void> _persistConversation() async {
+  if(!historyLoaded)return;
+  final recent=messages.length>60?messages.sublist(messages.length-60):messages;
+  try {
+   await secureStorage.write(key:'rune.conversation.v1',value:jsonEncode([
+    for(final message in recent)
+     {'user':message.user,'text':message.text.length>6000?message.text.substring(0,6000):message.text}
+   ]));
+  } catch (_) {
+   if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content:Text('Conversation could not be saved securely on this device.')));
+  }
+ }
+
+ Future<void> _clearConversation() async {
+  final confirmed=await showDialog<bool>(context:context,builder:(context)=>AlertDialog(
+   title:const Text('Clear conversation?'),
+   content:const Text('This removes the locally saved conversation from this device. It does not delete memories stored by the R.U.N.E. core.'),
+   actions:[
+    TextButton(onPressed:()=>Navigator.pop(context,false),child:const Text('KEEP')),
+    FilledButton(onPressed:()=>Navigator.pop(context,true),child:const Text('CLEAR')),
+   ],
+  ));
+  if(confirmed!=true)return;
+  messages.clear();
+  await secureStorage.delete(key:'rune.conversation.v1').catchError((_) {});
+  if(mounted)setState((){});
+ }
 
  void scheduleConfirmationTimeout() {
   voiceTimer?.cancel();
@@ -82,11 +135,13 @@ class _AssistantPageState extends State<AssistantPage>{
   final text=controller.text.trim();
   if(text.isEmpty||sending)return;
   setState((){messages.add((user:true,text:text));sending=true;});
+  await _persistConversation();
   controller.clear();
   try {
    final response=await widget.api.chat(text);
    final answer=response.isEmpty?'R.U.N.E. returned an empty response.':response;
    if(mounted)setState(()=>messages.add((user:false,text:answer)));
+   await _persistConversation();
    if(speakResponse&&response.isNotEmpty) {
     var interrupted=false;
     try {
@@ -102,6 +157,7 @@ class _AssistantPageState extends State<AssistantPage>{
    }
   } catch(e) {
    if(mounted)setState(()=>messages.add((user:false,text:'Connection error: $e')));
+   await _persistConversation();
   }
   if(mounted)setState(()=>sending=false);
   WidgetsBinding.instance.addPostFrameCallback((_){
@@ -190,14 +246,19 @@ class _AssistantPageState extends State<AssistantPage>{
     Text('Assistant',style:TextStyle(fontSize:18,fontWeight:FontWeight.w700)),
     Text('CORE CONVERSATION',style:TextStyle(fontSize:8,color:RuneColors.muted,letterSpacing:1.3))
    ]),
-   const Spacer(),_OnlineChip(online:true)
+   const Spacer(),_OnlineChip(online:true),
+   if(messages.isNotEmpty)IconButton(
+    tooltip:'Clear saved conversation',
+    onPressed:sending?null:_clearConversation,
+    icon:const Icon(Icons.delete_outline,color:RuneColors.muted,size:19),
+   )
   ])),
   Expanded(child:messages.isEmpty?Center(child:Padding(padding:const EdgeInsets.all(30),child:Column(
    mainAxisAlignment:MainAxisAlignment.center,children:[
     const _RuneOrb(size:150),const SizedBox(height:23),
     const Text('What are we working on?',style:TextStyle(fontSize:20,fontWeight:FontWeight.w700)),
     const SizedBox(height:8),
-    const Text('Send a message or use push-to-talk with the connected R.U.N.E. runtime.\nConversation history is currently held in this session.',
+    const Text('Send a message or use push-to-talk with the connected R.U.N.E. runtime.\nConversation history is encrypted and saved on this device.',
      textAlign:TextAlign.center,style:TextStyle(color:RuneColors.muted,fontSize:11,height:1.6)),
     const SizedBox(height:20),
     Wrap(spacing:8,runSpacing:8,alignment:WrapAlignment.center,
