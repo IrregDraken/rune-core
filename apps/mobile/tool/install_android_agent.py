@@ -73,5 +73,17 @@ def install() -> None:
     stree.write(strings, encoding="utf-8", xml_declaration=True)
     tree.write(manifest, encoding="utf-8", xml_declaration=True)
 
+    # Gesture dispatch in AccessibilityService requires Android API 24+.
+    gradle_kts = ANDROID / "app/build.gradle.kts"
+    gradle_groovy = ANDROID / "app/build.gradle"
+    if gradle_kts.exists():
+        gradle = gradle_kts.read_text(encoding="utf-8")
+        gradle = gradle.replace("minSdk = flutter.minSdkVersion", "minSdk = 24")
+        gradle_kts.write_text(gradle, encoding="utf-8")
+    elif gradle_groovy.exists():
+        gradle = gradle_groovy.read_text(encoding="utf-8")
+        gradle = gradle.replace("minSdkVersion flutter.minSdkVersion", "minSdkVersion 24")
+        gradle_groovy.write_text(gradle, encoding="utf-8")
+
 if __name__ == "__main__":
     install()
