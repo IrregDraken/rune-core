@@ -63,7 +63,9 @@ The Android agent advertises only the capabilities currently available. Its fore
 - Speech-to-text: OpenAI's file transcription endpoint using `gpt-transcribe` by default. It accepts bounded audio files up to 25 MB; live microphone streaming and local wake-word detection are separate work.
 - Text-to-speech: ElevenLabs `/v1/text-to-speech/{voice_id}` using the configured voice ID and `eleven_flash_v2_5` by default. A separate SQLite character ledger reserves against a configurable monthly cap (10,000 characters by default); uncertain provider failures retain their reservation.
 - The API keys remain server-side. The voice ID is not hardcoded and must be selected after auditioning voices.
-- The authenticated local core API exposes `POST /api/voice/synthesize`. Audio capture/playback in the Android app and the "Hey RUNE" local wake-word path are not yet integrated.
+- The authenticated local core API exposes `POST /api/voice/synthesize`, `POST /api/voice/transcribe` and `POST /api/voice/session`.
+- The session controller encodes the 120-second inactivity prompt, 15-second confirmation timeout and speech interruption behavior. It does not cancel background tasks when a voice session closes.
+- Audio capture/playback in the Android app and the "Hey RUNE" local wake-word engine are not yet integrated.
 
 ## Remote task lifecycle
 
