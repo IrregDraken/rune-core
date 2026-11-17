@@ -29,7 +29,11 @@ class _RuneAppState extends State<RuneApp> {
     await p.setString('rune.owner',name);
     await p.setString('rune.api',url);
     await p.setBool('rune.onboarded',true);
-    if(mounted)setState(()=>{owner=name,apiUrl=url,onboarded=true});
+    if(mounted)setState(() {
+      owner=name;
+      apiUrl=url;
+      onboarded=true;
+    });
   }
   Future<void> _updateApi(String url) async {
     final p=await SharedPreferences.getInstance();await p.setString('rune.api',url);
