@@ -144,6 +144,6 @@ Deployment has not been approved or performed. Before deployment, run all CI sui
 - Android device enrollment and real-device workflow not tested end-to-end.
 - No hardware-backed device attestation or signed command envelopes yet.
 - No formal threat model / penetration test.
-- Latest GitHub Actions build status must be checked before distributing a candidate APK.
+- Latest Android candidate verified: commit `88f5047`, GitHub Actions run [44143909930](https://github.com/IrregDraken/rune-core/actions/runs/44143909930), artifact `rune-mobile-android-apk` (24,214,819 bytes; SHA-256 `b7cd76d27702319ec9235bebfe43e1cf09c16f4929555c1307f1de031af391f0`). Physical-device validation remains outstanding.
 
 Do not describe this build as production-ready until these are closed and an actual device workflow has been tested.
