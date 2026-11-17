@@ -50,6 +50,14 @@ class _AssistantPageState extends State<AssistantPage>{
  Timer? voiceTimer;
  @override void dispose(){voiceTimer?.cancel();controller.dispose();scroll.dispose();super.dispose();}
 
+ void scheduleConfirmationTimeout() {
+  voiceTimer?.cancel();
+  voiceTimer=Timer(const Duration(seconds:15),()async{
+   try {await widget.api.voiceSessionAction('tick');} catch (_) {}
+   if(mounted)setState(()=>awaitingConfirmation=false);
+  });
+ }
+
  void scheduleVoiceInactivity() {
   voiceTimer?.cancel();
   voiceTimer=Timer(const Duration(seconds:120),()async{
@@ -63,10 +71,7 @@ class _AssistantPageState extends State<AssistantPage>{
       await device.playAudio(audio);
      } finally {
       try {await widget.api.voiceSessionAction('confirmation_prompted');} catch (_) {}
-      voiceTimer=Timer(const Duration(seconds:15),()async{
-       try {await widget.api.voiceSessionAction('tick');} catch (_) {}
-       if(mounted)setState(()=>awaitingConfirmation=false);
-      });
+      scheduleConfirmationTimeout();
      }
     }
    } catch (_) {}
@@ -132,7 +137,8 @@ class _AssistantPageState extends State<AssistantPage>{
     if(transcript.trim().isEmpty) {
      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content:Text('No speech was detected. Try again.')));
-     scheduleVoiceInactivity();
+     if(awaitingConfirmation)scheduleConfirmationTimeout();
+     else scheduleVoiceInactivity();
     } else {
      final spoken=transcript.trim();
      final lowerSpoken=spoken.toLowerCase().replaceAll(RegExp(r"[.!?]"),"").trim();
@@ -167,7 +173,8 @@ class _AssistantPageState extends State<AssistantPage>{
     setState(()=>recording=false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Voice input failed: $e')));
    }
-   scheduleVoiceInactivity();
+   if(awaitingConfirmation)scheduleConfirmationTimeout();
+   else scheduleVoiceInactivity();
   } finally {
    if(temporaryRecording!=null) {
     await File(temporaryRecording).delete().catchError((_)=>File(temporaryRecording!));
