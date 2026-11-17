@@ -53,20 +53,27 @@ class RuneRemoteApi {
     if(access==null||refresh==null)throw const RuneRemoteException('Identity provider did not issue a valid session.');
     await _storage.write(key:'rune.owner_access_token',value:access);
     await _storage.write(key:'rune.owner_refresh_token',value:refresh);
+    final expiresIn=(result['expires_in'] as num?)?.toInt()??3600;
+    await _storage.write(key:'rune.owner_expires_at',
+      value:DateTime.now().add(Duration(seconds:expiresIn)).millisecondsSinceEpoch.toString());
   }
 
   Future<String?> _ownerToken() async {
     var token=await _storage.read(key:'rune.owner_access_token');
     final refresh=await _storage.read(key:'rune.owner_refresh_token');
     if(token==null)return null;
-    // Refresh proactively. Supabase access tokens are short-lived; a failed
-    // refresh is surfaced rather than silently reusing an expired credential.
-    if(refresh!=null){
+    final expiry=int.tryParse(await _storage.read(key:'rune.owner_expires_at')??'0')??0;
+    final refreshDue=DateTime.now().add(const Duration(seconds:60)).millisecondsSinceEpoch;
+    // Refresh only shortly before expiry, not on every API call.
+    if(refresh!=null&&expiry<=refreshDue){
       try {
         final result=await _send('POST','$_auth/auth/v1/token?grant_type=refresh_token',
           headers:{'apikey':publishableKey},body:{'refresh_token':refresh});
         token=result['access_token']?.toString()??token;
         await _storage.write(key:'rune.owner_access_token',value:token);
+        final expiresIn=(result['expires_in'] as num?)?.toInt()??3600;
+        await _storage.write(key:'rune.owner_expires_at',
+          value:DateTime.now().add(Duration(seconds:expiresIn)).millisecondsSinceEpoch.toString());
         final next=result['refresh_token']?.toString();
         if(next!=null)await _storage.write(key:'rune.owner_refresh_token',value:next);
       } on RuneRemoteException catch(e) {
@@ -138,6 +145,7 @@ class RuneRemoteApi {
   Future<void> signOut() async {
     await _storage.delete(key:'rune.owner_access_token');
     await _storage.delete(key:'rune.owner_refresh_token');
+    await _storage.delete(key:'rune.owner_expires_at');
     await _storage.delete(key:'rune.device_id');
     await _storage.delete(key:'rune.device_token');
   }
