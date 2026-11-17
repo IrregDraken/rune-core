@@ -3,6 +3,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import httpx
 from rune_backend.config import get_settings
 from rune_backend.routes import router
 from rune_backend.store import StoreError
@@ -29,12 +30,30 @@ async def health(request:Request)->JSONResponse:
 
 @app.get("/ready",tags=["system"])
 async def readiness(request:Request)->JSONResponse:
-    identity=bool(settings.supabase_url and settings.supabase_publishable_key)
-    database=bool(settings.supabase_url and settings.supabase_secret_key)
-    ready=identity and database
+    identity = False
+    database = False
+    if settings.supabase_url and settings.supabase_publishable_key:
+        try:
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                response = await client.get(
+                    f"{settings.supabase_url.rstrip('/')}/auth/v1/settings",
+                    headers={"apikey": settings.supabase_publishable_key},
+                )
+            identity = response.status_code == 200
+        except httpx.HTTPError:
+            identity = False
+    if settings.supabase_url and settings.supabase_secret_key:
+        try:
+            await store.request("GET", "rune_devices", params={"select": "id", "limit": "1"})
+            database = True
+        except StoreError:
+            database = False
+    ready = identity and database
     return JSONResponse(status_code=200 if ready else 503,content={
-        "status":"ready" if ready else "not_ready","identity_configured":identity,
-        "database_configured":database,"request_id":request.state.request_id})
+        "status":"ready" if ready else "not_ready",
+        "identity_reachable":identity,
+        "database_schema_reachable":database,
+        "request_id":request.state.request_id})
 
 
 @app.exception_handler(StoreError)
