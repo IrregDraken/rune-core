@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show PointMode;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -213,6 +214,26 @@ class _RuneOrbPainter extends CustomPainter {
       size.width * .004,
       Paint()..color = RuneColors.ivory,
     );
+
+    // Sparse ambient motes add depth without competing with the sphere.
+    // Their positions are deterministic, so painting does not allocate RNGs.
+    for (var i = 0; i < 28; i++) {
+      final seed = i * 2.399963;
+      final drift = elapsed * (.035 + (i % 5) * .006);
+      final angle = seed + drift;
+      final spread = radius * (1.18 + .34 * math.sin(seed * 1.7));
+      final mote = Offset(
+        center.dx + math.cos(angle) * spread,
+        center.dy + math.sin(angle * 1.13) * spread * .68,
+      );
+      final shimmer = .38 + .32 * math.sin(elapsed * 1.4 + seed).abs();
+      final isGold = i % 9 == 0;
+      final motePaint = Paint()
+        ..color = (isGold ? RuneColors.aurum : RuneColors.mint)
+            .withOpacity(shimmer * (isGold ? .72 : .34) * intensity);
+      final moteRadius = size.width * (isGold ? .0032 : .0018);
+      canvas.drawCircle(mote, moteRadius, motePaint);
+    }
   }
 
   @override

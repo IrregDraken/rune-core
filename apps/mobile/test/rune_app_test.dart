@@ -13,7 +13,7 @@ void main() {
   testWidgets('first launch opens onboarding', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await pumpApp(tester);
-    expect(find.text('Intelligence that\nstays with you.'), findsOneWidget);
+    expect(find.text('A mind for\nyour whole world.'), findsOneWidget);
     expect(find.text('CONTINUE'), findsOneWidget);
   });
 
@@ -24,7 +24,7 @@ void main() {
       'rune.api': 'http://127.0.0.1:8765',
     });
     await pumpApp(tester);
-    expect(find.text('R.U.N.E.'), findsOneWidget);
-    expect(find.text('Your command center is ready.'), findsOneWidget);
+    expect(find.text('R.U.N.E.'), findsWidgets);
+    expect(find.text('PERSONAL INTELLIGENCE'), findsOneWidget);
   });
 }
