@@ -46,6 +46,8 @@ flutter test
 flutter build apk --release
 ```
 
+The native operator runs an Android foreground data-sync service with an ongoing notification. Device credentials are encrypted with an Android Keystore AES-GCM key before being persisted by the service.
+
 The native operator:
 - Lists launchable apps visible to Android's package manager.
 - Launches apps with a platform-provided launch intent.
@@ -54,7 +56,7 @@ The native operator:
 - Requires the owner to enable RUNE Accessibility in Android Settings.
 - Does not bypass app login, device lock, MFA or system permission dialogs.
 
-The Flutter remote runner advertises only the capabilities actually present. It currently polls while the app is active. It is not a background daemon yet.
+The Android agent advertises only the capabilities currently available. Its foreground service polls the remote queue; the operating system may still stop or limit it.
 
 ## Remote task lifecycle
 
@@ -72,7 +74,7 @@ Every remote task currently requires owner approval. The backend intentionally i
 - No live provider credentials or verified model pricing configured.
 - No deployed backend or remote domain.
 - No production owner token refresh manager in the Python core.
-- Android foreground service/background execution not implemented.
+- Android foreground service source is implemented but has not been build-verified or tested on a physical phone.
 - Android device enrollment and real-device workflow not tested end-to-end.
 - No hardware-backed device attestation or signed command envelopes yet.
 - No formal threat model / penetration test.
