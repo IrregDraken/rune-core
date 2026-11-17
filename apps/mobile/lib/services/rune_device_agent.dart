@@ -41,6 +41,26 @@ class RuneDeviceAgent {
     await _channel.invokeMethod<bool>('stopBackgroundOperator');
   }
 
+
+  Future<bool> hasMicrophonePermission() async =>
+      await _channel.invokeMethod<bool>('hasMicrophonePermission') ?? false;
+
+  Future<bool> requestMicrophonePermission() async =>
+      await _channel.invokeMethod<bool>('requestMicrophonePermission') ?? false;
+
+  Future<bool> startVoiceRecording() async =>
+      await _channel.invokeMethod<bool>('startVoiceRecording') ?? false;
+
+  Future<String?> stopVoiceRecording() async =>
+      _channel.invokeMethod<String>('stopVoiceRecording');
+
+  Future<bool> playAudio(List<int> audio) async =>
+      await _channel.invokeMethod<bool>('playAudio', {'audio': audio}) ?? false;
+
+  Future<void> stopAudio() async {
+    await _channel.invokeMethod<bool>('stopAudio');
+  }
+
   Future<Map<String, dynamic>> observeUi() async {
     final value = await _channel.invokeMapMethod<String, dynamic>('observeUi');
     return value ?? <String, dynamic>{'available': false};
