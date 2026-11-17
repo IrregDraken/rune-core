@@ -56,7 +56,7 @@ The native operator:
 - Requires the owner to enable RUNE Accessibility in Android Settings.
 - Does not bypass app login, device lock, MFA or system permission dialogs.
 
-The Android agent advertises only the capabilities currently available. Its foreground service polls the remote queue and refreshes its capability list on heartbeat; the operating system may still stop or limit it.
+The Android agent advertises only the capabilities currently available. Its foreground service polls the remote queue every 10 seconds and refreshes its capability list every 30 seconds; the operating system may still stop or limit it.
 
 ## Remote task lifecycle
 
