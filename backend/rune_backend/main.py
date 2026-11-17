@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from rune_backend.config import get_settings
 from rune_backend.routes import router
+from rune_backend.store import StoreError
 
 settings=get_settings()
 app=FastAPI(title="RUNE Backend",description="Identity, trusted-device and remote task boundary for RUNE.",
@@ -34,3 +35,12 @@ async def readiness(request:Request)->JSONResponse:
     return JSONResponse(status_code=200 if ready else 503,content={
         "status":"ready" if ready else "not_ready","identity_configured":identity,
         "database_configured":database,"request_id":request.state.request_id})
+
+
+@app.exception_handler(StoreError)
+async def handle_store_error(request: Request, exc: StoreError):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "RUNE data service is temporarily unavailable",
+                 "request_id": getattr(request.state, "request_id", None)},
+    )
