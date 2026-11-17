@@ -266,11 +266,13 @@ async def next_task(device_id: UUID, x_rune_device_token: str = Header(default="
 async def task_result(device_id: UUID, task_id: UUID, body: TaskResultInput,
                       x_rune_device_token: str = Header(default="")):
     device = await _device(device_id, x_rune_device_token)
+    now = datetime.now(timezone.utc).isoformat()
     current = await store.request("GET", "rune_tasks", params={
         "id": f"eq.{task_id}",
         "device_id": f"eq.{device_id}",
         "owner_id": f"eq.{device['owner_id']}",
         "status": "eq.running",
+        "expires_at": f"gt.{now}",
         "select": "id,capability",
         "limit": "1",
     })
@@ -283,12 +285,12 @@ async def task_result(device_id: UUID, task_id: UUID, body: TaskResultInput,
     if capability == "app.launch" and body.status == "completed" and body.evidence.get("confirmed") is not True:
         raise HTTPException(400, "App launch cannot be completed without active-window confirmation")
 
-    now = datetime.now(timezone.utc).isoformat()
     rows = await store.request("PATCH", "rune_tasks", params={
         "id": f"eq.{task_id}",
         "device_id": f"eq.{device_id}",
         "owner_id": f"eq.{device['owner_id']}",
         "status": "eq.running",
+        "expires_at": f"gt.{now}",
         "select": "id",
     }, body={
         "status": body.status,
