@@ -202,7 +202,7 @@ class _RuneAppState extends State<RuneApp> {
           ? const _Loading()
           : !onboarded
               ? OnboardingPage(onComplete: _complete)
-              : RuneExperienceShell(
+              : RuneShell(
                   owner: owner,
                   apiUrl: apiUrl,
                   sessionToken: sessionToken,
