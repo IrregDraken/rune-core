@@ -6,12 +6,19 @@ import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.MediaPlayer
+import android.media.MediaRecorder
+import android.os.Environment
+import java.io.File
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val channelName = "rune/device"
+    private var mediaRecorder: MediaRecorder? = null
+    private var recordingFile: File? = null
+    private var mediaPlayer: MediaPlayer? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -36,6 +43,98 @@ class MainActivity : FlutterActivity() {
                     }
                     "openAccessibilitySettings" -> {
                         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        result.success(true)
+                    }
+                    "hasMicrophonePermission" -> {
+                        result.success(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+                    }
+                    "requestMicrophonePermission" -> {
+                        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 4203)
+                            result.success(false)
+                        } else {
+                            result.success(true)
+                        }
+                    }
+                    "startVoiceRecording" -> {
+                        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                            result.error("microphone_permission", "Microphone permission is required", null)
+                        } else {
+                            try {
+                                val file = File(cacheDir, "rune-utterance-${System.currentTimeMillis()}.m4a")
+                                val recorder = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(this) else MediaRecorder()
+                                recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+                                recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                                recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                                recorder.setAudioSamplingRate(16000)
+                                recorder.setAudioEncodingBitRate(64000)
+                                recorder.setOutputFile(file.absolutePath)
+                                recorder.prepare()
+                                recorder.start()
+                                mediaRecorder = recorder
+                                recordingFile = file
+                                result.success(true)
+                            } catch (error: Exception) {
+                                mediaRecorder?.release()
+                                mediaRecorder = null
+                                result.error("recording_start_failed", "Could not start voice recording", null)
+                            }
+                        }
+                    }
+                    "stopVoiceRecording" -> {
+                        try {
+                            val recorder = mediaRecorder ?: throw IllegalStateException("No recording is active")
+                            recorder.stop()
+                            recorder.release()
+                            mediaRecorder = null
+                            val file = recordingFile ?: throw IllegalStateException("Recording file unavailable")
+                            recordingFile = null
+                            result.success(file.absolutePath)
+                        } catch (error: Exception) {
+                            mediaRecorder?.release()
+                            mediaRecorder = null
+                            recordingFile?.delete()
+                            recordingFile = null
+                            result.error("recording_stop_failed", "Recording was too short or could not be finalized", null)
+                        }
+                    }
+                    "playAudio" -> {
+                        val audio = call.argument<ByteArray>("audio")
+                        if (audio == null || audio.isEmpty()) {
+                            result.error("invalid_audio", "Audio bytes are required", null)
+                        } else {
+                            try {
+                                mediaPlayer?.release()
+                                val file = File(cacheDir, "rune-response-${System.currentTimeMillis()}.mp3")
+                                file.writeBytes(audio)
+                                val player = MediaPlayer()
+                                mediaPlayer = player
+                                player.setDataSource(file.absolutePath)
+                                player.setOnCompletionListener {
+                                    it.release()
+                                    if (mediaPlayer === it) mediaPlayer = null
+                                    file.delete()
+                                }
+                                player.setOnErrorListener { mp, _, _ ->
+                                    mp.release()
+                                    if (mediaPlayer === mp) mediaPlayer = null
+                                    file.delete()
+                                    true
+                                }
+                                player.setOnPreparedListener { it.start() }
+                                player.prepareAsync()
+                                result.success(true)
+                            } catch (error: Exception) {
+                                result.error("playback_failed", "Could not play RUNE audio", null)
+                            }
+                        }
+                    }
+                    "stopAudio" -> {
+                        mediaPlayer?.let {
+                            runCatching { if (it.isPlaying) it.stop() }
+                            it.release()
+                        }
+                        mediaPlayer = null
                         result.success(true)
                     }
                     "requestNotificationPermission" -> {
@@ -96,6 +195,15 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun onDestroy() {
+        runCatching { mediaRecorder?.stop() }
+        mediaRecorder?.release()
+        mediaRecorder = null
+        mediaPlayer?.release()
+        mediaPlayer = null
+        super.onDestroy()
     }
 
     private fun capabilities(): Map<String, Any> {
