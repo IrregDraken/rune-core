@@ -30,7 +30,7 @@ The owner-side core client additionally requires:
 - `RUNE_REMOTE_BACKEND_URL`
 - `RUNE_OWNER_ACCESS_TOKEN`
 
-The Python core now supports a rotating Supabase owner session. Supply the initial access token, refresh token, access-token expiry, and a URL-safe base64 32-byte `RUNE_OWNER_TOKEN_ENCRYPTION_KEY`. The refresh token is persisted AES-GCM encrypted in the configured SQLite session database using that key. Protect the key with the deployment secret manager and back up neither key nor token in source control. Do not expose the local Python API publicly.
+The Python core now supports a rotating Supabase owner session. Supply the initial access token, refresh token, access-token expiry, and a URL-safe base64 32-byte `RUNE_OWNER_TOKEN_ENCRYPTION_KEY`. The refresh token is persisted AES-GCM encrypted in the configured SQLite session database using that key. Protect the key with the deployment secret manager and back up neither key nor token in source control. Do not expose the local Python API publicly in its default mode. If deploying it behind HTTPS, set `RUNE_API_AUTH_REQUIRED=true` and provision a strong `RUNE_SESSION_TOKEN`; all routes except `/api/health` then require that token. The static session token is an initial single-owner gate, not a substitute for a full OAuth/session gateway.
 
 ## Android agent build
 
