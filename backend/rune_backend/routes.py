@@ -212,15 +212,47 @@ async def next_task(device_id: UUID, x_rune_device_token: str = Header(default="
 @router.post("/devices/{device_id}/tasks/{task_id}/result")
 async def task_result(device_id: UUID, task_id: UUID, body: TaskResultInput,
                       x_rune_device_token: str = Header(default="")):
-    device=await _device(device_id,x_rune_device_token)
-    now=datetime.now(timezone.utc).isoformat()
-    rows=await store.request("PATCH","rune_tasks",params={
-        "id":f"eq.{task_id}","device_id":f"eq.{device_id}",
-        "owner_id":f"eq.{device['owner_id']}","status":"eq.running","select":"id",
-    },body={"status":body.status,"result":body.output,"evidence":body.evidence,
-            "error_code":body.error_code,"finished_at":now},prefer="return=representation")
-    if not rows: raise HTTPException(409,"Task is not running or does not belong to this device")
-    await _audit(UUID(device["owner_id"]),"task.result",body.status,device_id=device_id,
-                 task_id=task_id,metadata={"has_evidence":bool(body.evidence),"error_code":body.error_code})
-    return {"task_id":str(task_id),"status":body.status,
-            "evidence_present":bool(body.evidence)}
+    device = await _device(device_id, x_rune_device_token)
+    current = await store.request("GET", "rune_tasks", params={
+        "id": f"eq.{task_id}",
+        "device_id": f"eq.{device_id}",
+        "owner_id": f"eq.{device['owner_id']}",
+        "status": "eq.running",
+        "select": "id,capability",
+        "limit": "1",
+    })
+    if not current:
+        raise HTTPException(409, "Task is not running or does not belong to this device")
+
+    capability = current[0]["capability"]
+    if body.status == "completed" and not body.evidence:
+        raise HTTPException(400, "Completed tasks require verification evidence")
+    if capability == "app.launch" and body.status == "completed" and body.evidence.get("confirmed") is not True:
+        raise HTTPException(400, "App launch cannot be completed without active-window confirmation")
+
+    now = datetime.now(timezone.utc).isoformat()
+    rows = await store.request("PATCH", "rune_tasks", params={
+        "id": f"eq.{task_id}",
+        "device_id": f"eq.{device_id}",
+        "owner_id": f"eq.{device['owner_id']}",
+        "status": "eq.running",
+        "select": "id",
+    }, body={
+        "status": body.status,
+        "result": body.output,
+        "evidence": body.evidence,
+        "error_code": body.error_code,
+        "finished_at": now,
+    }, prefer="return=representation")
+    if not rows:
+        raise HTTPException(409, "Task was already finalized")
+    await _audit(
+        UUID(device["owner_id"]), "task.result", body.status,
+        device_id=device_id, task_id=task_id,
+        metadata={"has_evidence": bool(body.evidence), "error_code": body.error_code},
+    )
+    return {
+        "task_id": str(task_id),
+        "status": body.status,
+        "evidence_present": bool(body.evidence),
+    }
