@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import math
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -29,6 +30,16 @@ class ProviderConfig:
     output_usd_per_million: float
     base_url: str | None = None
     max_output_tokens: int = 800
+
+    def __post_init__(self) -> None:
+        if not self.name.strip() or not self.model.strip() or not self.api_key_env.strip():
+            raise ValueError("provider name, model and API-key environment variable are required")
+        if not math.isfinite(self.input_usd_per_million) or self.input_usd_per_million < 0:
+            raise ValueError("input token price must be finite and non-negative")
+        if not math.isfinite(self.output_usd_per_million) or self.output_usd_per_million < 0:
+            raise ValueError("output token price must be finite and non-negative")
+        if not 1 <= self.max_output_tokens <= 8192:
+            raise ValueError("max_output_tokens must be between 1 and 8192")
 
 
 @dataclass(frozen=True)
@@ -102,8 +113,8 @@ class UsageLedger:
     """Persistent monthly budget ledger; pricing must be configured from provider rates."""
 
     def __init__(self, path: str = "data/rune-usage.db", monthly_limit_usd: float = 33.0) -> None:
-        if monthly_limit_usd <= 0:
-            raise ValueError("monthly budget must be positive")
+        if not math.isfinite(monthly_limit_usd) or monthly_limit_usd <= 0:
+            raise ValueError("monthly budget must be finite and positive")
         self.monthly_limit_usd = monthly_limit_usd
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path)
@@ -188,6 +199,9 @@ class RoutedModelProvider(ModelProvider):
             except ProviderUnavailable as exc:
                 self.ledger.settle(reservation, ProviderUsage(0, 0, 0.0))
                 failures.append(str(exc))
+            except Exception:
+                self.ledger.settle(reservation, ProviderUsage(0, 0, 0.0))
+                raise
         raise ProviderUnavailable("; ".join(failures) or "no model provider available")
 
 
@@ -227,6 +241,9 @@ def configured_model_provider(ledger_path: str = "data/rune-usage.db") -> Routed
 
     primary_kind = os.getenv("RUNE_PRIMARY_KIND", "openai").lower()
     fallback_kind = os.getenv("RUNE_FALLBACK_KIND", "anthropic").lower()
+    if primary_kind not in {"openai", "anthropic"} or fallback_kind not in {"openai", "anthropic"}:
+        ledger.close()
+        raise ValueError("provider kind must be openai or anthropic")
     add_provider("RUNE_PRIMARY", primary_kind)
     add_provider("RUNE_FALLBACK", fallback_kind)
     if not providers:
