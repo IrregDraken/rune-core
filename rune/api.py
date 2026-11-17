@@ -19,15 +19,30 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
     runtime: RUNERuntime | None = None
     shell: ShellState | None = None
 
+    def _cors_headers(self) -> None:
+        origin = self.headers.get("Origin")
+        allowed = {
+            item.strip()
+            for item in os.environ.get(
+                "RUNE_LOCAL_ALLOWED_ORIGINS",
+                "http://localhost:3000,http://127.0.0.1:3000",
+            ).split(",")
+            if item.strip()
+        }
+        if origin and origin in allowed:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-RUNE-Session")
+        self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+
     def _send(self, status: int, payload: dict) -> None:
         body = json.dumps(payload, default=str).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-RUNE-Session")
-        self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+        self._cors_headers()
         self.end_headers()
-        self.wfile.write(body)
+        if status != 204:
+            self.wfile.write(body)
 
     def do_OPTIONS(self) -> None:
         self._send(204, {})
@@ -247,8 +262,8 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
             self._send(200, {"response": response})
         except (TypeError, ValueError) as exc:
             self._send(400, {"error": str(exc)})
-        except Exception as exc:
-            self._send(500, {"error": str(exc)})
+        except Exception:
+            self._send(500, {"error": "internal_error"})
 
 
 def serve(
