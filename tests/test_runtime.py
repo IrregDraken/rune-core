@@ -72,3 +72,17 @@ def test_runtime_restores_active_plan(tmp_path: Path):
     assert restored.active_plan.goal == "ship"
     assert restored.active_plan.steps[0].status.value == "ready"
     restored.close()
+
+
+def test_runtime_restores_working_memory_and_goal(tmp_path: Path):
+    db = tmp_path / "rune.db"
+    runtime = RUNERuntime(DeterministicModel(), db_path=str(db))
+    runtime.engine.memory.remember("active_project", "RUNE")
+    runtime.set_goal("Finish command and identity layers")
+    runtime.receive("Continue the active project")
+    runtime.close()
+
+    restored = RUNERuntime(DeterministicModel(), db_path=str(db))
+    assert restored.engine.memory.recall("active_project") == "RUNE"
+    assert restored.engine.state.current_goal == "Finish command and identity layers"
+    restored.close()

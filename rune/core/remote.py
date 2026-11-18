@@ -193,6 +193,13 @@ class RemoteBackendClient:
             "public_key": public_key,
         })
 
+    def current_owner(self) -> dict[str, Any]:
+        """Return the owner identity validated by Supabase Auth in the control plane."""
+        payload = self._request("GET", "/me")
+        if not isinstance(payload, dict) or not payload.get("owner_id"):
+            raise RemoteBackendError("control plane returned an invalid owner identity")
+        return payload
+
     def list_devices(self) -> list[dict[str, Any]]:
         return self._request("GET", "/devices")
 

@@ -6,7 +6,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../theme/rune_colors.dart';
 import '../screens/onboarding_page.dart';
 import '../screens/rune_pages.dart';
-import '../screens/rune_experience.dart';
 import '../services/rune_api.dart';
 
 class RuneApp extends StatefulWidget {
@@ -20,7 +19,7 @@ class _RuneAppState extends State<RuneApp> {
   bool ready = false;
   bool onboarded = false;
   String owner = 'Owner';
-  String apiUrl = 'http://127.0.0.1:8765';
+  String apiUrl = 'https://rune-core-production-e1cb.up.railway.app';
   String sessionToken = '';
   final secureStorage = const FlutterSecureStorage();
 
@@ -202,7 +201,7 @@ class _RuneAppState extends State<RuneApp> {
           ? const _Loading()
           : !onboarded
               ? OnboardingPage(onComplete: _complete)
-              : RuneExperienceShell(
+              : RuneShell(
                   owner: owner,
                   apiUrl: apiUrl,
                   sessionToken: sessionToken,
@@ -288,7 +287,7 @@ class _RuneShellState extends State<RuneShell> {
     ];
 
     return Scaffold(
-      extendBody: true,
+      extendBody: false,
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: RadialGradient(
@@ -299,7 +298,7 @@ class _RuneShellState extends State<RuneShell> {
           ),
         ),
         child: SafeArea(
-          bottom: false,
+          bottom: true,
           child: IndexedStack(index: index, children: pages),
         ),
       ),

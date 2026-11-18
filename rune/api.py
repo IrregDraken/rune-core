@@ -365,14 +365,44 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
 
             if request_path == "/api/command":
                 parsed = self.runtime.parse_command(text)
-                if self.shell is not None:
-                    self.shell.set_mode(ShellMode.COMMAND)
-                    self.shell.island_message = parsed.command.value if parsed.command else None
-                self._send(200, {
-                    "kind": parsed.kind.value,
-                    "command": parsed.command.value if parsed.command else None,
-                    "raw": parsed.raw,
-                })
+                if parsed.command is None:
+                    self._send(200, {"kind": parsed.kind.value, "command": None,
+                                     "raw": parsed.raw, "status": "not_a_force_command"})
+                    return
+                # Force commands are never executed merely because their words
+                # were recognized. A valid local owner session is mandatory.
+                if not self._authorized():
+                    self._send(403, {"error": "owner session required for force commands",
+                                     "command": parsed.command.value, "status": "blocked"})
+                    return
+                from .core.commands import ForceCommand
+                from .core.node import Capability
+                command = parsed.command
+                if command in {ForceCommand.LOCK, ForceCommand.REBOOT, ForceCommand.SHUTDOWN}:
+                    capability = {
+                        ForceCommand.LOCK: Capability.SYSTEM_LOCK,
+                        ForceCommand.REBOOT: Capability.SYSTEM_REBOOT,
+                        ForceCommand.SHUTDOWN: Capability.SYSTEM_SHUTDOWN,
+                    }[command]
+                    result = self.runtime.execute_action(capability, {}, authorized=True)
+                else:
+                    if self.shell is not None:
+                        if command in {ForceCommand.QUIET, ForceCommand.SLEEP, ForceCommand.PAUSE,
+                                       ForceCommand.EMERGENCY_STOP}:
+                            self.shell.set_mode(ShellMode.QUIET)
+                        elif command in {ForceCommand.WAKE, ForceCommand.RESUME}:
+                            self.shell.set_mode(ShellMode.AMBIENT)
+                        self.shell.island_message = command.value
+                    if command is ForceCommand.EMERGENCY_STOP:
+                        result = {"status": "blocked", "reason": "global_execution_stop_not_implemented"}
+                    else:
+                        if command in {ForceCommand.SLEEP, ForceCommand.PAUSE}:
+                            self.runtime.voice_session.interrupt(time.time())
+                        elif command in {ForceCommand.WAKE, ForceCommand.RESUME}:
+                            self.runtime.voice_session.wake_detected(time.time())
+                        result = {"status": "applied", "mode": self.shell.mode.value if self.shell else "unavailable"}
+                self._send(200, {"kind": parsed.kind.value, "command": command.value,
+                                 "raw": parsed.raw, "result": result})
                 return
 
             response = self.runtime.receive(text)

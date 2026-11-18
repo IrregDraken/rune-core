@@ -351,6 +351,17 @@ class RuneRemoteApi {
     await _storage.delete(key: 'rune.device_token');
   }
 
+  /// Restores a previously authenticated owner session and verifies it with
+  /// the control plane. Returns false only when no local owner session exists.
+  /// Invalid/expired credentials are cleared by _ownerToken; network failures
+  /// remain visible to the caller and never silently enroll a new device.
+  Future<Map<String, dynamic>?> restoreOwnerSession() async {
+    final token = await _ownerToken();
+    if (token == null) return null;
+    _requireSecureEndpoint(_backend, 'RUNE backend URL');
+    return _send('GET', '$_backend/v1/me', headers: {'Authorization': 'Bearer $token'});
+  }
+
   Future<void> signOut() async {
     await _storage.delete(key: 'rune.owner_access_token');
     await _storage.delete(key: 'rune.owner_refresh_token');

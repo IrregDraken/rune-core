@@ -847,15 +847,61 @@ class _SecurityPageState extends State<SecurityPage> {
  String? error;
  String status='Not enrolled';
  bool loading=true,busy=false;
+ final secureStorage=const FlutterSecureStorage();
  @override void initState(){super.initState();load();}
  @override void dispose(){runner?.dispose();remote?.close();backend.dispose();supabase.dispose();publishable.dispose();email.dispose();password.dispose();super.dispose();}
  Future<void> load() async {
   try {
+   final savedBackend=await secureStorage.read(key:'rune.remote_backend_url');
+   final savedSupabase=await secureStorage.read(key:'rune.supabase_url');
+   final savedPublishable=await secureStorage.read(key:'rune.supabase_publishable_key');
+   if(savedBackend!=null)backend.text=savedBackend;
+   if(savedSupabase!=null)supabase.text=savedSupabase;
+   if(savedPublishable!=null)publishable.text=savedPublishable;
    final c=await agent.capabilities();
    final a=await agent.installedApps();
    if(mounted)setState(() { capabilities=c; apps=a; loading=false; error=null; });
+
+   // Restore only an existing owner session. Never auto-enroll a new device
+   // or grant permissions during page initialization.
+   if(backend.text.trim().isNotEmpty && supabase.text.trim().isNotEmpty && publishable.text.trim().isNotEmpty) {
+    final api=RuneRemoteApi(backendUrl:backend.text.trim(),supabaseUrl:supabase.text.trim(),publishableKey:publishable.text.trim());
+    try {
+     final owner=await api.restoreOwnerSession();
+     if(owner==null) {
+      api.close();
+      if(mounted)setState(()=>status='Not signed in · sign in to connect this phone');
+      return;
+     }
+     final credentials=await api.deviceCredentials();
+     Map<String,dynamic>? device;
+     if(credentials!=null) {
+      final known=await api.devices();
+      for(final item in known) {
+       if(item is Map && item['id']?.toString()==credentials['id']?.toString() && item['status']!='revoked') {
+        device=Map<String,dynamic>.from(item);
+        break;
+       }
+      }
+      if(device==null) await api.clearDeviceCredentials();
+     }
+     if(device!=null && credentials!=null) {
+      await agent.requestNotificationPermission();
+      final started=await agent.startBackgroundOperator(backendUrl:backend.text.trim(),deviceId:credentials['id'].toString(),deviceToken:credentials['token'].toString());
+      RuneTaskRunner? taskRunner;
+      if(!started) taskRunner=RuneTaskRunner(remote:api,device:agent)..start();
+      if(mounted)setState(() { remote=api; runner=taskRunner; status='Session restored · ${device?['device_name']??'Android device'} · ${started?'background operator requested':'foreground-only operator started'}'; });
+      await refreshPending();
+     } else {
+      if(mounted)setState(() { remote=api; status='Owner session restored · this phone needs enrollment'; });
+     }
+    } catch(e) {
+     api.close();
+     if(mounted)setState(()=>error='Saved remote session could not be restored: $e');
+    }
+   }
   } catch(e) {
-   if(mounted)setState(() { loading=false; error='Native Android agent unavailable: $e'; });
+   if(mounted)setState(() { loading=false; error='Device setup could not be loaded: $e'; });
   }
  }
  Future<void> refreshPending() async {
@@ -906,13 +952,27 @@ class _SecurityPageState extends State<SecurityPage> {
   if(backend.text.trim().isEmpty||supabase.text.trim().isEmpty||publishable.text.trim().isEmpty||email.text.trim().isEmpty||password.text.isEmpty)return;
   setState(()=>busy=true);
   try {
+   await secureStorage.write(key:'rune.remote_backend_url',value:backend.text.trim());
+   await secureStorage.write(key:'rune.supabase_url',value:supabase.text.trim());
+   await secureStorage.write(key:'rune.supabase_publishable_key',value:publishable.text.trim());
    final c=await agent.capabilities();
    final remoteApi=RuneRemoteApi(
     backendUrl:backend.text.trim(),
     supabaseUrl:supabase.text.trim(),
     publishableKey:publishable.text.trim(),
    );
-   await remoteApi.signIn(email.text.trim(),password.text);
+   // Reuse a valid persisted session; request a password only when sign-in
+   // is actually required. A transient restore failure is not treated as logout.
+   Map<String,dynamic>? ownerSession;
+   try { ownerSession=await remoteApi.restoreOwnerSession(); }
+   on RuneRemoteException catch(e) {
+    if(e.statusCode==400 || e.statusCode==401) ownerSession=null;
+    else rethrow;
+   }
+   if(ownerSession==null) {
+    if(password.text.isEmpty) throw const RuneRemoteException('Your saved session is unavailable. Enter your Supabase password to sign in again.');
+    await remoteApi.signIn(email.text.trim(),password.text);
+   }
    password.clear();
 
    var credentials=await remoteApi.deviceCredentials();

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import platform
 import socket
+import os
 
 from .core.commands import ParsedCommand, parse_command
 from .core.authority import Authority
@@ -9,7 +10,8 @@ from .core.cognition import CognitionEngine
 from .core.long_memory import LongTermMemory
 from .core.planning import Planner, Plan
 from .core.context import ContextAssembler, Retriever
-from .core.identity import IdentityProvider, LocalIdentityProvider
+from .core.identity import ControlPlaneIdentityProvider, IdentityProvider, LocalIdentityProvider
+from .core.remote import RemoteBackendClient
 from .core.tools import ToolRegistry
 from .core.voice import VoicePipeline, VoiceSessionController, configured_voice_pipeline
 from .core.engine import RUNEEngine
@@ -48,11 +50,27 @@ class RUNERuntime:
         self.active_plan: Plan | None = (
             self.planner.restore(stored_plan) if isinstance(stored_plan, dict) else None
         )
+        stored_goal = self.long_memory.recall("runtime:current_goal")
+        if isinstance(stored_goal, str) and stored_goal.strip():
+            self.engine.state.current_goal = stored_goal
+        stored_working = self.long_memory.recall("runtime:working_memory")
+        if isinstance(stored_working, dict):
+            for key, value in stored_working.items():
+                self.engine.memory.remember(str(key), value)
         self.store = SQLiteEventStore(db_path)
         self.retriever = retriever
         self.context = ContextAssembler(self.engine.memory)
         self.authority = authority or Authority.create()
-        self.identity = identity or LocalIdentityProvider()
+        self._identity_remote = None
+        if identity is not None:
+            self.identity = identity
+        elif (os.getenv("RUNE_REMOTE_BACKEND_URL") and os.getenv("RUNE_SUPABASE_URL")
+              and os.getenv("RUNE_SUPABASE_PUBLISHABLE_KEY")
+              and (os.getenv("RUNE_OWNER_ACCESS_TOKEN") or os.getenv("RUNE_OWNER_REFRESH_TOKEN"))):
+            self._identity_remote = RemoteBackendClient()
+            self.identity = ControlPlaneIdentityProvider(self._identity_remote)
+        else:
+            self.identity = LocalIdentityProvider()
         self.tools = tools or ToolRegistry()
         self.voice = voice or configured_voice_pipeline()
         self.voice_session = VoiceSessionController(inactivity_seconds=120, confirmation_seconds=15)
@@ -85,6 +103,8 @@ class RUNERuntime:
             confidence=1.0,
             tags=("goal", "current"),
         )
+        self.long_memory.remember("runtime:current_goal", clean, kind="state", salience=1.0, confidence=1.0, tags=("runtime", "state"))
+        self._persist_runtime_state()
         return clean
 
     def create_plan(self, goal: str, steps: list[dict[str, object]]) -> dict:
@@ -139,6 +159,7 @@ class RUNERuntime:
                 confidence=1.0,
                 tags=("plan", self.active_plan.status.value),
             )
+        self._persist_runtime_state()
         return self.active_plan.to_dict()
 
     def remember(self, key: str, value: object, *, kind: str = "semantic", salience: float = 0.8, tags: tuple[str, ...] = ()) -> dict:
@@ -200,6 +221,7 @@ class RUNERuntime:
             "prediction_error": assessment.prediction_error,
         }
         self._persist_new_events()
+        self._persist_runtime_state()
         return response
 
     def execute_action(
@@ -252,6 +274,31 @@ class RUNERuntime:
             "result": verified.__dict__,
         }
 
+    def _persist_runtime_state(self) -> None:
+        """Persist the live working set needed to resume after process restart."""
+        self.long_memory.remember(
+            "runtime:working_memory",
+            self.engine.memory.snapshot(),
+            kind="state",
+            salience=1.0,
+            confidence=1.0,
+            tags=("runtime", "working_memory"),
+        )
+        if self.engine.state.current_goal:
+            self.long_memory.remember(
+                "runtime:current_goal",
+                self.engine.state.current_goal,
+                kind="state",
+                salience=1.0,
+                confidence=1.0,
+                tags=("runtime", "goal"),
+            )
+        if self.active_plan:
+            self.long_memory.remember(
+                "plan:active", self.active_plan.to_dict(), kind="procedural",
+                salience=0.95, confidence=1.0, tags=("plan", "active"),
+            )
+
     def _persist_new_events(self) -> None:
         events = self.engine.state.events
         for event in events[self._persisted_events:]:
@@ -264,11 +311,19 @@ class RUNERuntime:
     def snapshot(self) -> dict:
         state = self.engine.state
         info = self.node.info()
+        try:
+            owner_identity = self.identity.current()
+            identity_status = "verified" if str(owner_identity.assurance) in {"verified", "IdentityAssurance.VERIFIED"} else "observed"
+        except Exception:
+            # Never upgrade a failed remote identity check to verified.
+            owner_identity = LocalIdentityProvider().current()
+            identity_status = "verification_unavailable"
         return {
             "identity": {
                 "name": state.identity.name,
                 "role": state.identity.role,
-                "owner": self.identity.current().__dict__,
+                "owner": owner_identity.__dict__,
+                "status": identity_status,
             },
             "cognition": self.cognition.snapshot(),
             "long_term_memory": self.long_memory.snapshot()[-32:],
@@ -301,3 +356,5 @@ class RUNERuntime:
     def close(self) -> None:
         self.long_memory.close()
         self.store.close()
+        if self._identity_remote is not None:
+            self._identity_remote.close()

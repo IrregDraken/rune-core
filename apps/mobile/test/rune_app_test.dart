@@ -25,6 +25,9 @@ void main() {
     });
     await pumpApp(tester);
     expect(find.text('R.U.N.E.'), findsWidgets);
-    expect(find.text('PERSONAL INTELLIGENCE'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Assistant'), findsOneWidget);
+    expect(find.text('Work'), findsOneWidget);
+    expect(find.text('Explore'), findsOneWidget);
   });
 }
