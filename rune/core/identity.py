@@ -72,3 +72,26 @@ class IdentityVerifier:
         if presented_subject is not None and presented_subject != self.owner.subject:
             return False
         return True
+
+
+class ControlPlaneIdentityProvider:
+    """Owner identity backed by a Supabase-authenticated RUNE control plane.
+
+    Device attributes remain locally observed; owner subject/email are accepted
+    only from the control plane's validated /v1/me response.
+    """
+
+    def __init__(self, remote_client, local: IdentityProvider | None = None) -> None:
+        self.remote_client = remote_client
+        self.local = local or LocalIdentityProvider()
+
+    def current(self) -> OwnerIdentity:
+        local = self.local.current()
+        owner = self.remote_client.current_owner()
+        return OwnerIdentity(
+            subject=str(owner["owner_id"]),
+            display_name=str(owner.get("email") or "RUNE owner"),
+            device_id=local.device_id,
+            platform=local.platform,
+            assurance=IdentityAssurance.VERIFIED,
+        )
