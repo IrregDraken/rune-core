@@ -48,6 +48,13 @@ class RUNERuntime:
         self.active_plan: Plan | None = (
             self.planner.restore(stored_plan) if isinstance(stored_plan, dict) else None
         )
+        stored_goal = self.long_memory.recall("runtime:current_goal")
+        if isinstance(stored_goal, str) and stored_goal.strip():
+            self.engine.state.current_goal = stored_goal
+        stored_working = self.long_memory.recall("runtime:working_memory")
+        if isinstance(stored_working, dict):
+            for key, value in stored_working.items():
+                self.engine.memory.remember(str(key), value)
         self.store = SQLiteEventStore(db_path)
         self.retriever = retriever
         self.context = ContextAssembler(self.engine.memory)
@@ -85,6 +92,8 @@ class RUNERuntime:
             confidence=1.0,
             tags=("goal", "current"),
         )
+        self.long_memory.remember("runtime:current_goal", clean, kind="state", salience=1.0, confidence=1.0, tags=("runtime", "state"))
+        self._persist_runtime_state()
         return clean
 
     def create_plan(self, goal: str, steps: list[dict[str, object]]) -> dict:
@@ -139,6 +148,7 @@ class RUNERuntime:
                 confidence=1.0,
                 tags=("plan", self.active_plan.status.value),
             )
+        self._persist_runtime_state()
         return self.active_plan.to_dict()
 
     def remember(self, key: str, value: object, *, kind: str = "semantic", salience: float = 0.8, tags: tuple[str, ...] = ()) -> dict:
@@ -200,6 +210,7 @@ class RUNERuntime:
             "prediction_error": assessment.prediction_error,
         }
         self._persist_new_events()
+        self._persist_runtime_state()
         return response
 
     def execute_action(
@@ -251,6 +262,31 @@ class RUNERuntime:
             "node_result": node_result,
             "result": verified.__dict__,
         }
+
+    def _persist_runtime_state(self) -> None:
+        """Persist the live working set needed to resume after process restart."""
+        self.long_memory.remember(
+            "runtime:working_memory",
+            self.engine.memory.snapshot(),
+            kind="state",
+            salience=1.0,
+            confidence=1.0,
+            tags=("runtime", "working_memory"),
+        )
+        if self.engine.state.current_goal:
+            self.long_memory.remember(
+                "runtime:current_goal",
+                self.engine.state.current_goal,
+                kind="state",
+                salience=1.0,
+                confidence=1.0,
+                tags=("runtime", "goal"),
+            )
+        if self.active_plan:
+            self.long_memory.remember(
+                "plan:active", self.active_plan.to_dict(), kind="procedural",
+                salience=0.95, confidence=1.0, tags=("plan", "active"),
+            )
 
     def _persist_new_events(self) -> None:
         events = self.engine.state.events
