@@ -393,11 +393,14 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
                         elif command in {ForceCommand.WAKE, ForceCommand.RESUME}:
                             self.shell.set_mode(ShellMode.AMBIENT)
                         self.shell.island_message = command.value
-                    if command in {ForceCommand.SLEEP, ForceCommand.PAUSE, ForceCommand.EMERGENCY_STOP}:
-                        self.runtime.voice_session.interrupt()
-                    elif command in {ForceCommand.WAKE, ForceCommand.RESUME}:
-                        self.runtime.voice_session.wake_detected()
-                    result = {"status": "applied", "mode": self.shell.mode.value if self.shell else "unavailable"}
+                    if command is ForceCommand.EMERGENCY_STOP:
+                        result = {"status": "blocked", "reason": "global_execution_stop_not_implemented"}
+                    else:
+                        if command in {ForceCommand.SLEEP, ForceCommand.PAUSE}:
+                            self.runtime.voice_session.interrupt(time.time())
+                        elif command in {ForceCommand.WAKE, ForceCommand.RESUME}:
+                            self.runtime.voice_session.wake_detected(time.time())
+                        result = {"status": "applied", "mode": self.shell.mode.value if self.shell else "unavailable"}
                 self._send(200, {"kind": parsed.kind.value, "command": command.value,
                                  "raw": parsed.raw, "result": result})
                 return
