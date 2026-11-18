@@ -287,7 +287,7 @@ class _RuneShellState extends State<RuneShell> {
     ];
 
     return Scaffold(
-      extendBody: true,
+      extendBody: false,
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: RadialGradient(
@@ -298,7 +298,7 @@ class _RuneShellState extends State<RuneShell> {
           ),
         ),
         child: SafeArea(
-          bottom: false,
+          bottom: true,
           child: IndexedStack(index: index, children: pages),
         ),
       ),
