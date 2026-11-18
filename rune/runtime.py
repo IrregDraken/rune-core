@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import platform
 import socket
+import os
 
 from .core.commands import ParsedCommand, parse_command
 from .core.authority import Authority
@@ -9,7 +10,8 @@ from .core.cognition import CognitionEngine
 from .core.long_memory import LongTermMemory
 from .core.planning import Planner, Plan
 from .core.context import ContextAssembler, Retriever
-from .core.identity import IdentityProvider, LocalIdentityProvider
+from .core.identity import ControlPlaneIdentityProvider, IdentityProvider, LocalIdentityProvider
+from .core.remote import RemoteBackendClient
 from .core.tools import ToolRegistry
 from .core.voice import VoicePipeline, VoiceSessionController, configured_voice_pipeline
 from .core.engine import RUNEEngine
@@ -59,7 +61,16 @@ class RUNERuntime:
         self.retriever = retriever
         self.context = ContextAssembler(self.engine.memory)
         self.authority = authority or Authority.create()
-        self.identity = identity or LocalIdentityProvider()
+        self._identity_remote = None
+        if identity is not None:
+            self.identity = identity
+        elif (os.getenv("RUNE_REMOTE_BACKEND_URL") and os.getenv("RUNE_SUPABASE_URL")
+              and os.getenv("RUNE_SUPABASE_PUBLISHABLE_KEY")
+              and (os.getenv("RUNE_OWNER_ACCESS_TOKEN") or os.getenv("RUNE_OWNER_REFRESH_TOKEN"))):
+            self._identity_remote = RemoteBackendClient()
+            self.identity = ControlPlaneIdentityProvider(self._identity_remote)
+        else:
+            self.identity = LocalIdentityProvider()
         self.tools = tools or ToolRegistry()
         self.voice = voice or configured_voice_pipeline()
         self.voice_session = VoiceSessionController(inactivity_seconds=120, confirmation_seconds=15)
@@ -300,11 +311,19 @@ class RUNERuntime:
     def snapshot(self) -> dict:
         state = self.engine.state
         info = self.node.info()
+        try:
+            owner_identity = self.identity.current()
+            identity_status = "verified" if str(owner_identity.assurance) in {"verified", "IdentityAssurance.VERIFIED"} else "observed"
+        except Exception:
+            # Never upgrade a failed remote identity check to verified.
+            owner_identity = LocalIdentityProvider().current()
+            identity_status = "verification_unavailable"
         return {
             "identity": {
                 "name": state.identity.name,
                 "role": state.identity.role,
-                "owner": self.identity.current().__dict__,
+                "owner": owner_identity.__dict__,
+                "status": identity_status,
             },
             "cognition": self.cognition.snapshot(),
             "long_term_memory": self.long_memory.snapshot()[-32:],
@@ -337,3 +356,5 @@ class RUNERuntime:
     def close(self) -> None:
         self.long_memory.close()
         self.store.close()
+        if self._identity_remote is not None:
+            self._identity_remote.close()
