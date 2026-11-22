@@ -11,6 +11,10 @@ class SupabaseAuthConfigurationError(RuntimeError):
     """Raised when the API is exposed without Supabase Auth configuration."""
 
 
+class SupabaseAuthUnavailableError(RuntimeError):
+    """Raised when Supabase Auth cannot be reached to verify a token."""
+
+
 class SupabaseAuthVerifier:
     """Validate access tokens against Supabase Auth's authoritative /user endpoint.
 
@@ -62,10 +66,14 @@ class SupabaseAuthVerifier:
                 if response.status != 200:
                     return None
                 payload = json.loads(response.read().decode("utf-8"))
-        except HTTPError:
+        except HTTPError as exc:
+            if exc.code >= 500:
+                raise SupabaseAuthUnavailableError("Supabase Auth is unavailable.") from exc
             return None
-        except (URLError, TimeoutError, OSError, UnicodeDecodeError, json.JSONDecodeError):
-            # Fail closed. Do not turn an Auth outage into anonymous access.
+        except (URLError, TimeoutError, OSError) as exc:
+            # Fail closed and distinguish an outage from an invalid credential.
+            raise SupabaseAuthUnavailableError("Supabase Auth is unavailable.") from exc
+        except (UnicodeDecodeError, json.JSONDecodeError):
             return None
 
         if not isinstance(payload, dict):
