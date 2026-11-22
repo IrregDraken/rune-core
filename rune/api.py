@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from .core.authority import Authority
 from .core.model import DeterministicModel
 from .core.node import Capability
-from .core.supabase_auth import SupabaseAuthConfigurationError, SupabaseAuthVerifier
+from .core.supabase_auth import (\n    SupabaseAuthConfigurationError,\n    SupabaseAuthUnavailableError,\n    SupabaseAuthVerifier,\n)
 from .runtime import RUNERuntime
 from .shell.state import ShellMode, ShellState
 
@@ -47,8 +47,13 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         if self.auth is None or not self.auth.configured:
             self._send(503, {"error": "R.U.N.E. authentication is not configured."})
             return False
-        authorization = self.headers.get("Authorization", "")
+        owner_user_id = os.getenv("RUNE_OWNER_USER_ID", "").strip()
+        if not owner_user_id:
+            self._send(503, {"error": "R.U.N.E. owner account is not configured."})
+            return False
+        authorization = self.headers.get("Authorization", "").strip()
         scheme, _, token = authorization.partition(" ")
+        token = token.strip()
         if scheme.lower() != "bearer" or not token:
             self._send(401, {"error": "A valid Supabase bearer token is required."})
             return False
@@ -57,8 +62,15 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         except SupabaseAuthConfigurationError:
             self._send(503, {"error": "R.U.N.E. authentication is not configured."})
             return False
+        except SupabaseAuthUnavailableError:
+            self._send(503, {"error": "Identity verification is temporarily unavailable."})
+            return False
         if self._authenticated_user is None:
             self._send(401, {"error": "Supabase session is invalid or expired."})
+            return False
+        if self._authenticated_user["id"] != owner_user_id:
+            self._authenticated_user = None
+            self._send(403, {"error": "This account is not the configured R.U.N.E. owner."})
             return False
         return True
 
