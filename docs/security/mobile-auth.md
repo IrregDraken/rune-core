@@ -11,7 +11,7 @@ Configure these variables on the API service:
 - `SUPABASE_URL`: project URL, for example `https://<project-ref>.supabase.co`
 - `SUPABASE_PUBLISHABLE_KEY`: project publishable key. For legacy projects,
   `SUPABASE_ANON_KEY` is accepted as a compatibility fallback.
-- `RUNE_ALLOWED_ORIGINS`: optional comma-separated exact browser origins. Native
+- `RUNE_OWNER_USER_ID`: exact Supabase Auth user UUID authorized to own this single-owner runtime. This is mandatory; if absent, private API routes return HTTP 503. Other valid Supabase users receive HTTP 403.\n- `RUNE_ALLOWED_ORIGINS`: optional comma-separated exact browser origins. Native
   Flutter clients do not need CORS. Wildcard origins are not enabled.
 - `RUNE_BIND_HOST`: bind address. Keep the local default `127.0.0.1` for local
   development. Set `0.0.0.0` only behind a TLS-terminating trusted ingress.
