@@ -8,7 +8,11 @@ from urllib.parse import urlparse
 from .core.authority import Authority
 from .core.model import DeterministicModel
 from .core.node import Capability
-from .core.supabase_auth import (\n    SupabaseAuthConfigurationError,\n    SupabaseAuthUnavailableError,\n    SupabaseAuthVerifier,\n)
+from .core.supabase_auth import (
+    SupabaseAuthConfigurationError,
+    SupabaseAuthUnavailableError,
+    SupabaseAuthVerifier,
+)
 from .runtime import RUNERuntime
 from .shell.state import ShellMode, ShellState
 
