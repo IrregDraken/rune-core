@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from .core.authority import Authority
 from .core.model import DeterministicModel
 from .core.node import Capability
+from .core.supabase_auth import SupabaseAuthConfigurationError, SupabaseAuthVerifier
 from .runtime import RUNERuntime
 from .shell.state import ShellMode, ShellState
 
@@ -15,13 +16,25 @@ from .shell.state import ShellMode, ShellState
 class RUNERequestHandler(BaseHTTPRequestHandler):
     runtime: RUNERuntime | None = None
     shell: ShellState | None = None
+    auth: SupabaseAuthVerifier | None = None
+    _authenticated_user: dict | None = None
 
     def _send(self, status: int, payload: dict) -> None:
         body = json.dumps(payload, default=str).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-RUNE-Session")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        origin = self.headers.get("Origin")
+        allowed_origins = {
+            item.strip()
+            for item in os.getenv("RUNE_ALLOWED_ORIGINS", "").split(",")
+            if item.strip()
+        }
+        if origin and origin in allowed_origins:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
         self.end_headers()
         self.wfile.write(body)
@@ -29,10 +42,28 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         self._send(204, {})
 
+    def _require_auth(self) -> bool:
+        self._authenticated_user = None
+        if self.auth is None or not self.auth.configured:
+            self._send(503, {"error": "R.U.N.E. authentication is not configured."})
+            return False
+        authorization = self.headers.get("Authorization", "")
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not token:
+            self._send(401, {"error": "A valid Supabase bearer token is required."})
+            return False
+        try:
+            self._authenticated_user = self.auth.verify(token)
+        except SupabaseAuthConfigurationError:
+            self._send(503, {"error": "R.U.N.E. authentication is not configured."})
+            return False
+        if self._authenticated_user is None:
+            self._send(401, {"error": "Supabase session is invalid or expired."})
+            return False
+        return True
+
     def _authorized(self) -> bool:
-        return self.runtime is not None and self.runtime.authority.accepts(
-            self.headers.get("X-RUNE-Session")
-        )
+        return self._authenticated_user is not None
 
     def do_GET(self) -> None:
         if self.runtime is None:
@@ -41,6 +72,8 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/health":
             self._send(200, {"status": "online"})
+        elif not self._require_auth():
+            return
         elif path == "/api/state":
             state = self.runtime.snapshot()
             if self.shell is not None:
@@ -90,6 +123,8 @@ class RUNERequestHandler(BaseHTTPRequestHandler):
         }
         if request_path not in supported:
             self._send(404, {"error": "Not found"})
+            return
+        if not self._require_auth():
             return
 
         try:
@@ -225,6 +260,9 @@ def serve(
     )
     RUNERequestHandler.runtime = active_runtime
     RUNERequestHandler.shell = ShellState()
+    RUNERequestHandler.auth = SupabaseAuthVerifier()
+    host = os.getenv("RUNE_BIND_HOST", host)
+    port = int(os.getenv("PORT", str(port)))
     server = ThreadingHTTPServer((host, port), RUNERequestHandler)
     print(f"RUNE API listening on http://{host}:{port}")
     try:
