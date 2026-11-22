@@ -21,6 +21,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('R.U.N.E.'), findsOneWidget);
-    expect(find.text('SYSTEM SNAPSHOT'), findsOneWidget);
+    expect(find.text('Your command center is ready.'), findsOneWidget);
+    expect(find.text('Profile'), findsOneWidget);
+    await tester.tap(find.text('Profile').last);
+    await tester.pump();
+    expect(find.text('IDENTITY · PREFERENCES · ACCESS'), findsOneWidget);
+    expect(find.text('Security & access'), findsOneWidget);
   });
 }

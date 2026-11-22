@@ -7,9 +7,6 @@ on:
     paths: ['apps/mobile/**', '.github/workflows/mobile.yml']
   pull_request:
     paths: ['apps/mobile/**', '.github/workflows/mobile.yml']
-  push:
-    branches: [main]
-    paths: ['apps/mobile/**', '.github/workflows/mobile.yml']
 
 jobs:
   analyze-test-build:
