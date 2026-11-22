@@ -5,6 +5,7 @@ import pytest
 
 from rune.core.supabase_auth import (
     SupabaseAuthConfigurationError,
+    SupabaseAuthUnavailableError,
     SupabaseAuthVerifier,
 )
 
@@ -79,7 +80,8 @@ def test_verifier_fails_closed_when_auth_service_is_unavailable():
     verifier = SupabaseAuthVerifier(
         "https://project.supabase.co", "publishable-key", opener=opener
     )
-    assert verifier.verify("access-token") is None
+    with pytest.raises(SupabaseAuthUnavailableError):
+        verifier.verify("access-token")
 
 
 def test_verifier_requires_configuration():
